@@ -70,6 +70,7 @@ function App() {
 
           <div className="flex w-full flex-1 flex-col gap-4 lg:w-2/3">
             <PasteArea
+              hasImage={Boolean(source || result)}
               onImageSelected={handleImageSelected}
               onError={handleError}
             />

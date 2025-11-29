@@ -10,10 +10,11 @@ import {
 interface PasteAreaProps {
   onImageSelected: (file: File) => void;
   onError: (message: string) => void;
+  hasImage: boolean;
 }
 
 export function PasteArea(props: PasteAreaProps) {
-  const { onImageSelected, onError } = props;
+  const { onImageSelected, onError, hasImage } = props;
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -108,12 +109,24 @@ export function PasteArea(props: PasteAreaProps) {
     [handleFiles],
   );
 
+  const cardClassName = ["card bg-base-100", hasImage ? "" : "h-full"]
+    .filter(Boolean)
+    .join(" ");
+
+  const bodyClassName = ["card-body", hasImage ? "py-3" : ""]
+    .filter(Boolean)
+    .join(" ");
+
+  const buttonPadding = hasImage ? "px-4 py-3" : "p-8";
+
   return (
-    <section className="card bg-base-100 h-full">
-      <div className="card-body">
+    <section className={cardClassName}>
+      <div className={bodyClassName}>
         <button
           className={[
-            "flex flex-1 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-8 text-center transition-colors",
+            "flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed text-center text-sm",
+            "transition-all duration-200 ease-out hover:shadow-md hover:-translate-y-0.5",
+            buttonPadding,
             isDragging
               ? "border-primary bg-primary/5"
               : "border-base-300 bg-base-200/40",
@@ -125,12 +138,16 @@ export function PasteArea(props: PasteAreaProps) {
           onClick={handleClick}
           type="button"
         >
-          <div className="text-lg font-semibold">
-            Paste image here (Ctrl/Cmd + V)
+          <div className="font-medium">
+            {hasImage
+              ? "Paste, drop, or click to replace the image"
+              : "Paste image here (Ctrl/Cmd + V)"}
           </div>
-          <div className="text-sm text-base-content/70">
-            or drag &amp; drop an image, or click to choose a file
-          </div>
+          {!hasImage && (
+            <div className="text-base-content/70">
+              or drag &amp; drop an image, or click to choose a file
+            </div>
+          )}
 
           <input
             ref={fileInputRef}

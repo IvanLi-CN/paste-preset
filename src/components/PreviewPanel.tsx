@@ -22,7 +22,7 @@ function formatFileSize(bytes: number): string {
 function ImageCard(props: { title: string; image: ImageInfo }) {
   const { title, image } = props;
   return (
-    <div className="card bg-base-100 shadow-sm">
+    <div className="card bg-base-100 shadow-sm animate-fade-in-up">
       <div className="card-body gap-3">
         <h3 className="card-title text-sm">{title}</h3>
         <div className="flex items-center justify-center rounded-md bg-base-200 p-2">
@@ -81,7 +81,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
           {result && (
             <div className="flex flex-col gap-3">
               <ImageCard title="Result image" image={result} />
-              <div className="card bg-base-100 shadow-sm">
+              <div className="card bg-base-100 shadow-sm animate-fade-in-up">
                 <div className="card-body flex flex-row flex-wrap items-center justify-between gap-2">
                   <div className="text-xs text-base-content/70">
                     Result can be copied to clipboard or downloaded as a file.
