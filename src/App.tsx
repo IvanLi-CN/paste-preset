@@ -1,3 +1,4 @@
+import { Icon } from "@iconify/react";
 import { useCallback, useEffect, useState } from "react";
 import { PasteArea } from "./components/PasteArea.tsx";
 import { PreviewPanel } from "./components/PreviewPanel.tsx";
@@ -11,6 +12,7 @@ import type { ImageInfo, ProcessingOptions } from "./lib/types.ts";
 function App() {
   const [options, setOptions] = useState<ProcessingOptions>(DEFAULT_OPTIONS);
   const [uiError, setUiError] = useState<string | null>(null);
+  const currentYear = new Date().getFullYear();
 
   const {
     status,
@@ -175,6 +177,19 @@ function App() {
             )}
           </div>
         </main>
+
+        <footer className="mt-4 flex items-center justify-between border-t border-base-300 pt-3 text-xs text-base-content/70">
+          <div>© {currentYear} PastePreset</div>
+          <a
+            href="https://github.com/IvanLi-CN/paste-preset"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 hover:text-base-content"
+          >
+            <Icon icon="mdi:github" className="h-4 w-4" />
+            <span className="hidden sm:inline">GitHub</span>
+          </a>
+        </footer>
 
         <StatusBar
           status={status}
