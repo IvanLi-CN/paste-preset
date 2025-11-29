@@ -366,9 +366,11 @@ Hooks and helpers:
   - Install and configure Tailwind CSS and DaisyUI.
   - Configure Vite dev server:
     - `server: { port: 25119 }`.
+- Runtime & package manager:
+  - Use Bun（>= 1.0）作为开发环境的 JavaScript 运行时与包管理器，替代 Node.js/npm 作为默认选择。
 - Code quality:
   - Enable strict TypeScript options.
-  - Use ESLint and Prettier with conventional React/TypeScript rules.
+  - Use Biome（代码格式化 + Lint）替代 ESLint/Prettier，统一采用 React/TypeScript 约定风格。
 - Git:
   - Repository already initialized.
   - Commit messages should follow Conventional Commits style.
@@ -728,9 +730,11 @@ Hooks and helpers:
   - Install and configure Tailwind CSS and DaisyUI.
   - Configure Vite dev server:
     - `server: { port: 25119 }`.
+- Runtime & package manager:
+  - Use Bun（>= 1.0）作为开发环境的 JavaScript 运行时与包管理器，替代 Node.js/npm 作为默认选择。
 - Code quality:
   - Enable strict TypeScript options.
-  - Use ESLint and Prettier with conventional React/TypeScript rules.
+  - Use Biome（代码格式化 + Lint）替代 ESLint/Prettier，统一采用 React/TypeScript 约定风格。
 - Git:
   - Repository already initialized.
   - Commit messages should follow Conventional Commits style.

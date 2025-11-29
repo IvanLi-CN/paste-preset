@@ -8,7 +8,7 @@ Assumptions
 
 - You have already initialized the project in the `paste-preset` directory.
 - You have a GitHub account.
-- Node.js and npm (or pnpm/yarn) are installed locally.
+- Bun (>= 1.0) is installed locally as the JavaScript runtime and package manager used for development.
 
 1. Create the GitHub repository
 -------------------------------
@@ -72,8 +72,8 @@ Vite needs to know this base path at build time.
 Install dependencies and create a production build:
 
 ```bash
-npm install
-npm run build
+bun install
+bun run build
 ```
 
 The compiled static files will be in the `dist/` directory.
@@ -104,11 +104,11 @@ This approach automatically builds and deploys on every push to the main branch.
        runs-on: ubuntu-latest
        steps:
          - uses: actions/checkout@v4
-         - uses: actions/setup-node@v4
+         - uses: oven-sh/setup-bun@v2
            with:
-             node-version: "22"
-         - run: npm install
-         - run: npm run build
+             bun-version: "1.3.3"
+         - run: bun install
+         - run: bun run build
          - uses: actions/upload-pages-artifact@v3
            with:
              path: ./dist
@@ -146,7 +146,7 @@ If you prefer not to use GitHub Actions, you can push the `dist/` directory to a
 1. Build the app:
 
    ```bash
-   npm run build
+   bun run build
    ```
 
 2. Use `git subtree` to push the `dist/` directory:
@@ -190,14 +190,13 @@ To approximate how the app will behave on GitHub Pages:
 1. Build the app:
 
    ```bash
-   npm run build
+   bun run build
    ```
 
 2. Preview the production build:
 
    ```bash
-   npm run preview -- --port 25119
+   bun run preview -- --port 25119
    ```
 
 3. Open `http://localhost:25119/paste-preset/` (or the root URL printed by Vite, adjusted for the `base` path) to test the built version locally.
-
