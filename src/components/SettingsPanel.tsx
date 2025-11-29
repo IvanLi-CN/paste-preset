@@ -1,14 +1,38 @@
 import { DEFAULT_OPTIONS, PRESETS } from "../lib/presets.ts";
-import type { ProcessingOptions, ResizeMode } from "../lib/types.ts";
+import type { ImageInfo, ProcessingOptions, ResizeMode } from "../lib/types.ts";
 import { PresetButtons } from "./PresetButtons.tsx";
 
 interface SettingsPanelProps {
   options: ProcessingOptions;
   onOptionsChange: (next: ProcessingOptions) => void;
+  currentImage?: ImageInfo | null;
 }
 
 export function SettingsPanel(props: SettingsPanelProps) {
-  const { options, onOptionsChange } = props;
+  const { options, onOptionsChange, currentImage } = props;
+
+  const aspectRatio = (() => {
+    // Prefer the actual source/result image aspect ratio when available.
+    if (currentImage && currentImage.height > 0) {
+      return currentImage.width / currentImage.height;
+    }
+
+    // Fallback: derive an aspect ratio from the current target dimensions if
+    // both are explicitly set. This allows the lock to behave sensibly even
+    // before an image is loaded, based on the "currently computed target
+    // aspect" from user input.
+    const { targetWidth, targetHeight } = options;
+    if (
+      typeof targetWidth === "number" &&
+      typeof targetHeight === "number" &&
+      targetWidth > 0 &&
+      targetHeight > 0
+    ) {
+      return targetWidth / targetHeight;
+    }
+
+    return null;
+  })();
 
   const handlePresetSelect = (
     presetId: NonNullable<ProcessingOptions["presetId"]>,
@@ -37,9 +61,42 @@ export function SettingsPanel(props: SettingsPanelProps) {
     value: string,
   ) => {
     const parsed = Number.parseInt(value, 10);
+    const nextValue = Number.isNaN(parsed) ? null : parsed;
+
+    // When aspect ratio lock is enabled and we know an aspect ratio from
+    // the current image, keep width/height in sync as the user edits one
+    // dimension. When there is no image yet, fall back to independent
+    // width/height behavior.
+    if (
+      options.lockAspectRatio &&
+      aspectRatio !== null &&
+      nextValue !== null &&
+      nextValue > 0
+    ) {
+      if (key === "targetWidth") {
+        const derivedHeight = Math.round(nextValue / aspectRatio);
+        onOptionsChange({
+          ...options,
+          targetWidth: nextValue,
+          targetHeight: derivedHeight,
+        });
+        return;
+      }
+
+      if (key === "targetHeight") {
+        const derivedWidth = Math.round(nextValue * aspectRatio);
+        onOptionsChange({
+          ...options,
+          targetWidth: derivedWidth,
+          targetHeight: nextValue,
+        });
+        return;
+      }
+    }
+
     onOptionsChange({
       ...options,
-      [key]: Number.isNaN(parsed) ? null : parsed,
+      [key]: nextValue,
     });
   };
 

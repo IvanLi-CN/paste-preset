@@ -18,7 +18,7 @@ export function useClipboard(): ClipboardState {
     try {
       if (!("clipboard" in navigator) || !("write" in navigator.clipboard)) {
         throw new Error(
-          "Clipboard image write is not supported in this browser.",
+          "Clipboard image write is not supported in this browser. Please use your browser's context menu (for example, right-click → Copy image) to copy the result manually.",
         );
       }
 
@@ -47,7 +47,7 @@ export function useClipboard(): ClipboardState {
       // Fallback path: convert to PNG (which is most widely supported) and retry.
       if (typeof createImageBitmap === "undefined") {
         throw new Error(
-          "Copying this image format is not supported in this browser.",
+          "Copying this image format is not supported in this browser. Please use your browser's context menu (for example, right-click → Copy image) to copy the result manually.",
         );
       }
 

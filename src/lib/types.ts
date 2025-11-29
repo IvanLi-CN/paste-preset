@@ -27,6 +27,13 @@ export interface ImageInfo {
   mimeType: string;
   fileSize: number;
   sourceName?: string;
+  /**
+   * Whether metadata (EXIF/IPTC/XMP) was stripped as part of the processing
+   * pipeline. This is best-effort and may remain true even when the user
+   * asked to preserve metadata but the pipeline could not (e.g. HEIC
+   * conversion or format changes that require re-encoding).
+   */
+  metadataStripped?: boolean;
 }
 
 export type AppStatus = "idle" | "processing" | "error";

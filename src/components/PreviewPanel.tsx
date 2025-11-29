@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from "react";
 import type { AppStatus, ImageInfo } from "../lib/types.ts";
 
 interface PreviewPanelProps {
@@ -19,10 +20,22 @@ function formatFileSize(bytes: number): string {
   return `${mb.toFixed(2)} MB`;
 }
 
-function ImageCard(props: { title: string; image: ImageInfo }) {
-  const { title, image } = props;
+function ImageCard(props: {
+  title: string;
+  image: ImageInfo;
+  highlighted?: boolean;
+}) {
+  const { title, image, highlighted } = props;
+  const cardClassName = [
+    "card bg-base-100 shadow-sm animate-fade-in-up",
+    highlighted
+      ? "ring-2 ring-primary/60 ring-offset-2 ring-offset-base-100"
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   return (
-    <div className="card bg-base-100 shadow-sm animate-fade-in-up">
+    <div className={cardClassName}>
       <div className="card-body gap-3">
         <h3 className="card-title text-sm">{title}</h3>
         <div className="flex items-center justify-center rounded-md bg-base-200 p-2">
@@ -53,10 +66,46 @@ function ImageCard(props: { title: string; image: ImageInfo }) {
   );
 }
 
+function getDownloadExtension(mimeType: string): string {
+  if (mimeType === "image/jpeg") return "jpg";
+  if (mimeType === "image/png") return "png";
+  if (mimeType === "image/webp") return "webp";
+  return "png";
+}
+
+function buildDownloadFileName(image: ImageInfo): string {
+  const now = new Date();
+  const pad = (value: number) => value.toString().padStart(2, "0");
+  const year = now.getFullYear();
+  const month = pad(now.getMonth() + 1);
+  const day = pad(now.getDate());
+  const hours = pad(now.getHours());
+  const minutes = pad(now.getMinutes());
+  const seconds = pad(now.getSeconds());
+
+  const ext = getDownloadExtension(image.mimeType);
+  return `pastepreset-${year}${month}${day}-${hours}${minutes}${seconds}.${ext}`;
+}
+
 export function PreviewPanel(props: PreviewPanelProps) {
   const { source, result, status, onCopyResult } = props;
 
   const hasImage = source || result;
+
+  const handleCopyKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (!result) {
+      return;
+    }
+
+    const isCopyShortcut =
+      (event.metaKey || event.ctrlKey) &&
+      (event.key === "c" || event.key === "C");
+
+    if (isCopyShortcut) {
+      event.preventDefault();
+      onCopyResult(result.blob, result.mimeType);
+    }
+  };
 
   return (
     <section className="flex flex-1 flex-col gap-4">
@@ -74,46 +123,70 @@ export function PreviewPanel(props: PreviewPanelProps) {
           <span>Processing image…</span>
         </div>
       )}
-
-      {hasImage && (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {source && <ImageCard title="Source image" image={source} />}
-          {result && (
-            <div className="flex flex-col gap-3">
-              <ImageCard title="Result image" image={result} />
-              <div className="card bg-base-100 shadow-sm animate-fade-in-up">
-                <div className="card-body flex flex-row flex-wrap items-center justify-between gap-2">
-                  <div className="text-xs text-base-content/70">
-                    Result can be copied to clipboard or downloaded as a file.
-                  </div>
-                  <div className="flex gap-2">
-                    {result && (
-                      <>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-primary"
-                          onClick={() =>
-                            onCopyResult(result.blob, result.mimeType)
-                          }
-                        >
-                          Copy to clipboard
-                        </button>
-                        <a
-                          href={result.url}
-                          download={result.sourceName ?? "pasted-image"}
-                          className="btn btn-sm btn-outline"
-                        >
-                          Download
-                        </a>
-                      </>
-                    )}
+      <div className="flex flex-1 flex-col gap-4">
+        {hasImage && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {source && <ImageCard title="Source image" image={source} />}
+            {result && (
+              <div className="flex flex-col gap-3">
+                <ImageCard title="Result image" image={result} highlighted />
+                <div className="card bg-base-100 shadow-sm animate-fade-in-up">
+                  <div className="card-body flex flex-row flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-col gap-1 text-xs text-base-content/70">
+                      <div>
+                        Result can be copied to clipboard or downloaded as a
+                        file.
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {source && result && (
+                          <span className="badge badge-xs badge-outline">
+                            {source.width === result.width &&
+                            source.height === result.height
+                              ? "Original size"
+                              : `Resized to ${result.width} × ${result.height}`}
+                          </span>
+                        )}
+                        {typeof result.metadataStripped === "boolean" && (
+                          <span className="badge badge-xs badge-outline">
+                            {result.metadataStripped
+                              ? "Stripped metadata"
+                              : "Metadata preserved"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      {result && (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-primary"
+                            onKeyDown={handleCopyKeyDown}
+                            onClick={() =>
+                              onCopyResult(result.blob, result.mimeType)
+                            }
+                            aria-label="Copy result image to clipboard"
+                          >
+                            Copy to clipboard
+                          </button>
+                          <a
+                            href={result.url}
+                            download={buildDownloadFileName(result)}
+                            className="btn btn-sm btn-outline"
+                            aria-label="Download result image"
+                          >
+                            Download
+                          </a>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

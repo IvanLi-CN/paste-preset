@@ -92,6 +92,9 @@ function computeTargetSize(
   return { width: sourceWidth, height: sourceHeight };
 }
 
+const MAX_TARGET_SIDE = 8_000;
+const MAX_TARGET_PIXELS = 40_000_000;
+
 function drawToCanvas(
   image: ImageBitmap | HTMLImageElement,
   sourceWidth: number,
@@ -240,6 +243,18 @@ export async function processImageBlob(
 
   const target = computeTargetSize(sourceWidth, sourceHeight, options);
 
+  if (
+    target.width <= 0 ||
+    target.height <= 0 ||
+    target.width > MAX_TARGET_SIDE ||
+    target.height > MAX_TARGET_SIDE ||
+    target.width * target.height > MAX_TARGET_PIXELS
+  ) {
+    throw new Error(
+      "The requested output size is too large to process safely. Please choose smaller dimensions or a lower-resolution preset and try again.",
+    );
+  }
+
   const mime = getOutputMimeType(
     normalized.originalMimeType,
     options.outputFormat,
@@ -286,24 +301,34 @@ export async function processImageBlob(
     });
   }
 
+  // If we can pass the original blob through untouched, we consider metadata
+  // preserved. Any other path (HEIC conversion, resize, format change, or
+  // explicit metadata stripping) is treated as metadata stripped, since the
+  // canvas pipeline re-encodes the image without EXIF/IPTC/XMP.
+  const metadataStripped = !canPassThrough;
+
   const sourceInfo = normalized.wasConverted
     ? // For formats like HEIC/HEIF we keep the original blob for
       // metadata/size, but use the converted blob for preview so
       // the browser can display the image without errors.
-      createImageInfo(
-        blob,
-        sourceWidth,
-        sourceHeight,
-        sourceName,
-        normalized.blob,
-      )
-    : createImageInfo(blob, sourceWidth, sourceHeight, sourceName);
-  const resultInfo = createImageInfo(
-    resultBlob,
-    target.width,
-    target.height,
-    sourceName,
-  );
+      {
+        ...createImageInfo(
+          blob,
+          sourceWidth,
+          sourceHeight,
+          sourceName,
+          normalized.blob,
+        ),
+        metadataStripped: false,
+      }
+    : {
+        ...createImageInfo(blob, sourceWidth, sourceHeight, sourceName),
+        metadataStripped: !canPassThrough,
+      };
+  const resultInfo: ImageInfo = {
+    ...createImageInfo(resultBlob, target.width, target.height, sourceName),
+    metadataStripped,
+  };
 
   return {
     source: sourceInfo,

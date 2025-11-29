@@ -54,9 +54,14 @@ export function PasteArea(props: PasteAreaProps) {
       if (files.length > 0) {
         event.preventDefault();
         handleFiles(files);
+        return;
       }
+
+      onError(
+        "No image data found in the clipboard. Please copy an image and try again.",
+      );
     },
-    [handleFiles, onImageSelected],
+    [handleFiles, onError, onImageSelected],
   );
 
   const handleDrop = useCallback(
@@ -131,6 +136,11 @@ export function PasteArea(props: PasteAreaProps) {
               ? "border-primary bg-primary/5"
               : "border-base-300 bg-base-200/40",
           ].join(" ")}
+          aria-label={
+            hasImage
+              ? "Paste, drop, or click to replace the current image"
+              : "Paste, drop, or click to select an image"
+          }
           onPaste={handlePaste}
           onDrop={handleDrop}
           onDragOver={handleDragOver}

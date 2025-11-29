@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PasteArea } from "./components/PasteArea.tsx";
 import { PreviewPanel } from "./components/PreviewPanel.tsx";
 import { SettingsPanel } from "./components/SettingsPanel.tsx";
@@ -6,7 +6,7 @@ import { StatusBar } from "./components/StatusBar.tsx";
 import { useClipboard } from "./hooks/useClipboard.ts";
 import { useImageProcessor } from "./hooks/useImageProcessor.ts";
 import { DEFAULT_OPTIONS } from "./lib/presets.ts";
-import type { ProcessingOptions } from "./lib/types.ts";
+import type { ImageInfo, ProcessingOptions } from "./lib/types.ts";
 
 function App() {
   const [options, setOptions] = useState<ProcessingOptions>(DEFAULT_OPTIONS);
@@ -28,22 +28,105 @@ function App() {
     resetError: resetClipboardError,
   } = useClipboard();
 
-  const handleImageSelected = async (file: File) => {
-    resetProcessingError();
-    setUiError(null);
+  const handleImageSelected = useCallback(
+    async (file: File) => {
+      resetProcessingError();
+      setUiError(null);
 
-    await processBlob(file, file.name);
-  };
+      await processBlob(file, file.name);
+    },
+    [processBlob, resetProcessingError],
+  );
 
   const handleError = (message: string) => {
     resetProcessingError();
     setUiError(message);
   };
 
-  const handleCopyResult = async (blob: Blob, mimeType: string) => {
-    resetClipboardError();
-    await copyImage(blob, mimeType);
-  };
+  const handleCopyResult = useCallback(
+    async (blob: Blob, mimeType: string) => {
+      resetClipboardError();
+      await copyImage(blob, mimeType);
+    },
+    [copyImage, resetClipboardError],
+  );
+
+  const settingsAspectSource: ImageInfo | null = result ?? source;
+
+  useEffect(() => {
+    const handleWindowPaste = (event: ClipboardEvent) => {
+      const clipboardData = event.clipboardData;
+      if (!clipboardData) {
+        return;
+      }
+
+      const { items, files } = clipboardData;
+
+      const imageItem = Array.from(items).find((item) =>
+        item.type.startsWith("image/"),
+      );
+
+      if (imageItem) {
+        const file = imageItem.getAsFile();
+        if (file) {
+          event.preventDefault();
+          void handleImageSelected(file);
+          return;
+        }
+      }
+
+      if (files.length > 0) {
+        const image = Array.from(files).find((file) =>
+          file.type.startsWith("image/"),
+        );
+        if (image) {
+          event.preventDefault();
+          void handleImageSelected(image);
+          return;
+        }
+      }
+    };
+
+    window.addEventListener("paste", handleWindowPaste);
+    return () => {
+      window.removeEventListener("paste", handleWindowPaste);
+    };
+  }, [handleImageSelected]);
+
+  useEffect(() => {
+    const handleWindowKeyDown = (event: KeyboardEvent) => {
+      const isCopyShortcut =
+        (event.metaKey || event.ctrlKey) &&
+        (event.key === "c" || event.key === "C");
+
+      if (!isCopyShortcut || !result) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName.toLowerCase();
+        const isInputLike =
+          tag === "input" ||
+          tag === "textarea" ||
+          tag === "select" ||
+          target.isContentEditable;
+
+        // Do not override normal copy behavior inside text inputs etc.
+        if (isInputLike) {
+          return;
+        }
+      }
+
+      event.preventDefault();
+      void handleCopyResult(result.blob, result.mimeType);
+    };
+
+    window.addEventListener("keydown", handleWindowKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleWindowKeyDown);
+    };
+  }, [handleCopyResult, result]);
 
   return (
     <div className="min-h-screen bg-base-200 text-base-content">
@@ -65,7 +148,11 @@ function App() {
 
         <main className="flex flex-1 flex-col gap-4 lg:flex-row">
           <div className="w-full lg:w-1/3">
-            <SettingsPanel options={options} onOptionsChange={setOptions} />
+            <SettingsPanel
+              options={options}
+              onOptionsChange={setOptions}
+              currentImage={settingsAspectSource}
+            />
           </div>
 
           <div className="flex w-full flex-1 flex-col gap-4 lg:w-2/3">

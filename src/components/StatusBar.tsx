@@ -47,6 +47,8 @@ export function StatusBar(props: StatusBarProps) {
               "alert shadow",
               message.type === "error" ? "alert-error" : "alert-info",
             ].join(" ")}
+            role={message.type === "error" ? "alert" : "status"}
+            aria-live={message.type === "error" ? "assertive" : "polite"}
           >
             <span className="text-sm">{message.text}</span>
           </div>
