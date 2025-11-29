@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { processImageBlob } from "../lib/imageProcessing.ts";
 import type { AppStatus, ImageInfo, ProcessingOptions } from "../lib/types.ts";
 
@@ -16,11 +16,26 @@ export function useImageProcessor(
 ): UseImageProcessorResult {
   const [status, setStatus] = useState<AppStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [original, setOriginal] = useState<{
+    blob: Blob;
+    sourceName?: string;
+  } | null>(null);
   const [source, setSource] = useState<ImageInfo | null>(null);
   const [result, setResult] = useState<ImageInfo | null>(null);
 
-  const processBlob = useCallback(
-    async (blob: Blob, sourceName?: string) => {
+  const processBlob = useCallback(async (blob: Blob, sourceName?: string) => {
+    setOriginal({ blob, sourceName });
+  }, []);
+
+  useEffect(() => {
+    if (!original) {
+      return;
+    }
+
+    let cancelled = false;
+    const { blob, sourceName } = original;
+
+    const run = async () => {
       setStatus("processing");
       setErrorMessage(null);
 
@@ -31,25 +46,42 @@ export function useImageProcessor(
           sourceName,
         );
 
-        if (source) {
-          URL.revokeObjectURL(source.url);
-        }
-        if (result) {
-          URL.revokeObjectURL(result.url);
+        if (cancelled) {
+          return;
         }
 
-        setSource(srcInfo);
-        setResult(resultInfo);
+        setSource((previous) => {
+          if (previous) {
+            URL.revokeObjectURL(previous.url);
+          }
+          return srcInfo;
+        });
+
+        setResult((previous) => {
+          if (previous) {
+            URL.revokeObjectURL(previous.url);
+          }
+          return resultInfo;
+        });
+
         setStatus("idle");
       } catch (error) {
+        if (cancelled) {
+          return;
+        }
         const message =
           error instanceof Error ? error.message : "Unknown processing error";
         setErrorMessage(message);
         setStatus("error");
       }
-    },
-    [options, source, result],
-  );
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [original, options]);
 
   const resetError = useCallback(() => {
     setErrorMessage(null);

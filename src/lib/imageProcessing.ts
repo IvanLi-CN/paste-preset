@@ -1,3 +1,5 @@
+import { normalizeImageBlobForCanvas } from "./heic.ts";
+import { PRESETS } from "./presets.ts";
 import type {
   ImageInfo,
   OutputFormat,
@@ -45,16 +47,22 @@ function computeTargetSize(
   const explicitWidth = options.targetWidth;
   const explicitHeight = options.targetHeight;
 
-  if (explicitWidth && explicitHeight) {
+  const hasExplicitWidth = explicitWidth != null;
+  const hasExplicitHeight = explicitHeight != null;
+
+  // 1) If both dimensions are explicitly specified, respect them as-is.
+  if (hasExplicitWidth && hasExplicitHeight) {
     return { width: explicitWidth, height: explicitHeight };
   }
 
-  if (explicitWidth && !explicitHeight) {
+  // 2) Only width is set: derive height from source aspect ratio.
+  if (hasExplicitWidth && !hasExplicitHeight) {
     const ratio = sourceHeight / sourceWidth;
     return { width: explicitWidth, height: Math.round(explicitWidth * ratio) };
   }
 
-  if (!explicitWidth && explicitHeight) {
+  // 3) Only height is set: derive width from source aspect ratio.
+  if (!hasExplicitWidth && hasExplicitHeight) {
     const ratio = sourceWidth / sourceHeight;
     return {
       width: Math.round(explicitHeight * ratio),
@@ -62,6 +70,25 @@ function computeTargetSize(
     };
   }
 
+  // 4) No explicit dimensions: fall back to preset-based longest-side rules
+  // if a preset is selected, otherwise keep the original size.
+  const preset = options.presetId
+    ? PRESETS.find((item) => item.id === options.presetId)
+    : null;
+  const maxLongSide = preset?.maxLongSide ?? null;
+
+  if (maxLongSide && maxLongSide > 0) {
+    const longSide = Math.max(sourceWidth, sourceHeight);
+    if (longSide > maxLongSide) {
+      const scale = maxLongSide / longSide;
+      return {
+        width: Math.round(sourceWidth * scale),
+        height: Math.round(sourceHeight * scale),
+      };
+    }
+  }
+
+  // 5) Default: keep original resolution.
   return { width: sourceWidth, height: sourceHeight };
 }
 
@@ -183,10 +210,13 @@ function createImageInfo(
   width: number,
   height: number,
   sourceName?: string,
+  overrideUrlBlob?: Blob,
 ): ImageInfo {
+  const urlBlob = overrideUrlBlob ?? blob;
+
   return {
     blob,
-    url: URL.createObjectURL(blob),
+    url: URL.createObjectURL(urlBlob),
     width,
     height,
     mimeType: blob.type || "image/png",
@@ -200,50 +230,74 @@ export async function processImageBlob(
   options: ProcessingOptions,
   sourceName?: string,
 ): Promise<ProcessResult> {
+  const normalized = await normalizeImageBlobForCanvas(blob);
+
   const {
     bitmap,
     width: sourceWidth,
     height: sourceHeight,
-    mimeType,
-  } = await decodeImage(blob);
+  } = await decodeImage(normalized.blob);
 
   const target = computeTargetSize(sourceWidth, sourceHeight, options);
-  const canvas = drawToCanvas(
-    bitmap,
-    sourceWidth,
-    sourceHeight,
-    target.width,
-    target.height,
-    options.resizeMode,
+
+  const mime = getOutputMimeType(
+    normalized.originalMimeType,
+    options.outputFormat,
   );
 
-  const mime = getOutputMimeType(mimeType, options.outputFormat);
+  const canPassThrough =
+    !normalized.wasConverted &&
+    !options.stripMetadata &&
+    target.width === sourceWidth &&
+    target.height === sourceHeight &&
+    mime === normalized.originalMimeType;
 
-  const quality =
-    mime === "image/jpeg" || mime === "image/webp"
-      ? (options.quality ?? 0.8)
-      : undefined;
+  let resultBlob: Blob;
 
-  const resultBlob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (b) => {
-        if (!b) {
-          reject(new Error("Failed to export image"));
-          return;
-        }
-        resolve(b);
-      },
-      mime,
-      quality,
+  if (canPassThrough) {
+    resultBlob = blob;
+  } else {
+    const canvas = drawToCanvas(
+      bitmap,
+      sourceWidth,
+      sourceHeight,
+      target.width,
+      target.height,
+      options.resizeMode,
     );
-  });
 
-  const sourceInfo = createImageInfo(
-    blob,
-    sourceWidth,
-    sourceHeight,
-    sourceName,
-  );
+    const quality =
+      mime === "image/jpeg" || mime === "image/webp"
+        ? (options.quality ?? 0.8)
+        : undefined;
+
+    resultBlob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => {
+          if (!b) {
+            reject(new Error("Failed to export image"));
+            return;
+          }
+          resolve(b);
+        },
+        mime,
+        quality,
+      );
+    });
+  }
+
+  const sourceInfo = normalized.wasConverted
+    ? // For formats like HEIC/HEIF we keep the original blob for
+      // metadata/size, but use the converted blob for preview so
+      // the browser can display the image without errors.
+      createImageInfo(
+        blob,
+        sourceWidth,
+        sourceHeight,
+        sourceName,
+        normalized.blob,
+      )
+    : createImageInfo(blob, sourceWidth, sourceHeight, sourceName);
   const resultInfo = createImageInfo(
     resultBlob,
     target.width,

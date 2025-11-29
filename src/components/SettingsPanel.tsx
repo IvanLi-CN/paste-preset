@@ -1,4 +1,4 @@
-import { DEFAULT_OPTIONS } from "../lib/presets.ts";
+import { DEFAULT_OPTIONS, PRESETS } from "../lib/presets.ts";
 import type { ProcessingOptions, ResizeMode } from "../lib/types.ts";
 import { PresetButtons } from "./PresetButtons.tsx";
 
@@ -13,13 +13,22 @@ export function SettingsPanel(props: SettingsPanelProps) {
   const handlePresetSelect = (
     presetId: NonNullable<ProcessingOptions["presetId"]>,
   ) => {
-    const presetDefaults = DEFAULT_OPTIONS;
+    const preset = PRESETS.find((item) => item.id === presetId);
+
+    // For non-Original presets, apply their suggested default quality.
+    // For Original or presets without an explicit default, keep current
+    // quality, falling back to the global default if still null.
+    const nextQuality =
+      preset?.defaultQuality ?? options.quality ?? DEFAULT_OPTIONS.quality;
+
     onOptionsChange({
       ...options,
       presetId,
-      targetWidth: presetDefaults.targetWidth,
-      targetHeight: presetDefaults.targetHeight,
-      quality: presetDefaults.quality,
+      // Clear explicit dimensions so the preset's maxLongSide logic
+      // can drive the computed target size.
+      targetWidth: null,
+      targetHeight: null,
+      quality: nextQuality,
     });
   };
 
