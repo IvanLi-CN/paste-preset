@@ -1,43 +1,51 @@
 # PastePreset
 
-PastePreset 是一个在浏览器端运行的单页应用，用来快速对截图和手机照片做**裁剪 / 缩放 / 转码 / 去元数据**，并支持复制到剪贴板或下载到本地，全流程不经过服务器。
+PastePreset is a browser-based single-page application for quickly processing screenshots and mobile photos. It lets you crop, resize, transcode, and strip metadata entirely in the browser, then either copy the result to the clipboard or download it locally. No image data ever leaves your machine.
 
-核心特性（按设计文档实现）：
+## Features
 
-- React + TypeScript + Vite 单页应用（SPA）
-- Tailwind CSS v4 + DaisyUI 负责 UI 组件和主题
-- 完全前端处理图片（包含 HEIC/HEIF 转换、缩放、裁剪、格式转换、质量控制、去元数据等）
+- 100% client-side image processing (no backend server)
+- Crop and resize images
+- Format conversion (including HEIC/HEIF to more common formats)
+- Control over output quality and size
+- Metadata stripping (EXIF, GPS, etc.)
+- Copy processed image to clipboard
+- Download processed image as a file
 
-## 技术栈与工具
+## Tech Stack
 
-- 构建与运行：Vite（开发端口 `25119`）
-- UI：React + TypeScript + Tailwind CSS v4 + DaisyUI
-- 开发运行时 & 包管理：**使用 Bun（>= 1.0）作为开发环境，替代 Node.js/npm 作为默认选择**
-- 代码质量：**使用 Biome 替代 ESLint + Prettier**
-  - `@biomejs/biome` 负责：
-    - 代码格式化（format）
-    - 代码风格和质量检查（lint）
-    - 统一的 `check` 流程
-  - 不再使用 ESLint / Prettier / eslint.config.js
+- React + TypeScript + Vite SPA (dev server on port `25119`)
+- Tailwind CSS v4 + DaisyUI for UI components and theming
+- Bun (>= 1.0) as runtime and package manager
+- Biome for formatting, linting, and unified `check` workflow  
+  (replaces ESLint + Prettier)
 
-## 本地开发
+## Prerequisites
+
+- Bun >= 1.0 installed on your machine
+
+## Development
 
 ```bash
 bun install
 bun run dev
 ```
 
-默认开发地址为：`http://localhost:25119/`。
+The dev server runs at `http://localhost:25119/` by default.
 
-## 脚本（通过 Bun 运行）
+## Scripts (via Bun)
 
-- `bun run dev`：启动 Vite 开发服务器。
-- `bun run build`：TypeScript 编译并产出生产构建（`dist/`）。
-- `bun run preview`：本地预览生产构建。
-- `bun run lint`：运行 `biome lint .`，只做静态检查，不改动文件。
-- `bun run format`：运行 `biome format --write .`，自动格式化代码。
-- `bun run check`：运行 `biome check .`，综合执行格式、导入排序和 lint 检查。
+- `bun run dev` – Start the Vite development server.
+- `bun run build` – Type-check and build for production into `dist/`.
+- `bun run preview` – Preview the production build locally.
+- `bun run lint` – Run `biome lint .` for static analysis only (no file changes).
+- `bun run format` – Run `biome format --write .` to format code in place.
+- `bun run check` – Run `biome check .` for combined formatting, import sorting, and lint checks.
 
-## 部署
+## Deployment
 
-部署到 GitHub Pages 的流程见 `docs/deploy-github-pages.md`。
+See `docs/deploy-github-pages.md` for instructions on deploying to GitHub Pages.
+
+## License
+
+This project is distributed under the MIT License. See `LICENSE` for details.
