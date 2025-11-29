@@ -1,34 +1,100 @@
 import { useState } from "react";
-import viteLogo from "/vite.svg";
-import reactLogo from "./assets/react.svg";
-import "./App.css";
+import { PasteArea } from "./components/PasteArea.tsx";
+import { PreviewPanel } from "./components/PreviewPanel.tsx";
+import { SettingsPanel } from "./components/SettingsPanel.tsx";
+import { StatusBar } from "./components/StatusBar.tsx";
+import { useClipboard } from "./hooks/useClipboard.ts";
+import { useImageProcessor } from "./hooks/useImageProcessor.ts";
+import { DEFAULT_OPTIONS } from "./lib/presets.ts";
+import type { ProcessingOptions } from "./lib/types.ts";
 
 function App() {
-  const [count, setCount] = useState(0);
+  const [options, setOptions] = useState<ProcessingOptions>(DEFAULT_OPTIONS);
+  const [uiError, setUiError] = useState<string | null>(null);
+
+  const {
+    status,
+    errorMessage: processingError,
+    source,
+    result,
+    processBlob,
+    resetError: resetProcessingError,
+  } = useImageProcessor(options);
+
+  const {
+    isCopying,
+    errorMessage: clipboardError,
+    copyImage,
+    resetError: resetClipboardError,
+  } = useClipboard();
+
+  const handleImageSelected = async (file: File) => {
+    resetProcessingError();
+    setUiError(null);
+
+    await processBlob(file, file.name);
+  };
+
+  const handleError = (message: string) => {
+    resetProcessingError();
+    setUiError(message);
+  };
+
+  const handleCopyResult = async (blob: Blob, mimeType: string) => {
+    resetClipboardError();
+    await copyImage(blob, mimeType);
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank" rel="noopener noreferrer">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank" rel="noopener noreferrer">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="min-h-screen bg-base-200 text-base-content">
+      <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-4 lg:px-6 lg:py-6">
+        <header className="mb-4 border-b border-base-300 pb-3">
+          <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-baseline">
+            <div>
+              <h1 className="text-2xl font-semibold">PastePreset</h1>
+              <p className="text-sm text-base-content/70">
+                Paste or drop an image, resize and convert it entirely in your
+                browser.
+              </p>
+            </div>
+            <div className="text-xs text-base-content/60">
+              Images stay on this device; no uploads.
+            </div>
+          </div>
+        </header>
+
+        <main className="flex flex-1 flex-col gap-4 lg:flex-row">
+          <div className="w-full lg:w-1/3">
+            <SettingsPanel options={options} onOptionsChange={setOptions} />
+          </div>
+
+          <div className="flex w-full flex-1 flex-col gap-4 lg:w-2/3">
+            <PasteArea
+              onImageSelected={handleImageSelected}
+              onError={handleError}
+            />
+            <PreviewPanel
+              source={source}
+              result={result}
+              status={status}
+              onCopyResult={handleCopyResult}
+            />
+
+            {isCopying && (
+              <div className="text-right text-xs text-base-content/60">
+                Copying image to clipboard…
+              </div>
+            )}
+          </div>
+        </main>
+
+        <StatusBar
+          status={status}
+          processingError={processingError ?? uiError}
+          clipboardError={clipboardError}
+        />
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button type="button" onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    </div>
   );
 }
 
