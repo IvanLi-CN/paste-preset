@@ -1,17 +1,21 @@
 import { Icon } from "@iconify/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PasteArea } from "./components/PasteArea.tsx";
 import { PreviewPanel } from "./components/PreviewPanel.tsx";
 import { SettingsPanel } from "./components/SettingsPanel.tsx";
 import { StatusBar } from "./components/StatusBar.tsx";
 import { useClipboard } from "./hooks/useClipboard.ts";
 import { useImageProcessor } from "./hooks/useImageProcessor.ts";
-import { DEFAULT_OPTIONS } from "./lib/presets.ts";
+import { DEFAULT_OPTIONS, PRESETS } from "./lib/presets.ts";
 import type { ImageInfo, ProcessingOptions } from "./lib/types.ts";
 
 function App() {
   const [options, setOptions] = useState<ProcessingOptions>(DEFAULT_OPTIONS);
   const [uiError, setUiError] = useState<string | null>(null);
+  const [viewportWidth, setViewportWidth] = useState<number>(() =>
+    typeof window === "undefined" ? 0 : window.innerWidth,
+  );
+  const [isSettingsOpen, setIsSettingsOpen] = useState(true);
   const currentYear = new Date().getFullYear();
 
   const {
@@ -29,6 +33,65 @@ function App() {
     copyImage,
     resetError: resetClipboardError,
   } = useClipboard();
+
+  const hasImage = Boolean(source || result);
+  const previousHasImageRef = useRef(hasImage);
+
+  const isXs = viewportWidth < 640;
+  const isSm = viewportWidth >= 640 && viewportWidth < 768;
+  const isMd = viewportWidth >= 768 && viewportWidth < 1024;
+  const isSmOrMd = isSm || isMd;
+  const isLgUp = viewportWidth >= 1024;
+
+  const presetLabel =
+    PRESETS.find((item) => item.id === options.presetId)?.label ?? "Custom";
+
+  const formatLabel = (() => {
+    switch (options.outputFormat) {
+      case "auto":
+        return "Auto";
+      case "image/jpeg":
+        return "JPEG";
+      case "image/png":
+        return "PNG";
+      case "image/webp":
+        return "WebP";
+      default:
+        return options.outputFormat;
+    }
+  })();
+
+  const sizeLabel = (() => {
+    const { targetWidth, targetHeight } = options;
+    if (
+      typeof targetWidth === "number" &&
+      typeof targetHeight === "number" &&
+      targetWidth > 0 &&
+      targetHeight > 0
+    ) {
+      return `${targetWidth}×${targetHeight}`;
+    }
+    if (typeof targetWidth === "number" && targetWidth > 0) {
+      return `${targetWidth}×auto`;
+    }
+    if (typeof targetHeight === "number" && targetHeight > 0) {
+      return `auto×${targetHeight}`;
+    }
+    return "auto";
+  })();
+
+  const resizeModeLabel = (() => {
+    switch (options.resizeMode) {
+      case "fit":
+        return "Fit";
+      case "fill":
+        return "Fill";
+      case "stretch":
+        return "Stretch";
+      default:
+        return options.resizeMode;
+    }
+  })();
 
   const handleImageSelected = useCallback(
     async (file: File) => {
@@ -130,6 +193,41 @@ function App() {
     };
   }, [handleCopyResult, result]);
 
+  useEffect(() => {
+    const handleResize = () => {
+      setViewportWidth(window.innerWidth);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isLgUp) {
+      setIsSettingsOpen(true);
+    }
+  }, [isLgUp]);
+
+  useEffect(() => {
+    if (!isSmOrMd) {
+      previousHasImageRef.current = hasImage;
+      return;
+    }
+
+    if (!previousHasImageRef.current && hasImage) {
+      setIsSettingsOpen(false);
+    }
+
+    if (previousHasImageRef.current && !hasImage) {
+      setIsSettingsOpen(true);
+    }
+
+    previousHasImageRef.current = hasImage;
+  }, [hasImage, isSmOrMd]);
+
   return (
     <div className="min-h-screen bg-base-200 text-base-content">
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-4 lg:px-6 lg:py-6">
@@ -148,34 +246,138 @@ function App() {
           </div>
         </header>
 
-        <main className="flex flex-1 flex-col gap-4 lg:flex-row">
-          <div className="w-full lg:w-1/3">
-            <SettingsPanel
-              options={options}
-              onOptionsChange={setOptions}
-              currentImage={settingsAspectSource}
-            />
-          </div>
-
-          <div className="flex w-full flex-1 flex-col gap-4 lg:w-2/3">
-            <PasteArea
-              hasImage={Boolean(source || result)}
-              onImageSelected={handleImageSelected}
-              onError={handleError}
-            />
-            <PreviewPanel
-              source={source}
-              result={result}
-              status={status}
-              onCopyResult={handleCopyResult}
-            />
-
-            {isCopying && (
-              <div className="text-right text-xs text-base-content/60">
-                Copying image to clipboard…
+        <main className="flex flex-1 flex-col gap-4">
+          {isXs ? (
+            <>
+              <div className="w-full">
+                <SettingsPanel
+                  options={options}
+                  onOptionsChange={setOptions}
+                  currentImage={settingsAspectSource}
+                />
               </div>
-            )}
-          </div>
+
+              <div className="flex w-full flex-1 flex-col gap-4">
+                <PasteArea
+                  hasImage={hasImage}
+                  onImageSelected={handleImageSelected}
+                  onError={handleError}
+                />
+                <PreviewPanel
+                  source={source}
+                  result={result}
+                  status={status}
+                  onCopyResult={handleCopyResult}
+                />
+
+                {isCopying && (
+                  <div className="text-right text-xs text-base-content/60">
+                    Copying image to clipboard…
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex w-full flex-1 flex-col gap-4 lg:flex-row">
+              {(isLgUp || (isMd && !hasImage)) && (
+                <div className="w-full md:w-72 md:shrink-0 lg:w-1/3">
+                  <SettingsPanel
+                    options={options}
+                    onOptionsChange={setOptions}
+                    currentImage={settingsAspectSource}
+                  />
+                </div>
+              )}
+
+              <div className="flex w-full flex-1 flex-col gap-4 lg:w-2/3">
+                {!isLgUp && (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm gap-2"
+                      onClick={() => setIsSettingsOpen((previous) => !previous)}
+                    >
+                      <Icon icon="mdi:tune" className="h-4 w-4" />
+                      Settings
+                    </button>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-base-content/70">
+                      <span>Preset: {presetLabel}</span>
+                      <span>|</span>
+                      <span>Size: {sizeLabel}</span>
+                      <span>|</span>
+                      <span>Format: {formatLabel}</span>
+                      <span>|</span>
+                      <span>Mode: {resizeModeLabel}</span>
+                    </div>
+                  </div>
+                )}
+
+                <PasteArea
+                  hasImage={hasImage}
+                  onImageSelected={handleImageSelected}
+                  onError={handleError}
+                />
+                <PreviewPanel
+                  source={source}
+                  result={result}
+                  status={status}
+                  onCopyResult={handleCopyResult}
+                />
+
+                {isCopying && (
+                  <div className="text-right text-xs text-base-content/60">
+                    Copying image to clipboard…
+                  </div>
+                )}
+              </div>
+
+              {!isLgUp && (isSm || (isMd && hasImage)) && (
+                <button
+                  type="button"
+                  className={`fixed inset-0 z-40 flex items-stretch justify-start bg-base-200/80 backdrop-blur-sm transition-opacity duration-200 ${
+                    isSettingsOpen
+                      ? "opacity-100 pointer-events-auto"
+                      : "opacity-0 pointer-events-none"
+                  }`}
+                  onClick={(event) => {
+                    if (event.target !== event.currentTarget) {
+                      return;
+                    }
+                    setIsSettingsOpen(false);
+                  }}
+                >
+                  <div
+                    className={`h-full bg-base-100 p-4 shadow-lg transform transition-transform duration-200 ${
+                      isSm ? "w-full max-w-md" : "w-80 md:w-80"
+                    } ${
+                      isSettingsOpen ? "translate-x-0" : "-translate-x-full"
+                    }`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                    }}
+                    role="none"
+                  >
+                    <div className="mb-2 flex items-center justify-between">
+                      <h2 className="text-sm font-semibold">Settings</h2>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-xs btn-square"
+                        aria-label="Close settings"
+                        onClick={() => setIsSettingsOpen(false)}
+                      >
+                        <Icon icon="mdi:close" className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <SettingsPanel
+                      options={options}
+                      onOptionsChange={setOptions}
+                      currentImage={settingsAspectSource}
+                    />
+                  </div>
+                </button>
+              )}
+            </div>
+          )}
         </main>
 
         <footer className="mt-4 flex items-center justify-between border-t border-base-300 pt-3 text-xs text-base-content/70">

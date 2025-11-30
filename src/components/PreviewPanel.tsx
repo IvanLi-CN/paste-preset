@@ -213,7 +213,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
       )}
       <div className="flex flex-1 flex-col gap-4">
         {hasImage && (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2">
             {source && <ImageCard title="Source image" image={source} />}
             {result && (
               <div className="flex flex-col gap-3">
