@@ -1,4 +1,5 @@
 import exifr from "exifr";
+import piexif from "piexifjs";
 import { normalizeImageBlobForCanvas } from "./heic.ts";
 import { PRESETS } from "./presets.ts";
 import type {
@@ -21,6 +22,19 @@ interface DecodeResult {
   mimeType: string;
 }
 
+interface ExifEmbeddingData {
+  make?: string;
+  model?: string;
+  lensModel?: string;
+  dateTime?: Date | string;
+  iso?: number;
+  exposureTime?: number;
+  fNumber?: number;
+  focalLength?: number;
+  latitude?: number;
+  longitude?: number;
+}
+
 function formatExposureTime(seconds: number): string | undefined {
   if (!Number.isFinite(seconds) || seconds <= 0) {
     return undefined;
@@ -39,9 +53,11 @@ function formatExposureTime(seconds: number): string | undefined {
   return `1/${denominator} s`;
 }
 
-async function extractImageMetadataSummary(
+async function extractImageMetadata(
   blob: Blob,
-): Promise<ImageMetadataSummary | undefined> {
+): Promise<
+  { summary?: ImageMetadataSummary; exif?: ExifEmbeddingData } | undefined
+> {
   try {
     const data = await exifr.parse(blob, {
       // Keep the scope narrow: we only need core EXIF/TIFF + GPS.
@@ -96,10 +112,23 @@ async function extractImageMetadataSummary(
     const longitude = data.longitude as number | undefined;
 
     const summary: ImageMetadataSummary = {};
+    const exifEmbedding: ExifEmbeddingData = {};
 
     if (camera) summary.camera = camera;
+    if (make) exifEmbedding.make = make;
+    if (model) exifEmbedding.model = model;
+    if (!exifEmbedding.make && deviceManufacturer) {
+      exifEmbedding.make = deviceManufacturer;
+    }
+    if (!exifEmbedding.model && deviceModel) {
+      exifEmbedding.model = deviceModel;
+    }
+
     if (lens) summary.lens = lens;
+    if (lens) exifEmbedding.lensModel = lens;
+
     if (capturedAt) summary.capturedAt = capturedAt;
+    if (dateTime) exifEmbedding.dateTime = dateTime;
 
     const exposureText = exposureSeconds
       ? formatExposureTime(exposureSeconds)
@@ -119,7 +148,9 @@ async function extractImageMetadataSummary(
       Number.isFinite(isoValue) &&
       isoValue > 0
     ) {
-      summary.iso = Math.round(isoValue);
+      const isoRounded = Math.round(isoValue);
+      summary.iso = isoRounded;
+      exifEmbedding.iso = isoRounded;
     }
 
     if (
@@ -137,14 +168,196 @@ async function extractImageMetadataSummary(
       Number.isFinite(longitude)
     ) {
       summary.location = { latitude, longitude };
+      exifEmbedding.latitude = latitude;
+      exifEmbedding.longitude = longitude;
     }
 
-    // If we didn't manage to extract anything meaningful, return undefined.
-    return Object.keys(summary).length > 0 ? summary : undefined;
+    const hasSummary = Object.keys(summary).length > 0;
+    const hasExif = Object.keys(exifEmbedding).length > 0;
+
+    if (!hasSummary && !hasExif) {
+      return undefined;
+    }
+
+    return {
+      summary: hasSummary ? summary : undefined,
+      exif: hasExif ? exifEmbedding : undefined,
+    };
   } catch {
     // Metadata parsing is best-effort only; failures should not break processing.
     return undefined;
   }
+}
+
+function formatExifDateTime(
+  value: Date | string | undefined,
+): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const date =
+    value instanceof Date
+      ? value
+      : Number.isNaN(Date.parse(value))
+        ? undefined
+        : new Date(value);
+  if (!date) {
+    return undefined;
+  }
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+  // Standard EXIF datetime format.
+  return `${year}:${month}:${day} ${hours}:${minutes}:${seconds}`;
+}
+
+function toExifRationalFromSeconds(
+  seconds: number,
+): [number, number] | undefined {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return undefined;
+  }
+  if (seconds >= 1) {
+    const denominator = 1_000_000;
+    const numerator = Math.round(seconds * denominator);
+    return [numerator, denominator];
+  }
+  const denominator = Math.round(1 / seconds);
+  if (!Number.isFinite(denominator) || denominator <= 0) {
+    return undefined;
+  }
+  return [1, denominator];
+}
+
+function toExifRationalFromFloat(
+  value: number | undefined,
+  precision: number,
+): [number, number] | undefined {
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    value <= 0 ||
+    precision <= 0
+  ) {
+    return undefined;
+  }
+  const denominator = precision;
+  const numerator = Math.round(value * denominator);
+  return [numerator, denominator];
+}
+
+function buildExifFromEmbedding(
+  data: ExifEmbeddingData | undefined,
+): string | undefined {
+  if (!data) {
+    return undefined;
+  }
+
+  const zeroth: Record<number, unknown> = {};
+  const exif: Record<number, unknown> = {};
+  const gps: Record<number, unknown> = {};
+
+  if (data.make) {
+    zeroth[piexif.ImageIFD.Make] = data.make;
+  }
+  if (data.model) {
+    zeroth[piexif.ImageIFD.Model] = data.model;
+  }
+
+  const exifDate = formatExifDateTime(data.dateTime);
+  if (exifDate) {
+    zeroth[piexif.ImageIFD.DateTime] = exifDate;
+    exif[piexif.ExifIFD.DateTimeOriginal] = exifDate;
+    exif[piexif.ExifIFD.DateTimeDigitized] = exifDate;
+  }
+
+  if (data.lensModel) {
+    exif[piexif.ExifIFD.LensModel] = data.lensModel;
+  }
+
+  const exposureRational = toExifRationalFromSeconds(
+    data.exposureTime ?? Number.NaN,
+  );
+  if (exposureRational) {
+    exif[piexif.ExifIFD.ExposureTime] = exposureRational;
+  }
+
+  const fNumberRational = toExifRationalFromFloat(data.fNumber, 100);
+  if (fNumberRational) {
+    exif[piexif.ExifIFD.FNumber] = fNumberRational;
+  }
+
+  if (
+    typeof data.iso === "number" &&
+    Number.isFinite(data.iso) &&
+    data.iso > 0
+  ) {
+    const isoShort = Math.round(data.iso);
+    exif[piexif.ExifIFD.ISOSpeedRatings] = [isoShort];
+  }
+
+  const focalLengthRational = toExifRationalFromFloat(data.focalLength, 100);
+  if (focalLengthRational) {
+    exif[piexif.ExifIFD.FocalLength] = focalLengthRational;
+  }
+
+  if (
+    typeof data.latitude === "number" &&
+    typeof data.longitude === "number" &&
+    Number.isFinite(data.latitude) &&
+    Number.isFinite(data.longitude)
+  ) {
+    const lat = data.latitude;
+    const lng = data.longitude;
+    const latRef = lat >= 0 ? "N" : "S";
+    const lngRef = lng >= 0 ? "E" : "W";
+    gps[piexif.GPSIFD.GPSLatitudeRef] = latRef;
+    gps[piexif.GPSIFD.GPSLatitude] = piexif.GPSHelper.degToDmsRational(
+      Math.abs(lat),
+    );
+    gps[piexif.GPSIFD.GPSLongitudeRef] = lngRef;
+    gps[piexif.GPSIFD.GPSLongitude] = piexif.GPSHelper.degToDmsRational(
+      Math.abs(lng),
+    );
+  }
+
+  const exifObj: {
+    "0th": Record<number, unknown>;
+    Exif: Record<number, unknown>;
+    GPS: Record<number, unknown>;
+  } = {
+    "0th": zeroth,
+    Exif: exif,
+    GPS: gps,
+  };
+
+  if (
+    Object.keys(exifObj["0th"]).length === 0 &&
+    Object.keys(exifObj.Exif).length === 0 &&
+    Object.keys(exifObj.GPS).length === 0
+  ) {
+    return undefined;
+  }
+
+  return piexif.dump(exifObj);
+}
+
+function dataUrlToBlob(dataUrl: string, mimeType: string): Blob {
+  const [, base64] = dataUrl.split(",", 2);
+  if (!base64) {
+    throw new Error("Invalid data URL");
+  }
+  const binary = atob(base64);
+  const length = binary.length;
+  const bytes = new Uint8Array(length);
+  for (let index = 0; index < length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new Blob([bytes], { type: mimeType });
 }
 
 function getOutputMimeType(
@@ -361,10 +574,13 @@ export async function processImageBlob(
   options: ProcessingOptions,
   sourceName?: string,
 ): Promise<ProcessResult> {
-  const [normalized, metadata] = await Promise.all([
+  const [normalized, parsedMetadata] = await Promise.all([
     normalizeImageBlobForCanvas(blob),
-    extractImageMetadataSummary(blob),
+    extractImageMetadata(blob),
   ]);
+
+  const metadata = parsedMetadata?.summary;
+  const exifEmbedding = parsedMetadata?.exif;
 
   const {
     bitmap,
@@ -399,6 +615,7 @@ export async function processImageBlob(
     mime === normalized.originalMimeType;
 
   let resultBlob: Blob;
+  let didEmbedMetadata = false;
 
   if (canPassThrough) {
     resultBlob = blob;
@@ -417,26 +634,37 @@ export async function processImageBlob(
         ? (options.quality ?? 0.8)
         : undefined;
 
-    resultBlob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (b) => {
-          if (!b) {
-            reject(new Error("Failed to export image"));
-            return;
-          }
-          resolve(b);
-        },
+    if (mime === "image/jpeg" && !options.stripMetadata) {
+      const dataUrl = canvas.toDataURL(
         mime,
-        quality,
+        typeof quality === "number" ? quality : undefined,
       );
-    });
+      const exifString = buildExifFromEmbedding(exifEmbedding);
+      const finalDataUrl =
+        exifString != null ? piexif.insert(exifString, dataUrl) : dataUrl;
+      resultBlob = dataUrlToBlob(finalDataUrl, mime);
+      didEmbedMetadata = exifString != null;
+    } else {
+      resultBlob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (b) => {
+            if (!b) {
+              reject(new Error("Failed to export image"));
+              return;
+            }
+            resolve(b);
+          },
+          mime,
+          quality,
+        );
+      });
+    }
   }
 
   // If we can pass the original blob through untouched, we consider metadata
-  // preserved. Any other path (HEIC conversion, resize, format change, or
-  // explicit metadata stripping) is treated as metadata stripped, since the
-  // canvas pipeline re-encodes the image without EXIF/IPTC/XMP.
-  const metadataStripped = !canPassThrough;
+  // preserved. When we have to re-encode the image, metadata is treated as
+  // stripped unless we explicitly re-insert a best-effort EXIF payload.
+  const metadataStripped = canPassThrough ? false : !didEmbedMetadata;
 
   const sourceInfo: ImageInfo = normalized.wasConverted
     ? // For formats like HEIC/HEIF we keep the original blob for
@@ -464,6 +692,8 @@ export async function processImageBlob(
   const resultInfo: ImageInfo = {
     ...createImageInfo(resultBlob, target.width, target.height, sourceName),
     metadataStripped,
+    // Only surface metadata details when we believe the exported file
+    // actually carries EXIF/GPS information.
     metadata: metadataStripped ? undefined : metadata,
   };
 
