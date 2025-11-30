@@ -28,12 +28,32 @@ export interface ImageInfo {
   fileSize: number;
   sourceName?: string;
   /**
+   * Parsed metadata summary extracted from the original file.
+   * This intentionally exposes only a small set of commonly
+   * useful fields for display in the UI.
+   */
+  metadata?: ImageMetadataSummary;
+  /**
    * Whether metadata (EXIF/IPTC/XMP) was stripped as part of the processing
    * pipeline. This is best-effort and may remain true even when the user
    * asked to preserve metadata but the pipeline could not (e.g. HEIC
    * conversion or format changes that require re-encoding).
    */
   metadataStripped?: boolean;
+}
+
+export interface ImageMetadataSummary {
+  camera?: string;
+  lens?: string;
+  capturedAt?: string;
+  exposure?: string;
+  aperture?: string;
+  iso?: number;
+  focalLength?: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
 }
 
 export type AppStatus = "idle" | "processing" | "error";

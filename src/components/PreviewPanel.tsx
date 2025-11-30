@@ -61,6 +61,94 @@ function ImageCard(props: {
             <dd>{formatFileSize(image.fileSize)}</dd>
           </div>
         </dl>
+        <div className="divider my-2" />
+        <div className="flex flex-col gap-1 text-[11px] text-base-content/70">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium uppercase tracking-wide text-[11px]">
+              Metadata
+            </span>
+            {typeof image.metadataStripped === "boolean" ? (
+              <span
+                className={[
+                  "badge badge-xs badge-outline",
+                  image.metadataStripped ? "badge-warning" : "badge-success",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                {image.metadataStripped ? "Stripped" : "Preserved"}
+              </span>
+            ) : (
+              <span className="badge badge-xs badge-outline">Unknown</span>
+            )}
+          </div>
+          {image.metadata && (
+            <dl className="mt-1 grid grid-cols-1 gap-y-1 text-[11px] text-base-content/80">
+              {image.metadata.capturedAt && (
+                <div className="flex gap-1">
+                  <dt className="font-medium">Captured</dt>
+                  <dd className="flex-1 truncate">
+                    {image.metadata.capturedAt}
+                  </dd>
+                </div>
+              )}
+              {image.metadata.camera && (
+                <div className="flex gap-1">
+                  <dt className="font-medium">Camera</dt>
+                  <dd className="flex-1 truncate">{image.metadata.camera}</dd>
+                </div>
+              )}
+              {image.metadata.lens && (
+                <div className="flex gap-1">
+                  <dt className="font-medium">Lens</dt>
+                  <dd className="flex-1 truncate">{image.metadata.lens}</dd>
+                </div>
+              )}
+              {(image.metadata.exposure ||
+                image.metadata.aperture ||
+                typeof image.metadata.iso === "number") && (
+                <div className="flex gap-1">
+                  <dt className="font-medium">Exposure</dt>
+                  <dd className="flex flex-wrap gap-x-2 gap-y-0.5">
+                    {image.metadata.exposure && (
+                      <span>{image.metadata.exposure}</span>
+                    )}
+                    {image.metadata.aperture && (
+                      <span>{image.metadata.aperture}</span>
+                    )}
+                    {typeof image.metadata.iso === "number" && (
+                      <span>ISO {image.metadata.iso}</span>
+                    )}
+                  </dd>
+                </div>
+              )}
+              {image.metadata.focalLength && (
+                <div className="flex gap-1">
+                  <dt className="font-medium">Focal length</dt>
+                  <dd className="flex-1 truncate">
+                    {image.metadata.focalLength}
+                  </dd>
+                </div>
+              )}
+              {image.metadata.location && (
+                <div className="flex gap-1">
+                  <dt className="font-medium">Location</dt>
+                  <dd className="flex flex-wrap gap-x-1">
+                    <span>{image.metadata.location.latitude.toFixed(5)}</span>
+                    <span>{image.metadata.location.longitude.toFixed(5)}</span>
+                  </dd>
+                </div>
+              )}
+            </dl>
+          )}
+          <p className="leading-snug">
+            {typeof image.metadataStripped === "boolean"
+              ? image.metadataStripped
+                ? "EXIF / IPTC / XMP data was removed when generating this image."
+                : "Original image metadata is kept for this image whenever possible."
+              : "This image's metadata status could not be determined."}
+          </p>
+        </div>
       </div>
     </div>
   );

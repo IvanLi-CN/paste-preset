@@ -1,7 +1,9 @@
+import exifr from "exifr";
 import { normalizeImageBlobForCanvas } from "./heic.ts";
 import { PRESETS } from "./presets.ts";
 import type {
   ImageInfo,
+  ImageMetadataSummary,
   OutputFormat,
   ProcessingOptions,
   ResizeMode,
@@ -17,6 +19,132 @@ interface DecodeResult {
   width: number;
   height: number;
   mimeType: string;
+}
+
+function formatExposureTime(seconds: number): string | undefined {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return undefined;
+  }
+
+  if (seconds >= 1) {
+    const rounded =
+      seconds >= 10 ? Math.round(seconds) : Number(seconds.toFixed(1));
+    return `${rounded} s`;
+  }
+
+  const denominator = Math.round(1 / seconds);
+  if (!Number.isFinite(denominator) || denominator <= 0) {
+    return undefined;
+  }
+  return `1/${denominator} s`;
+}
+
+async function extractImageMetadataSummary(
+  blob: Blob,
+): Promise<ImageMetadataSummary | undefined> {
+  try {
+    const data = await exifr.parse(blob, {
+      // Keep the scope narrow: we only need core EXIF/TIFF + GPS.
+      tiff: true,
+      exif: true,
+      gps: true,
+      translateKeys: true,
+      mergeOutput: true,
+    });
+
+    if (!data) {
+      return undefined;
+    }
+
+    const make = (data.Make as string | undefined) ?? undefined;
+    const model = (data.Model as string | undefined) ?? undefined;
+    const deviceManufacturer =
+      (data.DeviceManufacturer as string | undefined) ?? undefined;
+    const deviceModel = (data.DeviceModel as string | undefined) ?? undefined;
+
+    const camera =
+      [make, model].filter(Boolean).join(" ") ||
+      [deviceManufacturer, deviceModel].filter(Boolean).join(" ") ||
+      undefined;
+
+    const lens = (data.LensModel as string | undefined) ?? undefined;
+
+    const dateTime =
+      (data.DateTimeOriginal as Date | string | undefined) ??
+      (data.CreateDate as Date | string | undefined) ??
+      undefined;
+
+    let capturedAt: string | undefined;
+    if (dateTime instanceof Date) {
+      capturedAt = dateTime.toLocaleString();
+    } else if (typeof dateTime === "string" && dateTime.trim()) {
+      capturedAt = dateTime;
+    }
+
+    const isoValue = data.ISO as number | undefined;
+    const exposureSeconds =
+      (data.ExposureTime as number | undefined) ??
+      (typeof data.ShutterSpeedValue === "number"
+        ? // ShutterSpeedValue is in APEX units; 2 ** -value ≈ exposure time.
+          2 ** -(data.ShutterSpeedValue as number)
+        : undefined);
+
+    const fNumber = data.FNumber as number | undefined;
+    const focalLength = data.FocalLength as number | undefined;
+
+    const latitude = data.latitude as number | undefined;
+    const longitude = data.longitude as number | undefined;
+
+    const summary: ImageMetadataSummary = {};
+
+    if (camera) summary.camera = camera;
+    if (lens) summary.lens = lens;
+    if (capturedAt) summary.capturedAt = capturedAt;
+
+    const exposureText = exposureSeconds
+      ? formatExposureTime(exposureSeconds)
+      : undefined;
+    if (exposureText) summary.exposure = exposureText;
+
+    if (
+      typeof fNumber === "number" &&
+      Number.isFinite(fNumber) &&
+      fNumber > 0
+    ) {
+      summary.aperture = `f/${fNumber.toFixed(1).replace(/\\.0$/, "")}`;
+    }
+
+    if (
+      typeof isoValue === "number" &&
+      Number.isFinite(isoValue) &&
+      isoValue > 0
+    ) {
+      summary.iso = Math.round(isoValue);
+    }
+
+    if (
+      typeof focalLength === "number" &&
+      Number.isFinite(focalLength) &&
+      focalLength > 0
+    ) {
+      summary.focalLength = `${focalLength.toFixed(1).replace(/\\.0$/, "")} mm`;
+    }
+
+    if (
+      typeof latitude === "number" &&
+      typeof longitude === "number" &&
+      Number.isFinite(latitude) &&
+      Number.isFinite(longitude)
+    ) {
+      summary.location = { latitude, longitude };
+    }
+
+    // If we didn't manage to extract anything meaningful, return undefined.
+    return Object.keys(summary).length > 0 ? summary : undefined;
+  } catch {
+    // Metadata parsing is best-effort only; failures should not break processing.
+    return undefined;
+  }
 }
 
 function getOutputMimeType(
@@ -233,7 +361,10 @@ export async function processImageBlob(
   options: ProcessingOptions,
   sourceName?: string,
 ): Promise<ProcessResult> {
-  const normalized = await normalizeImageBlobForCanvas(blob);
+  const [normalized, metadata] = await Promise.all([
+    normalizeImageBlobForCanvas(blob),
+    extractImageMetadataSummary(blob),
+  ]);
 
   const {
     bitmap,
@@ -307,10 +438,11 @@ export async function processImageBlob(
   // canvas pipeline re-encodes the image without EXIF/IPTC/XMP.
   const metadataStripped = !canPassThrough;
 
-  const sourceInfo = normalized.wasConverted
+  const sourceInfo: ImageInfo = normalized.wasConverted
     ? // For formats like HEIC/HEIF we keep the original blob for
       // metadata/size, but use the converted blob for preview so
-      // the browser can display the image without errors.
+      // the browser can display the image without errors. The original
+      // file's metadata is never modified by the pipeline.
       {
         ...createImageInfo(
           blob,
@@ -320,14 +452,19 @@ export async function processImageBlob(
           normalized.blob,
         ),
         metadataStripped: false,
+        metadata,
       }
     : {
+        // For the source image we always keep the original blob untouched,
+        // so from the pipeline's perspective its metadata is preserved.
         ...createImageInfo(blob, sourceWidth, sourceHeight, sourceName),
-        metadataStripped: !canPassThrough,
+        metadataStripped: false,
+        metadata,
       };
   const resultInfo: ImageInfo = {
     ...createImageInfo(resultBlob, target.width, target.height, sourceName),
     metadataStripped,
+    metadata: metadataStripped ? undefined : metadata,
   };
 
   return {
