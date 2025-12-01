@@ -9,4 +9,5 @@ pre-push:
   commands:
     build:
       run: bun run build
-
+    e2e:
+      run: bun run test:e2e
