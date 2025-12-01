@@ -266,7 +266,7 @@ For the processed image:
 4.2 High-level component structure
 ----------------------------------
 
-Proposed structure (not yet implemented, but used for planning):
+High-level structure (used as a reference for implementation):
 
 - `src/main.tsx`
   - Bootstraps React and wraps `App` with providers if needed.
@@ -361,7 +361,7 @@ Hooks and helpers:
 
 -------------------------------
 
-- Project scaffolding (to be done later):
+- Project scaffolding:
   - Initialize Vite React + TypeScript template in the `paste-preset` directory.
   - Install and configure Tailwind CSS and DaisyUI.
   - Configure Vite dev server:

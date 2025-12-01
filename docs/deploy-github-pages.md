@@ -180,7 +180,7 @@ After the first deployment completes:
    - Pasting or dropping an image.
    - Seeing the processed result.
    - Downloading the image.
-   - (After implementation) copying the result image to the clipboard if your browser supports it.
+   - Copying the result image to the clipboard if your browser supports it.
 
 7. Local preview on the production build
 ----------------------------------------
