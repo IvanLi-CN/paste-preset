@@ -323,6 +323,7 @@
 
 - 前置条件：
   - HEIC 测试图 `heic-photo.heic`，环境中 `heic2any` 正常可用。
+  - 如当前浏览器环境无法成功转换该 HEIC 样例，本用例在自动化 E2E 中可标记为 `skip`，仅在支持环境或人工回归中覆盖。
 - 步骤：
   - 使用默认设置加载该 HEIC 图片。
 - 期望结果：
@@ -531,14 +532,17 @@
 
 ### 4.1 依赖与脚本
 
-- 安装依赖（本地一次性执行）：
-  - `npm install --save-dev @playwright/test playwright`  
-  - `npx playwright install chromium`（或 `npx playwright install` 安装所有浏览器）。
-- 推荐在 `package.json` 中新增脚本（待实现时再改）：
+- 安装依赖（本地一次性执行，使用 Bun）：
+  - `bun add -d @playwright/test playwright`
+  - `bunx playwright install chromium`（或 `bunx playwright install` 安装所有浏览器）。
+- 在 `package.json` 中配置用于 E2E 的脚本（本仓库已配置好，以下仅作说明）：
   - `"test:e2e": "playwright test"`
   - `"test:e2e:ui": "playwright test --ui"`
+- 运行时通过 Bun 调用脚本：
+  - `bun run test:e2e`
+  - `bun run test:e2e:ui`
 
-> 说明：运行时仍由 Bun 负责应用本身的 dev server，Playwright 仅作为 Node 端的测试工具。
+> 说明：运行时由 Bun 负责应用 dev server 和测试脚本的启动，Playwright 仅作为浏览器自动化测试工具。
 
 ### 4.2 目录结构规划
 
@@ -639,8 +643,59 @@ export const expect = test.expect;
 
 2. **剪贴板能力注入/模拟**
 
-- 正常剪贴板路径：默认使用浏览器原生实现，仅在测试中通过 `page.evaluate` 读取“记录变量”判断有没有调用。
-- 不支持剪贴板路径（E2E-074）：
+- 正常剪贴板路径（E2E-070/071/072/073）：通过 `page.addInitScript` 在 window 上挂一个记录数组，并包一层 `navigator.clipboard.write`，既可以统计调用次数，又避免依赖真实系统剪贴板权限：
+
+```ts
+export async function setupClipboardWriteSpy(page: Page) {
+  await page.addInitScript(() => {
+    const globalWindow = window as unknown as {
+      __clipboardWrites?: unknown[];
+      __forceClipboardUnsupportedForTest?: boolean;
+    };
+
+    globalWindow.__clipboardWrites = [];
+
+    const originalClipboard = navigator.clipboard;
+    if (!originalClipboard || typeof originalClipboard.write !== "function") {
+      return;
+    }
+
+    const wrappedClipboard = {
+      ...originalClipboard,
+      write(data: ClipboardItem[]) {
+        globalWindow.__clipboardWrites?.push(data);
+        // 直接 resolve，避免依赖真实系统剪贴板权限。
+        return Promise.resolve();
+      },
+    };
+
+    try {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        get() {
+          return wrappedClipboard;
+        },
+      });
+    } catch {
+      // 某些浏览器不可重写，可在测试中降级为只断言无错误提示。
+    }
+  });
+}
+
+export async function getClipboardWriteCallCount(
+  page: Page,
+): Promise<number> {
+  const calls = await page.evaluate(() => {
+    const globalWindow = window as unknown as {
+      __clipboardWrites?: unknown[];
+    };
+    return globalWindow.__clipboardWrites ?? [];
+  });
+  return Array.isArray(calls) ? calls.length : 0;
+}
+```
+
+- 不支持剪贴板路径（E2E-074）：通过 test-only flag `window.__forceClipboardUnsupportedForTest` 强制走“剪贴板不支持”分支，同时尽量让 `navigator.clipboard` 不可用：
 
 ```ts
 export async function disableClipboardAPI(page: Page) {
@@ -651,8 +706,13 @@ export async function disableClipboardAPI(page: Page) {
         configurable: true,
       });
     } catch {
-      // 某些浏览器不可重写，可在测试中降级为跳过此分支或用环境变量控制
+      // 某些浏览器不可重写，flag 仍然可以触发降级提示逻辑。
     }
+
+    const globalWindow = window as unknown as {
+      __forceClipboardUnsupportedForTest?: boolean;
+    };
+    globalWindow.__forceClipboardUnsupportedForTest = true;
   });
 }
 ```
@@ -757,16 +817,46 @@ await page.evaluate(() => {
   - 依赖实际 `heic2any` 能在目标浏览器环境中运行，并且 fixtures 中的 HEIC 文件可被转换。
   - 测试中走和普通图片一样的上传流程，断言 Result Format 为 `image/jpeg`，metadata 徽章为 `Stripped metadata`。
 - HEIC 失败路径：
-  - 当前实现中 `normalizeImageBlobForCanvas` 直接在内部调用 `import("heic2any")`，不易在浏览器端 mock。
-  - 建议后续将 HEIC loader 封装为可注入依赖（例如通过 `window.__heic2anyLoader` 或简单工厂函数），再在测试中替换。
-  - 在完成重构前，此用例可以保留为“手工回归”项，或通过额外的 unit 测试在 Node 环境中模拟。
+  - 现在 `normalizeImageBlobForCanvas` 会优先读取 `globalThis.__heic2anyOverride`：
+    - 设为 `"unavailable"` 时，直接抛出与模块缺失一致的错误文案（供 E2E-063 使用）。
+    - 设为一个 `(options) => Promise<Blob | Blob[]>` 函数时，将作为 `heic2any` 的替身被调用。
+  - Playwright 测试可以通过 `page.addInitScript` 在 `window` 上设置 `__heic2anyOverride`，在不影响生产行为的前提下模拟成功/失败场景。
 
 ### 4.6 CI 集成建议
 
-- 在 CI 中增加步骤：
-  1. 安装依赖：`npm install`（或 `bun install` + `npm install @playwright/test playwright --save-dev`）。
-  2. 安装浏览器：`npx playwright install --with-deps chromium`。
-  3. 运行端到端测试：`npm run test:e2e`。
+- 在 CI 中增加（或复用）基于 Bun 的步骤，例如 GitHub Actions：
+
+```yaml
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.3"
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run Biome check
+        run: bun run check
+
+      - name: Build project
+        run: bun run build
+
+      - name: Install Playwright browsers (chromium)
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: bun run test:e2e
+```
+
 - 针对对平台支持有限的场景（例如 HEIC），可以：
   - 通过环境变量（如 `E2E_HEIC=0`）在 CI 上暂时跳过相关 spec。
   - 本机或特定 pipeline 中开启这些测试，避免影响主线稳定性。
@@ -774,4 +864,3 @@ await page.evaluate(() => {
 ---
 
 实施 Playwright 时，可以按照本节指引先完成基础 skeleton（配置 + 目录 + 通用 helpers），再逐步将第 3 章中的用例映射为具体的 `test(...)` 实现。这样可以边写边验证，降低一次性落地全部用例的复杂度。
-

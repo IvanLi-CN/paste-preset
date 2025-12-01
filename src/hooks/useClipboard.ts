@@ -12,11 +12,29 @@ export function useClipboard(): ClipboardState {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const copyImage = useCallback(async (blob: Blob, mimeType: string) => {
+    const globalWithFlags = globalThis as typeof globalThis & {
+      /**
+       * Test-only flag used by Playwright E2E tests to force the
+       * "clipboard not supported" branch without relying on fragile
+       * monkey-patching of `navigator.clipboard`. When unset, runtime
+       * behavior is identical to the original implementation.
+       */
+      __forceClipboardUnsupportedForTest?: boolean;
+    };
+
     setIsCopying(true);
     setErrorMessage(null);
 
     try {
-      if (!("clipboard" in navigator) || !("write" in navigator.clipboard)) {
+      const hasClipboard =
+        "clipboard" in navigator && navigator.clipboard != null;
+      const hasWrite = hasClipboard && "write" in navigator.clipboard;
+
+      if (
+        globalWithFlags.__forceClipboardUnsupportedForTest ||
+        !hasClipboard ||
+        !hasWrite
+      ) {
         throw new Error(
           "Clipboard image write is not supported in this browser. Please use your browser's context menu (for example, right-click → Copy image) to copy the result manually.",
         );

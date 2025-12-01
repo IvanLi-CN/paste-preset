@@ -35,6 +35,18 @@ export async function normalizeImageBlobForCanvas(
 ): Promise<NormalizedImageBlob> {
   const mimeType = blob.type || "application/octet-stream";
 
+  // Optional test-only override hook:
+  // Playwright E2E tests can inject `window.__heic2anyOverride` before the
+  // app loads to simulate successful or failing HEIC conversions without
+  // changing the default runtime behavior. When the property is not set,
+  // the implementation behaves exactly as before.
+  const globalWithOverride = globalThis as typeof globalThis & {
+    __heic2anyOverride?:
+      | ((options: { blob: Blob; toType: string }) => Promise<Blob | Blob[]>)
+      | "unavailable"
+      | null;
+  };
+
   if (!isHeicMimeType(mimeType)) {
     return {
       blob,
@@ -43,10 +55,26 @@ export async function normalizeImageBlobForCanvas(
     };
   }
 
+  // Special test hook: allow E2E tests to force the "library missing" path
+  // without relying on module resolution failures inside the browser bundle.
+  if (globalWithOverride.__heic2anyOverride === "unavailable") {
+    throw new Error(
+      "HEIC/HEIF conversion is not available in this environment. Please convert the image to JPEG or PNG and try again.",
+    );
+  }
+
   // Lazy-load the converter only when we actually see a HEIC/HEIF image.
   let heic2anyModule: typeof import("heic2any");
   try {
-    heic2anyModule = await import("heic2any");
+    if (typeof globalWithOverride.__heic2anyOverride === "function") {
+      // Test-only path: use an injected converter implementation instead of
+      // importing the real `heic2any` module.
+      heic2anyModule = {
+        default: globalWithOverride.__heic2anyOverride,
+      } as unknown as typeof import("heic2any");
+    } else {
+      heic2anyModule = await import("heic2any");
+    }
   } catch (_error) {
     // Library failed to load – surface a clear, user-friendly error.
     throw new Error(
