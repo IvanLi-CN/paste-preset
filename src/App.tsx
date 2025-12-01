@@ -1,5 +1,6 @@
 import { Icon } from "@iconify/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { LanguageSelector } from "./components/LanguageSelector.tsx";
 import { PasteArea } from "./components/PasteArea.tsx";
 import { PreviewPanel } from "./components/PreviewPanel.tsx";
 import { SettingsPanel } from "./components/SettingsPanel.tsx";
@@ -229,7 +230,10 @@ function App() {
   }, [hasImage, isSmOrMd]);
 
   return (
-    <div className="min-h-screen bg-base-200 text-base-content">
+    <div className="relative min-h-screen bg-base-200 text-base-content">
+      <div className="absolute right-4 top-4 z-30">
+        <LanguageSelector />
+      </div>
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-4 lg:px-6 lg:py-6">
         <header className="mb-4 border-b border-base-300 pb-3">
           <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-baseline">
