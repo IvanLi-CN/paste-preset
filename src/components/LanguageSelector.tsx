@@ -16,7 +16,8 @@ const LANGUAGES: LanguageOption[] = [
   },
   {
     code: "zh-TW",
-    icon: "circle-flags:tw",
+    // Use a neutral language icon instead of a political flag
+    icon: "mdi:translate",
     labelKey: "language.zh-TW",
   },
   {
