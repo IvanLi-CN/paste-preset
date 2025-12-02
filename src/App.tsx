@@ -7,10 +7,13 @@ import { SettingsPanel } from "./components/SettingsPanel.tsx";
 import { StatusBar } from "./components/StatusBar.tsx";
 import { useClipboard } from "./hooks/useClipboard.ts";
 import { useImageProcessor } from "./hooks/useImageProcessor.ts";
+import type { TranslationKey } from "./i18n";
+import { useTranslation } from "./i18n";
 import { DEFAULT_OPTIONS, PRESETS } from "./lib/presets.ts";
 import type { ImageInfo, ProcessingOptions } from "./lib/types.ts";
 
 function App() {
+  const { t } = useTranslation();
   const [options, setOptions] = useState<ProcessingOptions>(DEFAULT_OPTIONS);
   const [uiError, setUiError] = useState<string | null>(null);
   const [viewportWidth, setViewportWidth] = useState<number>(() =>
@@ -44,25 +47,28 @@ function App() {
   const isSmOrMd = isSm || isMd;
   const isLgUp = viewportWidth >= 1024;
 
-  const presetLabel =
-    PRESETS.find((item) => item.id === options.presetId)?.label ?? "Custom";
+  const presetConfig = PRESETS.find((item) => item.id === options.presetId);
+  const presetLabel = presetConfig
+    ? t(presetConfig.labelKey as TranslationKey)
+    : t("settings.presets.custom");
 
   const formatLabel = (() => {
     switch (options.outputFormat) {
       case "auto":
-        return "Auto";
+        return t("settings.output.format.auto");
       case "image/jpeg":
-        return "JPEG";
+        return t("settings.output.format.jpeg");
       case "image/png":
-        return "PNG";
+        return t("settings.output.format.png");
       case "image/webp":
-        return "WebP";
+        return t("settings.output.format.webp");
       default:
         return options.outputFormat;
     }
   })();
 
   const sizeLabel = (() => {
+    const autoLabel = t("app.summary.auto");
     const { targetWidth, targetHeight } = options;
     if (
       typeof targetWidth === "number" &&
@@ -73,22 +79,22 @@ function App() {
       return `${targetWidth}×${targetHeight}`;
     }
     if (typeof targetWidth === "number" && targetWidth > 0) {
-      return `${targetWidth}×auto`;
+      return `${targetWidth}×${autoLabel}`;
     }
     if (typeof targetHeight === "number" && targetHeight > 0) {
-      return `auto×${targetHeight}`;
+      return `${autoLabel}×${targetHeight}`;
     }
-    return "auto";
+    return autoLabel;
   })();
 
   const resizeModeLabel = (() => {
     switch (options.resizeMode) {
       case "fit":
-        return "Fit";
+        return t("settings.resizeMode.fit");
       case "fill":
-        return "Fill";
+        return t("settings.resizeMode.fill");
       case "stretch":
-        return "Stretch";
+        return t("settings.resizeMode.stretch");
       default:
         return options.resizeMode;
     }
@@ -238,14 +244,11 @@ function App() {
         <header className="mb-4 border-b border-base-300 pb-3">
           <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-baseline">
             <div>
-              <h1 className="text-2xl font-semibold">PastePreset</h1>
-              <p className="text-sm text-base-content/70">
-                Paste or drop an image, resize and convert it entirely in your
-                browser.
-              </p>
+              <h1 className="text-2xl font-semibold">{t("app.title")}</h1>
+              <p className="text-sm text-base-content/70">{t("app.tagline")}</p>
             </div>
             <div className="text-xs text-base-content/60">
-              Images stay on this device; no uploads.
+              {t("app.privacyNote")}
             </div>
           </div>
         </header>
@@ -276,7 +279,7 @@ function App() {
 
                 {isCopying && (
                   <div className="text-right text-xs text-base-content/60">
-                    Copying image to clipboard…
+                    {t("clipboard.copying")}
                   </div>
                 )}
               </div>
@@ -302,16 +305,24 @@ function App() {
                       onClick={() => setIsSettingsOpen((previous) => !previous)}
                     >
                       <Icon icon="mdi:tune" className="h-4 w-4" />
-                      Settings
+                      {t("settings.title")}
                     </button>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-base-content/70">
-                      <span>Preset: {presetLabel}</span>
+                      <span>
+                        {t("app.summary.preset")}: {presetLabel}
+                      </span>
                       <span>|</span>
-                      <span>Size: {sizeLabel}</span>
+                      <span>
+                        {t("app.summary.size")}: {sizeLabel}
+                      </span>
                       <span>|</span>
-                      <span>Format: {formatLabel}</span>
+                      <span>
+                        {t("app.summary.format")}: {formatLabel}
+                      </span>
                       <span>|</span>
-                      <span>Mode: {resizeModeLabel}</span>
+                      <span>
+                        {t("app.summary.mode")}: {resizeModeLabel}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -330,7 +341,7 @@ function App() {
 
                 {isCopying && (
                   <div className="text-right text-xs text-base-content/60">
-                    Copying image to clipboard…
+                    {t("clipboard.copying")}
                   </div>
                 )}
               </div>
@@ -362,11 +373,13 @@ function App() {
                     role="none"
                   >
                     <div className="mb-2 flex items-center justify-between">
-                      <h2 className="text-sm font-semibold">Settings</h2>
+                      <h2 className="text-sm font-semibold">
+                        {t("settings.title")}
+                      </h2>
                       <button
                         type="button"
                         className="btn btn-ghost btn-xs btn-square"
-                        aria-label="Close settings"
+                        aria-label={t("settings.drawer.closeAria")}
                         onClick={() => setIsSettingsOpen(false)}
                       >
                         <Icon icon="mdi:close" className="h-4 w-4" />

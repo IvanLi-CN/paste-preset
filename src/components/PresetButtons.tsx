@@ -1,3 +1,5 @@
+import type { TranslationKey } from "../i18n";
+import { useTranslation } from "../i18n";
 import { PRESETS } from "../lib/presets.ts";
 import type { PresetId } from "../lib/types.ts";
 
@@ -8,10 +10,13 @@ interface PresetButtonsProps {
 
 export function PresetButtons(props: PresetButtonsProps) {
   const { selectedId, onPresetSelect } = props;
+  const { t } = useTranslation();
 
   return (
     <div className="mb-4">
-      <div className="mb-2 text-sm font-semibold">Presets</div>
+      <div className="mb-2 text-sm font-semibold">
+        {t("settings.presets.title")}
+      </div>
       <div className="join">
         {PRESETS.map((preset) => {
           const isActive = selectedId === preset.id;
@@ -25,7 +30,7 @@ export function PresetButtons(props: PresetButtonsProps) {
               ].join(" ")}
               onClick={() => onPresetSelect(preset.id)}
             >
-              {preset.label}
+              {t(preset.labelKey as TranslationKey)}
             </button>
           );
         })}

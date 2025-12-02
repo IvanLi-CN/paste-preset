@@ -1,3 +1,4 @@
+import { useTranslation } from "../i18n";
 import type { AppStatus } from "../lib/types.ts";
 
 interface StatusBarProps {
@@ -8,6 +9,7 @@ interface StatusBarProps {
 
 export function StatusBar(props: StatusBarProps) {
   const { status, processingError, clipboardError } = props;
+  const { t } = useTranslation();
 
   if (!processingError && !clipboardError && status === "idle") {
     return null;
@@ -19,7 +21,7 @@ export function StatusBar(props: StatusBarProps) {
     messages.push({
       id: "processing",
       type: "info",
-      text: "Processing image…",
+      text: t("status.processing"),
     });
   }
   if (processingError) {

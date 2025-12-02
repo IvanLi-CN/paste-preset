@@ -349,7 +349,7 @@ function buildExifFromEmbedding(
 function dataUrlToBlob(dataUrl: string, mimeType: string): Blob {
   const [, base64] = dataUrl.split(",", 2);
   if (!base64) {
-    throw new Error("Invalid data URL");
+    throw new Error("image.invalidDataUrl");
   }
   const binary = atob(base64);
   const length = binary.length;
@@ -450,7 +450,7 @@ function drawToCanvas(
 
   const ctx = canvas.getContext("2d");
   if (!ctx) {
-    throw new Error("Unable to get 2D context");
+    throw new Error("image.canvasContext");
   }
 
   ctx.imageSmoothingEnabled = true;
@@ -534,7 +534,7 @@ async function decodeImage(blob: Blob): Promise<DecodeResult> {
   try {
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
-      img.onerror = () => reject(new Error("Failed to load image"));
+      img.onerror = () => reject(new Error("image.decodeFailed"));
       img.src = url;
     });
   } finally {
@@ -597,9 +597,7 @@ export async function processImageBlob(
     target.height > MAX_TARGET_SIDE ||
     target.width * target.height > MAX_TARGET_PIXELS
   ) {
-    throw new Error(
-      "The requested output size is too large to process safely. Please choose smaller dimensions or a lower-resolution preset and try again.",
-    );
+    throw new Error("image.tooLarge");
   }
 
   const mime = getOutputMimeType(
@@ -649,7 +647,7 @@ export async function processImageBlob(
         canvas.toBlob(
           (b) => {
             if (!b) {
-              reject(new Error("Failed to export image"));
+              reject(new Error("image.exportFailed"));
               return;
             }
             resolve(b);

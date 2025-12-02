@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "../i18n";
 
 interface PasteAreaProps {
   onImageSelected: (file: File) => void;
@@ -15,6 +16,7 @@ interface PasteAreaProps {
 
 export function PasteArea(props: PasteAreaProps) {
   const { onImageSelected, onError, hasImage } = props;
+  const { t } = useTranslation();
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -25,13 +27,13 @@ export function PasteArea(props: PasteAreaProps) {
 
       const image = iterable.find((file) => file.type.startsWith("image/"));
       if (!image) {
-        onError("Please paste or drop an image file.");
+        onError(t("pasteArea.error.noImageFile"));
         return;
       }
 
       onImageSelected(image);
     },
-    [onError, onImageSelected],
+    [onError, onImageSelected, t],
   );
 
   const handlePaste = useCallback(
@@ -57,11 +59,9 @@ export function PasteArea(props: PasteAreaProps) {
         return;
       }
 
-      onError(
-        "No image data found in the clipboard. Please copy an image and try again.",
-      );
+      onError(t("pasteArea.error.noClipboardImage"));
     },
-    [handleFiles, onError, onImageSelected],
+    [handleFiles, onError, onImageSelected, t],
   );
 
   const handleDrop = useCallback(
@@ -137,9 +137,7 @@ export function PasteArea(props: PasteAreaProps) {
               : "border-base-300 bg-base-200/40",
           ].join(" ")}
           aria-label={
-            hasImage
-              ? "Paste, drop, or click to replace the current image"
-              : "Paste, drop, or click to select an image"
+            hasImage ? t("pasteArea.aria.replace") : t("pasteArea.aria.select")
           }
           onPaste={handlePaste}
           onDrop={handleDrop}
@@ -150,12 +148,12 @@ export function PasteArea(props: PasteAreaProps) {
         >
           <div className="font-medium">
             {hasImage
-              ? "Paste, drop, or click to replace the image"
-              : "Paste image here (Ctrl/Cmd + V)"}
+              ? t("pasteArea.title.replace")
+              : t("pasteArea.title.initial")}
           </div>
           {!hasImage && (
             <div className="text-base-content/70">
-              or drag &amp; drop an image, or click to choose a file
+              {t("pasteArea.subtitle")}
             </div>
           )}
 

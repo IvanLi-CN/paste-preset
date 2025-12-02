@@ -1,3 +1,4 @@
+import { useTranslation } from "../i18n";
 import { DEFAULT_OPTIONS, PRESETS } from "../lib/presets.ts";
 import type { ImageInfo, ProcessingOptions, ResizeMode } from "../lib/types.ts";
 import { PresetButtons } from "./PresetButtons.tsx";
@@ -10,6 +11,7 @@ interface SettingsPanelProps {
 
 export function SettingsPanel(props: SettingsPanelProps) {
   const { options, onOptionsChange, currentImage } = props;
+  const { t } = useTranslation();
 
   const aspectRatio = (() => {
     // Prefer the actual source/result image aspect ratio when available.
@@ -132,9 +134,9 @@ export function SettingsPanel(props: SettingsPanelProps) {
     <aside className="space-y-6">
       <section className="card bg-base-200">
         <div className="card-body">
-          <h2 className="card-title text-lg">Settings</h2>
+          <h2 className="card-title text-lg">{t("settings.title")}</h2>
           <p className="text-sm text-base-content/70">
-            Configure how your pasted images will be resized and exported.
+            {t("settings.description")}
           </p>
 
           <PresetButtons
@@ -144,16 +146,20 @@ export function SettingsPanel(props: SettingsPanelProps) {
 
           <div className="space-y-4">
             <div>
-              <div className="mb-2 text-sm font-semibold">Resolution</div>
+              <div className="mb-2 text-sm font-semibold">
+                {t("settings.resolution.title")}
+              </div>
               <div className="flex gap-2">
                 <label className="form-control w-1/2">
                   <div className="label">
-                    <span className="label-text text-xs">Width (px)</span>
+                    <span className="label-text text-xs">
+                      {t("settings.resolution.width")}
+                    </span>
                   </div>
                   <input
                     type="number"
                     min={1}
-                    placeholder="Auto"
+                    placeholder={t("settings.resolution.placeholderAuto")}
                     className="input input-sm input-bordered"
                     value={options.targetWidth ?? ""}
                     onChange={(event) =>
@@ -163,12 +169,14 @@ export function SettingsPanel(props: SettingsPanelProps) {
                 </label>
                 <label className="form-control w-1/2">
                   <div className="label">
-                    <span className="label-text text-xs">Height (px)</span>
+                    <span className="label-text text-xs">
+                      {t("settings.resolution.height")}
+                    </span>
                   </div>
                   <input
                     type="number"
                     min={1}
-                    placeholder="Auto"
+                    placeholder={t("settings.resolution.placeholderAuto")}
                     className="input input-sm input-bordered"
                     value={options.targetHeight ?? ""}
                     onChange={(event) =>
@@ -190,12 +198,14 @@ export function SettingsPanel(props: SettingsPanelProps) {
                     })
                   }
                 />
-                <span>Lock aspect ratio</span>
+                <span>{t("settings.resolution.lockAspectRatio")}</span>
               </label>
             </div>
 
             <div>
-              <div className="mb-2 text-sm font-semibold">Resize mode</div>
+              <div className="mb-2 text-sm font-semibold">
+                {t("settings.resizeMode.title")}
+              </div>
               <div className="join join-vertical lg:join-horizontal">
                 {(["fit", "fill", "stretch"] satisfies ResizeMode[]).map(
                   (mode) => (
@@ -210,9 +220,9 @@ export function SettingsPanel(props: SettingsPanelProps) {
                       ].join(" ")}
                       onClick={() => handleResizeModeChange(mode)}
                     >
-                      {mode === "fit" && "Fit"}
-                      {mode === "fill" && "Fill (crop)"}
-                      {mode === "stretch" && "Stretch"}
+                      {mode === "fit" && t("settings.resizeMode.fit")}
+                      {mode === "fill" && t("settings.resizeMode.fill")}
+                      {mode === "stretch" && t("settings.resizeMode.stretch")}
                     </button>
                   ),
                 )}
@@ -220,11 +230,15 @@ export function SettingsPanel(props: SettingsPanelProps) {
             </div>
 
             <div>
-              <div className="mb-2 text-sm font-semibold">Output</div>
+              <div className="mb-2 text-sm font-semibold">
+                {t("settings.output.title")}
+              </div>
               <div className="flex flex-col gap-3">
                 <label className="form-control">
                   <div className="label">
-                    <span className="label-text text-xs">Format</span>
+                    <span className="label-text text-xs">
+                      {t("settings.output.format.label")}
+                    </span>
                   </div>
                   <select
                     className="select select-sm select-bordered"
@@ -235,17 +249,27 @@ export function SettingsPanel(props: SettingsPanelProps) {
                       )
                     }
                   >
-                    <option value="auto">Auto (source)</option>
-                    <option value="image/jpeg">JPEG</option>
-                    <option value="image/png">PNG</option>
-                    <option value="image/webp">WebP</option>
+                    <option value="auto">
+                      {t("settings.output.format.auto")}
+                    </option>
+                    <option value="image/jpeg">
+                      {t("settings.output.format.jpeg")}
+                    </option>
+                    <option value="image/png">
+                      {t("settings.output.format.png")}
+                    </option>
+                    <option value="image/webp">
+                      {t("settings.output.format.webp")}
+                    </option>
                   </select>
                 </label>
 
                 {showQuality && (
                   <label className="form-control">
                     <div className="label flex justify-between">
-                      <span className="label-text text-xs">Quality</span>
+                      <span className="label-text text-xs">
+                        {t("settings.output.quality.label")}
+                      </span>
                       <span className="label-text-alt text-xs">
                         {Math.round((options.quality ?? 0.8) * 100)}%
                       </span>
@@ -276,7 +300,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                       })
                     }
                   />
-                  <span>Strip metadata (EXIF, etc.)</span>
+                  <span>{t("settings.output.stripMetadata")}</span>
                 </label>
               </div>
             </div>
@@ -286,11 +310,9 @@ export function SettingsPanel(props: SettingsPanelProps) {
 
       <section className="card bg-base-100">
         <div className="card-body space-y-2 text-sm">
-          <h3 className="font-semibold">About</h3>
+          <h3 className="font-semibold">{t("settings.about.title")}</h3>
           <p className="text-base-content/70">
-            PastePreset runs entirely in your browser. Images never leave your
-            device. Paste a screenshot or drop a photo on the right to get
-            started.
+            {t("settings.about.description")}
           </p>
         </div>
       </section>

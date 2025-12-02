@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from "react";
+import { useTranslation } from "../i18n";
 import type { AppStatus, ImageInfo } from "../lib/types.ts";
 
 interface PreviewPanelProps {
@@ -26,6 +27,7 @@ function ImageCard(props: {
   highlighted?: boolean;
 }) {
   const { title, image, highlighted } = props;
+  const { t } = useTranslation();
   const cardClassName = [
     "card bg-base-100 shadow-sm animate-fade-in-up",
     highlighted
@@ -47,17 +49,17 @@ function ImageCard(props: {
         </div>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-base-content/80">
           <div>
-            <dt className="font-medium">Dimensions</dt>
+            <dt className="font-medium">{t("preview.card.dimensions")}</dt>
             <dd>
               {image.width} × {image.height}
             </dd>
           </div>
           <div>
-            <dt className="font-medium">Format</dt>
+            <dt className="font-medium">{t("preview.card.format")}</dt>
             <dd>{image.mimeType || "unknown"}</dd>
           </div>
           <div>
-            <dt className="font-medium">Size</dt>
+            <dt className="font-medium">{t("preview.card.size")}</dt>
             <dd>{formatFileSize(image.fileSize)}</dd>
           </div>
         </dl>
@@ -65,7 +67,7 @@ function ImageCard(props: {
         <div className="flex flex-col gap-1 text-[11px] text-base-content/70">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium uppercase tracking-wide text-[11px]">
-              Metadata
+              {t("preview.card.metadataLabel")}
             </span>
             {typeof image.metadataStripped === "boolean" ? (
               <span
@@ -76,17 +78,21 @@ function ImageCard(props: {
                   .filter(Boolean)
                   .join(" ")}
               >
-                {image.metadataStripped ? "Stripped" : "Preserved"}
+                {image.metadataStripped
+                  ? t("preview.card.metadataStrippedBadge")
+                  : t("preview.card.metadataPreservedBadge")}
               </span>
             ) : (
-              <span className="badge badge-xs badge-outline">Unknown</span>
+              <span className="badge badge-xs badge-outline">
+                {t("preview.card.metadataUnknownBadge")}
+              </span>
             )}
           </div>
           {image.metadata && (
             <dl className="mt-1 grid grid-cols-1 gap-y-1 text-[11px] text-base-content/80">
               {image.metadata.capturedAt && (
                 <div className="flex gap-1">
-                  <dt className="font-medium">Captured</dt>
+                  <dt className="font-medium">{t("preview.card.captured")}</dt>
                   <dd className="flex-1 truncate">
                     {image.metadata.capturedAt}
                   </dd>
@@ -94,13 +100,13 @@ function ImageCard(props: {
               )}
               {image.metadata.camera && (
                 <div className="flex gap-1">
-                  <dt className="font-medium">Camera</dt>
+                  <dt className="font-medium">{t("preview.card.camera")}</dt>
                   <dd className="flex-1 truncate">{image.metadata.camera}</dd>
                 </div>
               )}
               {image.metadata.lens && (
                 <div className="flex gap-1">
-                  <dt className="font-medium">Lens</dt>
+                  <dt className="font-medium">{t("preview.card.lens")}</dt>
                   <dd className="flex-1 truncate">{image.metadata.lens}</dd>
                 </div>
               )}
@@ -108,7 +114,7 @@ function ImageCard(props: {
                 image.metadata.aperture ||
                 typeof image.metadata.iso === "number") && (
                 <div className="flex gap-1">
-                  <dt className="font-medium">Exposure</dt>
+                  <dt className="font-medium">{t("preview.card.exposure")}</dt>
                   <dd className="flex flex-wrap gap-x-2 gap-y-0.5">
                     {image.metadata.exposure && (
                       <span>{image.metadata.exposure}</span>
@@ -117,14 +123,18 @@ function ImageCard(props: {
                       <span>{image.metadata.aperture}</span>
                     )}
                     {typeof image.metadata.iso === "number" && (
-                      <span>ISO {image.metadata.iso}</span>
+                      <span>
+                        {t("preview.card.isoPrefix")} {image.metadata.iso}
+                      </span>
                     )}
                   </dd>
                 </div>
               )}
               {image.metadata.focalLength && (
                 <div className="flex gap-1">
-                  <dt className="font-medium">Focal length</dt>
+                  <dt className="font-medium">
+                    {t("preview.card.focalLength")}
+                  </dt>
                   <dd className="flex-1 truncate">
                     {image.metadata.focalLength}
                   </dd>
@@ -132,7 +142,7 @@ function ImageCard(props: {
               )}
               {image.metadata.location && (
                 <div className="flex gap-1">
-                  <dt className="font-medium">Location</dt>
+                  <dt className="font-medium">{t("preview.card.location")}</dt>
                   <dd className="flex flex-wrap gap-x-1">
                     <span>{image.metadata.location.latitude.toFixed(5)}</span>
                     <span>{image.metadata.location.longitude.toFixed(5)}</span>
@@ -144,9 +154,9 @@ function ImageCard(props: {
           <p className="leading-snug">
             {typeof image.metadataStripped === "boolean"
               ? image.metadataStripped
-                ? "EXIF / IPTC / XMP data was removed when generating this image."
-                : "Original image metadata is kept for this image whenever possible."
-              : "This image's metadata status could not be determined."}
+                ? t("preview.card.metadataSummary.stripped")
+                : t("preview.card.metadataSummary.preserved")
+              : t("preview.card.metadataSummary.unknown")}
           </p>
         </div>
       </div>
@@ -177,6 +187,7 @@ function buildDownloadFileName(image: ImageInfo): string {
 
 export function PreviewPanel(props: PreviewPanelProps) {
   const { source, result, status, onCopyResult } = props;
+  const { t } = useTranslation();
 
   const hasImage = source || result;
 
@@ -199,46 +210,48 @@ export function PreviewPanel(props: PreviewPanelProps) {
     <section className="flex flex-1 flex-col gap-4">
       {!hasImage && (
         <div className="alert alert-info text-sm">
-          <span>
-            Paste, drop, or select an image to see the original and processed
-            previews here.
-          </span>
+          <span>{t("preview.empty")}</span>
         </div>
       )}
 
       {status === "processing" && (
         <div className="alert alert-warning text-sm">
-          <span>Processing image…</span>
+          <span>{t("status.processing")}</span>
         </div>
       )}
       <div className="flex flex-1 flex-col gap-4">
         {hasImage && (
           <div className="grid gap-4 md:grid-cols-2">
-            {source && <ImageCard title="Source image" image={source} />}
+            {source && (
+              <ImageCard title={t("preview.source.title")} image={source} />
+            )}
             {result && (
               <div className="flex flex-col gap-3">
-                <ImageCard title="Result image" image={result} highlighted />
+                <ImageCard
+                  title={t("preview.result.title")}
+                  image={result}
+                  highlighted
+                />
                 <div className="card bg-base-100 shadow-sm animate-fade-in-up">
                   <div className="card-body flex flex-row flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-col gap-1 text-xs text-base-content/70">
-                      <div>
-                        Result can be copied to clipboard or downloaded as a
-                        file.
-                      </div>
+                      <div>{t("preview.result.description")}</div>
                       <div className="flex flex-wrap gap-1">
                         {source && result && (
                           <span className="badge badge-xs badge-outline">
                             {source.width === result.width &&
                             source.height === result.height
-                              ? "Original size"
-                              : `Resized to ${result.width} × ${result.height}`}
+                              ? t("preview.result.badge.originalSize")
+                              : `${t(
+                                  "preview.result.badge.resizedPrefix",
+                                )} ${result.width} × ${result.height}`}
                           </span>
                         )}
                         {typeof result.metadataStripped === "boolean" && (
                           <span className="badge badge-xs badge-outline">
                             {result.metadataStripped
-                              ? "Stripped metadata"
-                              : "Metadata preserved"}
+                              ? t("preview.result.badge.metadataStripped")
+                              : t("preview.result.badge.metadataPreserved")}
                           </span>
                         )}
                       </div>
@@ -253,17 +266,17 @@ export function PreviewPanel(props: PreviewPanelProps) {
                             onClick={() =>
                               onCopyResult(result.blob, result.mimeType)
                             }
-                            aria-label="Copy result image to clipboard"
+                            aria-label={t("preview.actions.copyAria")}
                           >
-                            Copy to clipboard
+                            {t("preview.actions.copyLabel")}
                           </button>
                           <a
                             href={result.url}
                             download={buildDownloadFileName(result)}
                             className="btn btn-sm btn-outline"
-                            aria-label="Download result image"
+                            aria-label={t("preview.actions.downloadAria")}
                           >
-                            Download
+                            {t("preview.actions.downloadLabel")}
                           </a>
                         </>
                       )}

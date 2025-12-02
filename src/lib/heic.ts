@@ -58,9 +58,7 @@ export async function normalizeImageBlobForCanvas(
   // Special test hook: allow E2E tests to force the "library missing" path
   // without relying on module resolution failures inside the browser bundle.
   if (globalWithOverride.__heic2anyOverride === "unavailable") {
-    throw new Error(
-      "HEIC/HEIF conversion is not available in this environment. Please convert the image to JPEG or PNG and try again.",
-    );
+    throw new Error("heic.unavailable");
   }
 
   // Lazy-load the converter only when we actually see a HEIC/HEIF image.
@@ -77,17 +75,13 @@ export async function normalizeImageBlobForCanvas(
     }
   } catch (_error) {
     // Library failed to load – surface a clear, user-friendly error.
-    throw new Error(
-      "HEIC/HEIF conversion is not available in this environment. Please convert the image to JPEG or PNG and try again.",
-    );
+    throw new Error("heic.unavailable");
   }
 
   const heic2any = heic2anyModule.default;
 
   if (!heic2any) {
-    throw new Error(
-      "HEIC/HEIF conversion library failed to load correctly. Please convert the image to JPEG or PNG and try again.",
-    );
+    throw new Error("heic.libraryFailed");
   }
 
   let result: Blob | Blob[];
@@ -99,15 +93,13 @@ export async function normalizeImageBlobForCanvas(
       toType: "image/png",
     });
   } catch (_error) {
-    throw new Error(
-      "Failed to convert HEIC/HEIF image. Please convert it to JPEG or PNG and try again.",
-    );
+    throw new Error("heic.convertFailed");
   }
 
   const convertedBlob = Array.isArray(result) ? result[0] : result;
 
   if (!(convertedBlob instanceof Blob)) {
-    throw new Error("Unexpected HEIC conversion result.");
+    throw new Error("heic.unexpectedResult");
   }
 
   return {
