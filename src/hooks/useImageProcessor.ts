@@ -35,12 +35,23 @@ export function useImageProcessor(
       return;
     }
 
+    const globalWithTestHook = globalThis as typeof globalThis & {
+      __processingDelayMsForTest?: number | null;
+    };
+
     let cancelled = false;
     const { blob, sourceName } = original;
 
     const run = async () => {
       setStatus("processing");
       setErrorMessage(null);
+
+      const delayMs = globalWithTestHook.__processingDelayMsForTest;
+      if (typeof delayMs === "number" && delayMs > 0) {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, delayMs);
+        });
+      }
 
       try {
         const { source: srcInfo, result: resultInfo } = await processImageBlob(
