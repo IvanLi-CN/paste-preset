@@ -13,7 +13,7 @@ function readPackageVersion(): string {
   return version;
 }
 
-test("E2E-013 footer shows app version derived from package.json", async ({
+test("E2E-016 footer shows app version derived from package.json", async ({
   page,
 }, testInfo) => {
   if (testInfo.project.name !== "desktop") {
