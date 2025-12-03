@@ -5,6 +5,7 @@ import { PasteArea } from "./components/PasteArea.tsx";
 import { PreviewPanel } from "./components/PreviewPanel.tsx";
 import { SettingsPanel } from "./components/SettingsPanel.tsx";
 import { StatusBar } from "./components/StatusBar.tsx";
+import { useAppVersion } from "./hooks/useAppVersion.ts";
 import { useClipboard } from "./hooks/useClipboard.ts";
 import { useImageProcessor } from "./hooks/useImageProcessor.ts";
 import { useUserSettings } from "./hooks/useUserSettings.tsx";
@@ -16,6 +17,7 @@ import type { ImageInfo } from "./lib/types.ts";
 function App() {
   const { t } = useTranslation();
   const { settings, processingOptions } = useUserSettings();
+  const { version } = useAppVersion();
   const [uiError, setUiError] = useState<string | null>(null);
   const [viewportWidth, setViewportWidth] = useState<number>(() =>
     typeof window === "undefined" ? 0 : window.innerWidth,
@@ -385,15 +387,20 @@ function App() {
 
         <footer className="mt-4 flex items-center justify-between border-t border-base-300 pt-3 text-xs text-base-content/70">
           <div>© {currentYear} PastePreset</div>
-          <a
-            href="https://github.com/IvanLi-CN/paste-preset"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 hover:text-base-content"
-          >
-            <Icon icon="mdi:github" className="h-4 w-4" />
-            <span className="hidden sm:inline">GitHub</span>
-          </a>
+          <div className="flex items-center gap-3">
+            {version && (
+              <span className="text-xs text-base-content/60">v{version}</span>
+            )}
+            <a
+              href="https://github.com/IvanLi-CN/paste-preset"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 hover:text-base-content"
+            >
+              <Icon icon="mdi:github" className="h-4 w-4" />
+              <span className="hidden sm:inline">GitHub</span>
+            </a>
+          </div>
         </footer>
 
         <StatusBar

@@ -34,7 +34,13 @@ jobs:
       - name: Run Biome check (lint + format + imports)
         run: bun run check
 
+      - name: Compute effective version
+        shell: bash
+        run: ./.github/scripts/compute-version.sh
+
       - name: Build project
+        env:
+          VITE_APP_VERSION: ${{ env.APP_EFFECTIVE_VERSION }}
         run: bun run build
 
       - name: Install Playwright browsers (chromium)

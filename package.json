@@ -1,11 +1,11 @@
 {
   "name": "paste-preset",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "node scripts/write-version.mjs && vite",
+    "build": "tsc -b && vite build && node scripts/write-version.mjs",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "lint": "biome lint .",
