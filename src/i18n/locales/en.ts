@@ -62,6 +62,8 @@ export const en = {
   "settings.output.quality.label": "Quality",
   "settings.output.stripMetadata": "Strip metadata (EXIF, etc.)",
 
+  "settings.actions.reset": "Reset settings",
+
   "settings.about.title": "About",
   "settings.about.description":
     "PastePreset runs entirely in your browser. Images never leave your device. Paste a screenshot or drop a photo on the right to get started.",
