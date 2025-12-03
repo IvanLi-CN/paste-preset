@@ -4,7 +4,6 @@ export const zhCN: TranslationMessages = {
   // App chrome
   "app.title": "PastePreset",
   "app.tagline": "粘贴或拖拽图片，在浏览器中完成尺寸调整和格式转换。",
-  "app.privacyNote": "图片仅在本地处理，不会上传。",
   "app.summary.preset": "预设",
   "app.summary.size": "尺寸",
   "app.summary.format": "格式",

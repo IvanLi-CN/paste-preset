@@ -243,13 +243,10 @@ function App() {
       </div>
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-4 lg:px-6 lg:py-6">
         <header className="mb-4 border-b border-base-300 pb-3">
-          <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-baseline">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline">
             <div>
               <h1 className="text-2xl font-semibold">{t("app.title")}</h1>
               <p className="text-sm text-base-content/70">{t("app.tagline")}</p>
-            </div>
-            <div className="text-xs text-base-content/60">
-              {t("app.privacyNote")}
             </div>
           </div>
         </header>
