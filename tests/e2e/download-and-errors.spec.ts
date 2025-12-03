@@ -74,16 +74,21 @@ test("E2E-090: oversized output dimensions produce a clear error", async ({
   ).toHaveCount(0);
 });
 
-test.skip("E2E-091: processing status is shown in preview and status bar", async ({
+test("E2E-091: processing status is shown in preview and status bar", async ({
   page,
   testImagesDir,
 }) => {
-  // This assertion is inherently timing-sensitive: on fast machines the
-  // image may process so quickly that the transient "Processing image…"
-  // status never becomes observable to Playwright before it disappears.
-  // The core behaviour (showing a best-effort processing indicator) is
-  // already exercised indirectly by other suites; this test is kept as a
-  // documented but skipped scenario to avoid flaky pre-push runs.
+  // Install a small artificial delay in the processing pipeline so the
+  // transient "Processing image…" status is reliably observable even on
+  // very fast machines. This uses a test-only hook consumed by
+  // useImageProcessor and does not affect production behaviour.
+  await page.addInitScript(() => {
+    const globalWindow = window as unknown as {
+      __processingDelayMsForTest?: number;
+    };
+    globalWindow.__processingDelayMsForTest = 200;
+  });
+
   await page.goto("/");
 
   await uploadFixtureViaFileInput(page, testImagesDir, "very-large.png");
