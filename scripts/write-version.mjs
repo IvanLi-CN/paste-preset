@@ -9,9 +9,13 @@ try {
   const pkgPath = join(__dirname, "..", "package.json");
   const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
 
+  const envVersionRaw =
+    process.env.APP_EFFECTIVE_VERSION ?? process.env.VITE_APP_VERSION ?? "";
+  const envVersion = envVersionRaw.trim();
+
   const version =
-    process.env.VITE_APP_VERSION && process.env.VITE_APP_VERSION.length > 0
-      ? process.env.VITE_APP_VERSION
+    envVersion.length > 0
+      ? envVersion
       : typeof pkg.version === "string" && pkg.version.length > 0
         ? pkg.version
         : "0.0.0";
