@@ -360,6 +360,317 @@ function dataUrlToBlob(dataUrl: string, mimeType: string): Blob {
   return new Blob([bytes], { type: mimeType });
 }
 
+function stringToUint8Array(value: string): Uint8Array {
+  const length = value.length;
+  const bytes = new Uint8Array(length);
+  for (let index = 0; index < length; index += 1) {
+    // piexifjs returns a binary string where each charCode is a byte.
+    bytes[index] = value.charCodeAt(index) & 0xff;
+  }
+  return bytes;
+}
+
+function exifDumpToRawBytes(exifDump: string): Uint8Array {
+  const full = stringToUint8Array(exifDump);
+  // piexifjs.dump() returns the Exif APP1 payload including the
+  // ASCII "Exif\0\0" header. Container formats like PNG (eXIf)
+  // and WebP (EXIF chunk) expect only the TIFF header and IFD
+  // structures, without this 6-byte prefix, so we strip it when present.
+  if (
+    full.length > 6 &&
+    full[0] === 0x45 && // E
+    full[1] === 0x78 && // x
+    full[2] === 0x69 && // i
+    full[3] === 0x66 && // f
+    full[4] === 0x00 &&
+    full[5] === 0x00
+  ) {
+    return full.subarray(6);
+  }
+  return full;
+}
+
+function readUint32BE(buffer: Uint8Array, offset: number): number {
+  return (
+    ((buffer[offset] << 24) |
+      (buffer[offset + 1] << 16) |
+      (buffer[offset + 2] << 8) |
+      buffer[offset + 3]) >>>
+    0
+  );
+}
+
+function writeUint32BE(
+  buffer: Uint8Array,
+  offset: number,
+  value: number,
+): void {
+  buffer[offset] = (value >>> 24) & 0xff;
+  buffer[offset + 1] = (value >>> 16) & 0xff;
+  buffer[offset + 2] = (value >>> 8) & 0xff;
+  buffer[offset + 3] = value & 0xff;
+}
+
+function writeUint32LE(
+  buffer: Uint8Array,
+  offset: number,
+  value: number,
+): void {
+  buffer[offset] = value & 0xff;
+  buffer[offset + 1] = (value >>> 8) & 0xff;
+  buffer[offset + 2] = (value >>> 16) & 0xff;
+  buffer[offset + 3] = (value >>> 24) & 0xff;
+}
+
+// Precomputed CRC32 table for PNG chunk checksums.
+const CRC32_TABLE: Uint32Array = (() => {
+  const table = new Uint32Array(256);
+  for (let index = 0; index < 256; index += 1) {
+    let crc = index;
+    for (let bit = 0; bit < 8; bit += 1) {
+      if ((crc & 1) !== 0) {
+        crc = 0xedb88320 ^ (crc >>> 1);
+      } else {
+        crc >>>= 1;
+      }
+    }
+    table[index] = crc >>> 0;
+  }
+  return table;
+})();
+
+function crc32(buffer: Uint8Array, offset: number, length: number): number {
+  let crc = 0xffffffff;
+  const end = offset + length;
+  for (let index = offset; index < end; index += 1) {
+    crc = CRC32_TABLE[(crc ^ buffer[index]) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function buildPngChunk(type: string, data: Uint8Array): Uint8Array {
+  if (type.length !== 4) {
+    throw new Error("image.png.invalidChunkType");
+  }
+
+  const dataLength = data.length;
+  const chunk = new Uint8Array(4 + 4 + dataLength + 4);
+
+  // Length (big-endian)
+  writeUint32BE(chunk, 0, dataLength);
+
+  // Type
+  for (let index = 0; index < 4; index += 1) {
+    chunk[4 + index] = type.charCodeAt(index) & 0xff;
+  }
+
+  // Data
+  chunk.set(data, 8);
+
+  // CRC over type + data
+  const crc = crc32(chunk, 4, 4 + dataLength);
+  const crcOffset = 8 + dataLength;
+  writeUint32BE(chunk, crcOffset, crc);
+
+  return chunk;
+}
+
+function insertExifIntoPng(
+  pngBytes: Uint8Array,
+  exifBytes: Uint8Array,
+): Uint8Array | null {
+  // PNG signature: 137 80 78 71 13 10 26 10
+  if (pngBytes.length < 8) {
+    return null;
+  }
+  const signature = pngBytes.subarray(0, 8);
+  if (
+    signature[0] !== 0x89 ||
+    signature[1] !== 0x50 ||
+    signature[2] !== 0x4e ||
+    signature[3] !== 0x47 ||
+    signature[4] !== 0x0d ||
+    signature[5] !== 0x0a ||
+    signature[6] !== 0x1a ||
+    signature[7] !== 0x0a
+  ) {
+    return null;
+  }
+
+  const chunks: Uint8Array[] = [];
+  chunks.push(signature);
+
+  let offset = 8;
+  let inserted = false;
+
+  while (offset + 8 <= pngBytes.length) {
+    const length = readUint32BE(pngBytes, offset);
+    const typeStart = offset + 4;
+    const typeEnd = typeStart + 4;
+    const dataStart = typeEnd;
+    const dataEnd = dataStart + length;
+    const crcStart = dataEnd;
+    const crcEnd = crcStart + 4;
+
+    if (
+      typeEnd > pngBytes.length ||
+      dataEnd > pngBytes.length ||
+      crcEnd > pngBytes.length
+    ) {
+      return null;
+    }
+
+    const type0 = pngBytes[typeStart];
+    const type1 = pngBytes[typeStart + 1];
+    const type2 = pngBytes[typeStart + 2];
+    const type3 = pngBytes[typeStart + 3];
+    const type =
+      String.fromCharCode(type0) +
+      String.fromCharCode(type1) +
+      String.fromCharCode(type2) +
+      String.fromCharCode(type3);
+
+    const chunk = pngBytes.subarray(offset, crcEnd);
+    chunks.push(chunk);
+
+    if (!inserted && type === "IHDR") {
+      // Insert EXIF chunk right after IHDR so metadata stays near the header.
+      const exifChunk = buildPngChunk("eXIf", exifBytes);
+      chunks.push(exifChunk);
+      inserted = true;
+    }
+
+    offset = crcEnd;
+
+    if (type === "IEND") {
+      break;
+    }
+  }
+
+  if (!inserted) {
+    const exifChunk = buildPngChunk("eXIf", exifBytes);
+    // Append just before the final IEND chunk if possible.
+    if (chunks.length >= 2) {
+      const last = chunks[chunks.length - 1];
+      chunks.splice(chunks.length - 1, 0, exifChunk);
+      chunks.push(last);
+    } else {
+      chunks.push(exifChunk);
+    }
+  }
+
+  let totalLength = 0;
+  for (const chunk of chunks) {
+    totalLength += chunk.length;
+  }
+  const result = new Uint8Array(totalLength);
+  let writeOffset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, writeOffset);
+    writeOffset += chunk.length;
+  }
+  return result;
+}
+
+function buildWebpChunk(fourCC: string, data: Uint8Array): Uint8Array {
+  if (fourCC.length !== 4) {
+    throw new Error("image.webp.invalidChunkType");
+  }
+
+  const dataLength = data.length;
+  const padding = dataLength % 2 === 1 ? 1 : 0;
+  const chunk = new Uint8Array(4 + 4 + dataLength + padding);
+
+  // Tag
+  for (let index = 0; index < 4; index += 1) {
+    chunk[index] = fourCC.charCodeAt(index) & 0xff;
+  }
+
+  // Size (little-endian, without padding)
+  writeUint32LE(chunk, 4, dataLength);
+
+  // Data
+  chunk.set(data, 8);
+
+  // Padding byte is left as 0 if present.
+  return chunk;
+}
+
+function insertExifIntoWebp(
+  webpBytes: Uint8Array,
+  exifBytes: Uint8Array,
+): Uint8Array | null {
+  if (webpBytes.length < 12) {
+    return null;
+  }
+
+  // RIFF header: "RIFF" <size> "WEBP"
+  if (
+    webpBytes[0] !== 0x52 || // R
+    webpBytes[1] !== 0x49 || // I
+    webpBytes[2] !== 0x46 || // F
+    webpBytes[3] !== 0x46 || // F
+    webpBytes[8] !== 0x57 || // W
+    webpBytes[9] !== 0x45 || // E
+    webpBytes[10] !== 0x42 || // B
+    webpBytes[11] !== 0x50 // P
+  ) {
+    return null;
+  }
+
+  const existingPayload = webpBytes.subarray(12);
+  const exifChunk = buildWebpChunk("EXIF", exifBytes);
+
+  // New RIFF size is size of "WEBP" + payload + new chunk.
+  const newFileSize = 4 + existingPayload.length + exifChunk.length;
+
+  const result = new Uint8Array(12 + existingPayload.length + exifChunk.length);
+
+  // Copy "RIFF"
+  result.set(webpBytes.subarray(0, 4), 0);
+  // Update size
+  writeUint32LE(result, 4, newFileSize);
+  // Copy "WEBP"
+  result.set(webpBytes.subarray(8, 12), 8);
+  // Copy existing payload and append EXIF chunk.
+  result.set(existingPayload, 12);
+  result.set(exifChunk, 12 + existingPayload.length);
+
+  return result;
+}
+
+async function embedExifIntoImageBlob(
+  blob: Blob,
+  mimeType: string,
+  exifString: string | undefined,
+): Promise<Blob | null> {
+  if (!exifString) {
+    return null;
+  }
+
+  if (mimeType !== "image/png" && mimeType !== "image/webp") {
+    return null;
+  }
+
+  const exifBytes = exifDumpToRawBytes(exifString);
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+
+  if (mimeType === "image/png") {
+    const patched = insertExifIntoPng(bytes, exifBytes);
+    if (!patched) {
+      return null;
+    }
+    return new Blob([patched.buffer as ArrayBuffer], { type: mimeType });
+  }
+
+  const patched = insertExifIntoWebp(bytes, exifBytes);
+  if (!patched) {
+    return null;
+  }
+  return new Blob([patched.buffer as ArrayBuffer], { type: mimeType });
+}
+
 function getOutputMimeType(
   sourceMime: string,
   format: OutputFormat,
@@ -627,6 +938,8 @@ export async function processImageBlob(
       options.resizeMode,
     );
 
+    const exifString = buildExifFromEmbedding(exifEmbedding);
+
     const quality =
       mime === "image/jpeg" || mime === "image/webp"
         ? (options.quality ?? 0.8)
@@ -637,7 +950,6 @@ export async function processImageBlob(
         mime,
         typeof quality === "number" ? quality : undefined,
       );
-      const exifString = buildExifFromEmbedding(exifEmbedding);
       const finalDataUrl =
         exifString != null ? piexif.insert(exifString, dataUrl) : dataUrl;
       resultBlob = dataUrlToBlob(finalDataUrl, mime);
@@ -655,6 +967,31 @@ export async function processImageBlob(
           mime,
           quality,
         );
+      }).then(async (exportedBlob) => {
+        if (
+          !options.stripMetadata &&
+          (mime === "image/png" || mime === "image/webp") &&
+          exifString
+        ) {
+          try {
+            const patched = await embedExifIntoImageBlob(
+              exportedBlob,
+              mime,
+              exifString,
+            );
+            if (patched) {
+              didEmbedMetadata = true;
+              return patched;
+            }
+          } catch (error) {
+            // Metadata embedding is best-effort only; failures must not break export.
+            console.error(
+              "[PastePreset] Failed to embed metadata into result image:",
+              error,
+            );
+          }
+        }
+        return exportedBlob;
       });
     }
   }

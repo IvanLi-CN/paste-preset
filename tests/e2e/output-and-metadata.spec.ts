@@ -154,6 +154,90 @@ test("E2E-061: stripMetadata=false with no resize keeps metadata", async ({
   ).toBeVisible();
 });
 
+test("E2E-064: PNG result preserves metadata when stripMetadata=false", async ({
+  page,
+  testImagesDir,
+}) => {
+  await page.goto("/");
+
+  // Use Original preset and explicitly keep metadata while exporting to PNG.
+  await page.getByRole("button", { name: "Original" }).click();
+
+  const stripCheckbox = page.getByLabel("Strip metadata (EXIF, etc.)");
+  await stripCheckbox.uncheck();
+  await expect(stripCheckbox).not.toBeChecked();
+
+  const formatSelect = page.getByLabel("Format");
+  await formatSelect.selectOption("image/png");
+
+  await uploadFixtureViaFileInput(page, testImagesDir, "photo-exif-sample.jpg");
+  await waitForProcessingToFinish(page);
+
+  const resultCard = page
+    .getByRole("heading", { name: "Result image" })
+    .locator("xpath=../..");
+
+  // Result format is PNG.
+  await expect(
+    resultCard.getByText("Format").locator("xpath=../dd"),
+  ).toHaveText("image/png");
+
+  // Global result metadata badge reports preserved metadata.
+  await expect(page.getByText("Metadata preserved")).toBeVisible();
+
+  const resultMetadataHeader = resultCard.getByText("Metadata").locator("..");
+  await expect(resultMetadataHeader.getByText("Preserved")).toBeVisible();
+
+  // Result card should surface at least some metadata fields when preserved.
+  const resultMetadataFields = resultCard.locator("dt", {
+    hasText: /Captured|Camera|Lens|Exposure|Focal length|Location/,
+  });
+  const fieldCount = await resultMetadataFields.count();
+  expect(fieldCount).toBeGreaterThan(0);
+});
+
+test("E2E-065: WebP result preserves metadata when stripMetadata=false", async ({
+  page,
+  testImagesDir,
+}) => {
+  await page.goto("/");
+
+  // Use Original preset and explicitly keep metadata while exporting to WebP.
+  await page.getByRole("button", { name: "Original" }).click();
+
+  const stripCheckbox = page.getByLabel("Strip metadata (EXIF, etc.)");
+  await stripCheckbox.uncheck();
+  await expect(stripCheckbox).not.toBeChecked();
+
+  const formatSelect = page.getByLabel("Format");
+  await formatSelect.selectOption("image/webp");
+
+  await uploadFixtureViaFileInput(page, testImagesDir, "photo-exif-sample.jpg");
+  await waitForProcessingToFinish(page);
+
+  const resultCard = page
+    .getByRole("heading", { name: "Result image" })
+    .locator("xpath=../..");
+
+  // Result format is WebP.
+  await expect(
+    resultCard.getByText("Format").locator("xpath=../dd"),
+  ).toHaveText("image/webp");
+
+  // Global result metadata badge reports preserved metadata.
+  await expect(page.getByText("Metadata preserved")).toBeVisible();
+
+  const resultMetadataHeader = resultCard.getByText("Metadata").locator("..");
+  await expect(resultMetadataHeader.getByText("Preserved")).toBeVisible();
+
+  // Result card should surface at least some metadata fields when preserved.
+  const resultMetadataFields = resultCard.locator("dt", {
+    hasText: /Captured|Camera|Lens|Exposure|Focal length|Location/,
+  });
+  const fieldCount = await resultMetadataFields.count();
+  expect(fieldCount).toBeGreaterThan(0);
+});
+
 test("E2E-062: HEIC conversion produces JPEG result with stripped metadata", async ({
   page,
   testImagesDir,
