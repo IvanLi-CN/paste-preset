@@ -59,14 +59,16 @@ test("E2E-052 PNG hides quality slider while WebP shows it", async ({
   await expect(page.getByLabel("Quality")).toBeVisible();
 });
 
-test("E2E-060: stripMetadata=true marks result metadata as stripped", async ({
+test("E2E-060: enabling stripMetadata marks result metadata as stripped", async ({
   page,
   testImagesDir,
 }) => {
   await page.goto("/");
 
-  // Default state: stripMetadata should be enabled.
   const stripCheckbox = page.getByLabel("Strip metadata (EXIF, etc.)");
+  // Default configuration keeps metadata; enable stripping explicitly.
+  await expect(stripCheckbox).not.toBeChecked();
+  await stripCheckbox.check();
   await expect(stripCheckbox).toBeChecked();
 
   await uploadFixtureViaFileInput(page, testImagesDir, "photo-large-jpeg.jpg");

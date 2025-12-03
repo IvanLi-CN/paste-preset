@@ -6,7 +6,7 @@ import {
   waitForProcessingToFinish,
 } from "./_helpers";
 
-test("E2E-020 default medium preset resizes large JPEG", async ({
+test("E2E-020 default Original preset keeps large JPEG size", async ({
   page,
   testImagesDir,
 }) => {
@@ -24,10 +24,13 @@ test("E2E-020 default medium preset resizes large JPEG", async ({
     "Result image",
   );
 
+  // Default configuration is the Original preset: keep original resolution.
   expect(sourceDimensions).toBe("4000 × 3000");
-  expect(resultDimensions).toBe("1280 × 960");
+  expect(resultDimensions).toBe("4000 × 3000");
 
-  await expect(page.getByText("Resized to 1280 × 960")).toBeVisible();
+  await expect(page.getByText("Original size")).toBeVisible();
+  // With outputFormat=auto, source and result formats both remain JPEG.
+  await expect(page.getByText("image/jpeg")).toHaveCount(2);
 });
 
 test("E2E-021 Original preset keeps original dimensions", async ({
@@ -54,7 +57,6 @@ test("E2E-021 Original preset keeps original dimensions", async ({
   expect(resultDimensions).toBe("4000 × 3000");
 
   await expect(page.getByText("Original size")).toBeVisible();
-  await expect(page.getByText("image/jpeg")).toHaveCount(2);
 });
 
 test("E2E-022 switching preset reprocesses existing image", async ({
@@ -87,6 +89,35 @@ test("E2E-022 switching preset reprocesses existing image", async ({
   expect(sourceDimensions).toBe("4000 × 3000");
   expect(resultDimensions).toBe("800 × 600");
   await expect(page.getByText("Resized to 800 × 600")).toBeVisible();
+});
+
+test("E2E-023 Medium preset resizes JPEG to 1280-wide PNG and strips metadata", async ({
+  page,
+  testImagesDir,
+}) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Medium" }).click();
+
+  await uploadFixtureViaFileInput(page, testImagesDir, "photo-large-jpeg.jpg");
+  await waitForProcessingToFinish(page);
+
+  const sourceDimensions = await getImageCardDimensionsText(
+    page,
+    "Source image",
+  );
+  const resultDimensions = await getImageCardDimensionsText(
+    page,
+    "Result image",
+  );
+
+  expect(sourceDimensions).toBe("4000 × 3000");
+  expect(resultDimensions).toBe("1280 × 960");
+
+  // Medium preset forces PNG output and enables stripMetadata.
+  await expect(page.getByText("image/jpeg")).toHaveCount(1);
+  await expect(page.getByText("image/png")).toHaveCount(1);
+  await expect(page.getByText("Stripped metadata")).toBeVisible();
 });
 
 test("E2E-030 lock aspect ratio updates height when width changes", async ({

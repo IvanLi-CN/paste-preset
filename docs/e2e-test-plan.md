@@ -147,20 +147,20 @@
 
 ### 3.3 Preset 与尺寸计算
 
-**E2E-020 默认 medium 预设生效**
+**E2E-020 默认 Original 预设保持原始尺寸**
 
 - 前置条件：
   - 使用高分辨率 JPEG `photo-large-jpeg.jpg`（长边 > 2000px）。
 - 步骤：
-  - 打开页面，不改动任何设置（默认 presetId 为 `medium`）。
+  - 打开页面，不改动任何设置（默认 presetId 为 `original`，默认配置等价于 Original 预设）。
   - 通过文件选择载入该 JPEG。
 - 期望结果：
-  - Source Dimensions 与原图一致。
-  - Result Dimensions 满足：
-    - 长边约为 `1280`（`maxLongSide`）且短边按比例。
-  - Result 卡片徽章中，如果 Source/Result 尺寸不同，显示 `Resized to {w} × {h}` 而不是 `Original size`。
+  - Source Dimensions 与原图一致，例如 `4000 × 3000`。
+  - Result Dimensions 与 Source 完全一致。
+  - Result 卡片徽章显示 `Original size`。
+  - Result Format 与 Source 相同（例如 `image/jpeg`），下载扩展名与源格式匹配。
 
-**E2E-021 Original 预设保留原始尺寸**
+**E2E-021 显式选择 Original 预设同样保留原始尺寸**
 
 - 前置条件：同 E2E-020。
 - 步骤：
@@ -289,12 +289,13 @@
 
 ### 3.7 元数据与 HEIC 相关行为
 
-**E2E-060 默认 stripMetadata=true 时结果元数据被标记为已剥离**
+**E2E-060 手动启用 stripMetadata 时结果元数据被标记为已剥离**
 
 - 前置条件：
   - 使用带 EXIF 的 JPEG `photo-large-jpeg.jpg`。
-  - 确保 `Strip metadata` 复选框勾选（默认）。
 - 步骤：
+  - 确保 `Strip metadata` 复选框初始为未勾选（默认行为为保留元数据）。
+  - 手动勾选 `Strip metadata`。
   - 加载图片。
 - 期望结果：
   - Source 卡片：

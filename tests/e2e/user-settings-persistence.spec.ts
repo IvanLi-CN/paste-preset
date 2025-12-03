@@ -113,7 +113,7 @@ test("E2E-121: Reset settings restores defaults and clears storage", async ({
   await page.getByRole("button", { name: "Reset settings" }).click();
 
   // Defaults from defaultUserSettings are applied back to the UI.
-  await expect(page.getByRole("button", { name: "Medium" })).toHaveClass(
+  await expect(page.getByRole("button", { name: "Original" })).toHaveClass(
     /btn-primary/,
   );
 
@@ -121,7 +121,9 @@ test("E2E-121: Reset settings restores defaults and clears storage", async ({
   await expect(page.getByLabel("Height (px)")).toHaveValue("");
 
   await expect(page.getByLabel("Format")).toHaveValue("auto");
-  await expect(page.getByLabel("Strip metadata (EXIF, etc.)")).toBeChecked();
+  await expect(
+    page.getByLabel("Strip metadata (EXIF, etc.)"),
+  ).not.toBeChecked();
 
   // Storage entry is cleared by resetSettings().
   const storedAfterReset = await page.evaluate((key) => {
@@ -152,7 +154,7 @@ test("E2E-122: corrupted stored user settings fall back to defaults", async ({
   expect(pageErrors).toHaveLength(0);
 
   // Settings panel falls back to the same defaults as a fresh install.
-  await expect(page.getByRole("button", { name: "Medium" })).toHaveClass(
+  await expect(page.getByRole("button", { name: "Original" })).toHaveClass(
     /btn-primary/,
   );
 
@@ -160,5 +162,7 @@ test("E2E-122: corrupted stored user settings fall back to defaults", async ({
   await expect(page.getByLabel("Height (px)")).toHaveValue("");
 
   await expect(page.getByLabel("Format")).toHaveValue("auto");
-  await expect(page.getByLabel("Strip metadata (EXIF, etc.)")).toBeChecked();
+  await expect(
+    page.getByLabel("Strip metadata (EXIF, etc.)"),
+  ).not.toBeChecked();
 });
