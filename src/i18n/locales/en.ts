@@ -3,7 +3,6 @@ export const en = {
   "app.title": "PastePreset",
   "app.tagline":
     "Paste or drop an image, resize and convert it entirely in your browser.",
-  "app.privacyNote": "Images stay on this device; no uploads.",
   "app.summary.preset": "Preset",
   "app.summary.size": "Size",
   "app.summary.format": "Format",

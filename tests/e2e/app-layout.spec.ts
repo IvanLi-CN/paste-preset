@@ -16,9 +16,7 @@ test("E2E-001 desktop first screen layout", async ({ page }, testInfo) => {
       "Paste or drop an image, resize and convert it entirely in your browser.",
     ),
   ).toBeVisible();
-  await expect(
-    page.getByText("Images stay on this device; no uploads."),
-  ).toBeVisible();
+  // The separate privacy note in the header has been removed.
 
   // Settings panel (desktop: left column, always visible)
   await expect(

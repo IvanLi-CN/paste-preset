@@ -35,15 +35,13 @@ test("i18n-001: defaults to English UI when browser language is en", async ({
     page.getByRole("heading", { level: 1, name: "PastePreset" }),
   ).toBeVisible();
 
-  // Tagline and privacy note use English copy.
+  // Tagline uses English copy.
   await expect(
     page.getByText(
       "Paste or drop an image, resize and convert it entirely in your browser.",
     ),
   ).toBeVisible();
-  await expect(
-    page.getByText("Images stay on this device; no uploads."),
-  ).toBeVisible();
+  // The separate privacy note is no longer rendered in the header.
 
   // Language selector shows English as the current language.
   const languageToggle = page
@@ -97,11 +95,10 @@ test("i18n-002: switching language updates main texts", async ({
   // Switch to Simplified Chinese.
   await page.getByRole("button", { name: "简体中文" }).click();
 
-  // Main tagline and privacy note should switch to zh-CN.
+  // Main tagline should switch to zh-CN.
   await expect(
     page.getByText("粘贴或拖拽图片，在浏览器中完成尺寸调整和格式转换。"),
   ).toBeVisible();
-  await expect(page.getByText("图片仅在本地处理，不会上传。")).toBeVisible();
 
   // Settings panel title should be localized.
   await expect(
