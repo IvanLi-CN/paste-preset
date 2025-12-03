@@ -189,6 +189,23 @@ For the processed image:
   - Image too large to process (canvas size limits).
   - Clipboard write permission denied.
 
+### User settings persistence
+
+- The app remembers the last used configuration in the same browser and on the same device so users do not need to reconfigure presets and options on each visit.
+- Scope:
+  - Persist preset selection and processing options (resolution fields, resize mode, output format, quality, metadata toggle, and other preference-type flags).
+  - Do not persist actual images, clipboard contents, or other one-off input data.
+  - Do not persist sensitive or personally identifiable information.
+- Storage and lifetime:
+  - Use browser-side local storage (`localStorage`) with a single namespaced key scoped to the app origin.
+  - Store a versioned configuration payload so future schema changes can be handled safely (migration or falling back to defaults).
+  - On first visit, or when the stored configuration is missing or invalid, fall back to built-in defaults.
+- UX:
+  - Apply the stored configuration automatically on app load so the UI reflects the last-used settings.
+  - Provide a “Reset settings” action in the settings panel that clears stored preferences and restores defaults.
+- Resilience:
+  - Local storage errors (unavailable API, quota issues, parse errors) must not break the app; in these cases the app behaves as if persistence is disabled.
+
 2.2 Non-functional
 -------------------
 
@@ -338,6 +355,17 @@ Hooks and helpers:
 - `lib/heic.ts`:
   - Wrapped integration with the HEIC/HEIF converter, loaded lazily.
 
+4.4 User settings persistence
+-----------------------------
+
+- Define a `UserSettings` type that captures persistable preferences (a subset of `ProcessingOptions` plus other UI-level flags such as future theme choice), with `defaultUserSettings` derived from current defaults.
+- Implement a small storage helper (for example `userSettingsStorage`) that wraps `localStorage` read/write, JSON parsing, and version handling for the `paste-preset:user-settings:v1` key.
+- Introduce a React context/hook pair (for example `UserSettingsProvider` and `useUserSettings`) that:
+  - Loads stored settings on mount via the storage helper, validates and merges them with defaults.
+  - Exposes the current settings and an `updateSettings(partial)` helper that updates state and writes back to storage.
+  - Provides a `resetSettings()` helper to clear storage and restore defaults.
+- `App` wires the settings context into `ProcessingOptions` so the UI always reflects the persisted configuration, while keeping non-persisted runtime data (such as `source` / `result`) separate.
+
 5. Clipboard and Browser Integration
 
 ------------------------------------
@@ -380,7 +408,7 @@ Hooks and helpers:
 --------------------------------------------
 
 - Multiple image queue/history with batch processing.
-- User-defined named presets with persistence (e.g. localStorage).
+- User-defined named presets (beyond the single “last used” configuration) with a simple management UI.
 - Dark mode toggle.
 - More advanced metadata control (view/edit EXIF).
 - Drag to reorder and compare multiple result variants (different quality/resolution combinations).
@@ -744,7 +772,7 @@ Hooks and helpers:
 --------------------------------------------
 
 - Multiple image queue/history with batch processing.
-- User-defined named presets with persistence (e.g. localStorage).
+- User-defined named presets (beyond the single “last used” configuration) with a simple management UI.
 - Dark mode toggle.
 - More advanced metadata control (view/edit EXIF).
 - Drag to reorder and compare multiple result variants (different quality/resolution combinations).

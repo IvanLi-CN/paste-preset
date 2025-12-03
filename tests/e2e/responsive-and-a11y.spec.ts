@@ -109,7 +109,9 @@ test("E2E-102: lg viewport keeps Settings visible and removes drawer UI", async 
   await expect(
     page.getByRole("heading", { level: 2, name: "Settings" }).first(),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Settings" })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Settings", exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Close settings" }),
   ).toHaveCount(0);
@@ -129,7 +131,9 @@ test("E2E-102: lg viewport keeps Settings visible and removes drawer UI", async 
   await expect(
     page.getByRole("heading", { level: 2, name: "Settings" }).first(),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Settings" })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Settings", exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Close settings" }),
   ).toHaveCount(0);

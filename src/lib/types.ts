@@ -19,6 +19,23 @@ export interface ProcessingOptions {
   stripMetadata: boolean;
 }
 
+/**
+ * Persistable subset of processing-related preferences.
+ * This is intentionally decoupled from the runtime ProcessingOptions type so
+ * future non-persisted fields can be added without affecting storage.
+ */
+export type UserSettings = Pick<
+  ProcessingOptions,
+  | "presetId"
+  | "targetWidth"
+  | "targetHeight"
+  | "lockAspectRatio"
+  | "resizeMode"
+  | "outputFormat"
+  | "quality"
+  | "stripMetadata"
+>;
+
 export interface ImageInfo {
   blob: Blob;
   url: string;

@@ -1,17 +1,19 @@
+import { useUserSettings } from "../hooks/useUserSettings.tsx";
 import { useTranslation } from "../i18n";
-import { DEFAULT_OPTIONS, PRESETS } from "../lib/presets.ts";
-import type { ImageInfo, ProcessingOptions, ResizeMode } from "../lib/types.ts";
+import { PRESETS } from "../lib/presets.ts";
+import type { ImageInfo, ResizeMode, UserSettings } from "../lib/types.ts";
+import { defaultUserSettings } from "../lib/userSettings.ts";
 import { PresetButtons } from "./PresetButtons.tsx";
 
 interface SettingsPanelProps {
-  options: ProcessingOptions;
-  onOptionsChange: (next: ProcessingOptions) => void;
   currentImage?: ImageInfo | null;
 }
 
 export function SettingsPanel(props: SettingsPanelProps) {
-  const { options, onOptionsChange, currentImage } = props;
+  const { currentImage } = props;
   const { t } = useTranslation();
+  const { settings, updateSettings, resetSettings } = useUserSettings();
+  const options = settings;
 
   const aspectRatio = (() => {
     // Prefer the actual source/result image aspect ratio when available.
@@ -37,7 +39,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
   })();
 
   const handlePresetSelect = (
-    presetId: NonNullable<ProcessingOptions["presetId"]>,
+    presetId: NonNullable<UserSettings["presetId"]>,
   ) => {
     const preset = PRESETS.find((item) => item.id === presetId);
 
@@ -45,10 +47,9 @@ export function SettingsPanel(props: SettingsPanelProps) {
     // For Original or presets without an explicit default, keep current
     // quality, falling back to the global default if still null.
     const nextQuality =
-      preset?.defaultQuality ?? options.quality ?? DEFAULT_OPTIONS.quality;
+      preset?.defaultQuality ?? options.quality ?? defaultUserSettings.quality;
 
-    onOptionsChange({
-      ...options,
+    updateSettings({
       presetId,
       // Clear explicit dimensions so the preset's maxLongSide logic
       // can drive the computed target size.
@@ -77,8 +78,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
     ) {
       if (key === "targetWidth") {
         const derivedHeight = Math.round(nextValue / aspectRatio);
-        onOptionsChange({
-          ...options,
+        updateSettings({
           targetWidth: nextValue,
           targetHeight: derivedHeight,
         });
@@ -87,8 +87,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
 
       if (key === "targetHeight") {
         const derivedWidth = Math.round(nextValue * aspectRatio);
-        onOptionsChange({
-          ...options,
+        updateSettings({
           targetWidth: derivedWidth,
           targetHeight: nextValue,
         });
@@ -96,32 +95,26 @@ export function SettingsPanel(props: SettingsPanelProps) {
       }
     }
 
-    onOptionsChange({
-      ...options,
+    updateSettings({
       [key]: nextValue,
     });
   };
 
   const handleResizeModeChange = (mode: ResizeMode) => {
-    onOptionsChange({
-      ...options,
+    updateSettings({
       resizeMode: mode,
     });
   };
 
-  const handleOutputFormatChange = (
-    value: ProcessingOptions["outputFormat"],
-  ) => {
-    onOptionsChange({
-      ...options,
+  const handleOutputFormatChange = (value: UserSettings["outputFormat"]) => {
+    updateSettings({
       outputFormat: value,
     });
   };
 
   const handleQualityChange = (value: string) => {
     const asNumber = Number.parseFloat(value);
-    onOptionsChange({
-      ...options,
+    updateSettings({
       quality: Number.isNaN(asNumber) ? null : asNumber,
     });
   };
@@ -192,8 +185,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                   className="toggle toggle-sm"
                   checked={options.lockAspectRatio}
                   onChange={(event) =>
-                    onOptionsChange({
-                      ...options,
+                    updateSettings({
                       lockAspectRatio: event.target.checked,
                     })
                   }
@@ -245,7 +237,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                     value={options.outputFormat}
                     onChange={(event) =>
                       handleOutputFormatChange(
-                        event.target.value as ProcessingOptions["outputFormat"],
+                        event.target.value as UserSettings["outputFormat"],
                       )
                     }
                   >
@@ -294,8 +286,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                     className="checkbox checkbox-sm"
                     checked={options.stripMetadata}
                     onChange={(event) =>
-                      onOptionsChange({
-                        ...options,
+                      updateSettings({
                         stripMetadata: event.target.checked,
                       })
                     }
@@ -303,6 +294,15 @@ export function SettingsPanel(props: SettingsPanelProps) {
                   <span>{t("settings.output.stripMetadata")}</span>
                 </label>
               </div>
+            </div>
+            <div className="pt-2 text-right">
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs"
+                onClick={resetSettings}
+              >
+                {t("settings.actions.reset")}
+              </button>
             </div>
           </div>
         </div>

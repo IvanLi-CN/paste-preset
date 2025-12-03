@@ -62,6 +62,8 @@ export const zhCN: TranslationMessages = {
   "settings.output.quality.label": "质量",
   "settings.output.stripMetadata": "移除元数据（EXIF 等）",
 
+  "settings.actions.reset": "重置设置",
+
   "settings.about.title": "关于",
   "settings.about.description":
     "PastePreset 完全在浏览器中运行，图片不会离开你的设备。粘贴截图或将照片拖到右侧即可开始处理。",

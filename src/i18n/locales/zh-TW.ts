@@ -62,6 +62,8 @@ export const zhTW: TranslationMessages = {
   "settings.output.quality.label": "品質",
   "settings.output.stripMetadata": "移除中繼資料（EXIF 等）",
 
+  "settings.actions.reset": "重設設定",
+
   "settings.about.title": "關於",
   "settings.about.description":
     "PastePreset 完全在瀏覽器中執行，圖片不會離開你的裝置。貼上螢幕截圖或將照片拖曳到右側即可開始處理。",

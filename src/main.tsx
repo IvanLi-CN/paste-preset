@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.tsx";
+import { UserSettingsProvider } from "./hooks/useUserSettings.tsx";
 import { I18nProvider } from "./i18n";
 
 const LIGHT_THEME = "winter";
@@ -45,7 +46,9 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <I18nProvider>
-      <App />
+      <UserSettingsProvider>
+        <App />
+      </UserSettingsProvider>
     </I18nProvider>
   </StrictMode>,
 );

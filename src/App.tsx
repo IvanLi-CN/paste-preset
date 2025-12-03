@@ -7,14 +7,15 @@ import { SettingsPanel } from "./components/SettingsPanel.tsx";
 import { StatusBar } from "./components/StatusBar.tsx";
 import { useClipboard } from "./hooks/useClipboard.ts";
 import { useImageProcessor } from "./hooks/useImageProcessor.ts";
+import { useUserSettings } from "./hooks/useUserSettings.tsx";
 import type { TranslationKey } from "./i18n";
 import { useTranslation } from "./i18n";
-import { DEFAULT_OPTIONS, PRESETS } from "./lib/presets.ts";
-import type { ImageInfo, ProcessingOptions } from "./lib/types.ts";
+import { PRESETS } from "./lib/presets.ts";
+import type { ImageInfo } from "./lib/types.ts";
 
 function App() {
   const { t } = useTranslation();
-  const [options, setOptions] = useState<ProcessingOptions>(DEFAULT_OPTIONS);
+  const { settings, processingOptions } = useUserSettings();
   const [uiError, setUiError] = useState<string | null>(null);
   const [viewportWidth, setViewportWidth] = useState<number>(() =>
     typeof window === "undefined" ? 0 : window.innerWidth,
@@ -29,7 +30,7 @@ function App() {
     result,
     processBlob,
     resetError: resetProcessingError,
-  } = useImageProcessor(options);
+  } = useImageProcessor(processingOptions);
 
   const {
     isCopying,
@@ -47,13 +48,13 @@ function App() {
   const isSmOrMd = isSm || isMd;
   const isLgUp = viewportWidth >= 1024;
 
-  const presetConfig = PRESETS.find((item) => item.id === options.presetId);
+  const presetConfig = PRESETS.find((item) => item.id === settings.presetId);
   const presetLabel = presetConfig
     ? t(presetConfig.labelKey as TranslationKey)
     : t("settings.presets.custom");
 
   const formatLabel = (() => {
-    switch (options.outputFormat) {
+    switch (settings.outputFormat) {
       case "auto":
         return t("settings.output.format.auto");
       case "image/jpeg":
@@ -63,13 +64,13 @@ function App() {
       case "image/webp":
         return t("settings.output.format.webp");
       default:
-        return options.outputFormat;
+        return settings.outputFormat;
     }
   })();
 
   const sizeLabel = (() => {
     const autoLabel = t("app.summary.auto");
-    const { targetWidth, targetHeight } = options;
+    const { targetWidth, targetHeight } = settings;
     if (
       typeof targetWidth === "number" &&
       typeof targetHeight === "number" &&
@@ -88,7 +89,7 @@ function App() {
   })();
 
   const resizeModeLabel = (() => {
-    switch (options.resizeMode) {
+    switch (settings.resizeMode) {
       case "fit":
         return t("settings.resizeMode.fit");
       case "fill":
@@ -96,7 +97,7 @@ function App() {
       case "stretch":
         return t("settings.resizeMode.stretch");
       default:
-        return options.resizeMode;
+        return settings.resizeMode;
     }
   })();
 
@@ -257,11 +258,7 @@ function App() {
           {isXs ? (
             <>
               <div className="w-full">
-                <SettingsPanel
-                  options={options}
-                  onOptionsChange={setOptions}
-                  currentImage={settingsAspectSource}
-                />
+                <SettingsPanel currentImage={settingsAspectSource} />
               </div>
 
               <div className="flex w-full flex-1 flex-col gap-4">
@@ -288,11 +285,7 @@ function App() {
             <div className="flex w-full flex-1 flex-col gap-4 lg:flex-row">
               {(isLgUp || (isMd && !hasImage)) && (
                 <div className="w-full md:w-72 md:shrink-0 lg:w-1/3">
-                  <SettingsPanel
-                    options={options}
-                    onOptionsChange={setOptions}
-                    currentImage={settingsAspectSource}
-                  />
+                  <SettingsPanel currentImage={settingsAspectSource} />
                 </div>
               )}
 
@@ -385,11 +378,7 @@ function App() {
                         <Icon icon="mdi:close" className="h-4 w-4" />
                       </button>
                     </div>
-                    <SettingsPanel
-                      options={options}
-                      onOptionsChange={setOptions}
-                      currentImage={settingsAspectSource}
-                    />
+                    <SettingsPanel currentImage={settingsAspectSource} />
                   </div>
                 </button>
               )}

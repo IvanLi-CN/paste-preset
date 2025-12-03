@@ -81,7 +81,9 @@ test("E2E-002 mobile first screen layout", async ({ page }, testInfo) => {
   }
   expect(settingsBox.y).toBeLessThan(pasteBox.y);
 
-  await expect(page.getByRole("button", { name: "Settings" })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Settings", exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Close settings" }),
   ).toHaveCount(0);
