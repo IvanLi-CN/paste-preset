@@ -13,12 +13,28 @@ try {
     process.env.APP_EFFECTIVE_VERSION ?? process.env.VITE_APP_VERSION ?? "";
   const envVersion = envVersionRaw.trim();
 
-  const version =
-    envVersion.length > 0
-      ? envVersion
-      : typeof pkg.version === "string" && pkg.version.length > 0
-        ? pkg.version
-        : "0.0.0";
+  const isCi =
+    process.env.CI === "true" ||
+    process.env.GITHUB_ACTIONS === "true" ||
+    process.env.APP_EFFECTIVE_VERSION != null;
+
+  let baseVersion;
+  if (envVersion.length > 0) {
+    baseVersion = envVersion;
+  } else if (typeof pkg.version === "string" && pkg.version.length > 0) {
+    baseVersion = pkg.version;
+  } else {
+    baseVersion = "0.0.0";
+  }
+
+  let version = baseVersion;
+  if (!isCi && envVersion.length === 0) {
+    // Local development / non-CI build: append a clear dev marker
+    // so that dev builds are visually distinct from CI/release builds.
+    if (!/-dev($|\.)/.test(baseVersion)) {
+      version = `${baseVersion}-dev`;
+    }
+  }
 
   const projectRoot = join(__dirname, "..");
   const distDir = join(projectRoot, "dist");
