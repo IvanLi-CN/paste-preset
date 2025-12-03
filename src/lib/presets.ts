@@ -1,4 +1,4 @@
-import type { PresetId, ProcessingOptions } from "./types.ts";
+import type { OutputFormat, PresetId, ProcessingOptions } from "./types.ts";
 
 export interface PresetConfig {
   id: Exclude<PresetId, null>;
@@ -16,6 +16,16 @@ export interface PresetConfig {
    * Default quality when this preset is selected, in [0.1, 1.0].
    */
   defaultQuality: number | null;
+  /**
+   * Optional preset-specific override for the output format. When omitted,
+   * the default configuration's outputFormat is used.
+   */
+  outputFormat?: OutputFormat;
+  /**
+   * Optional preset-specific override for metadata behaviour. When omitted,
+   * the default configuration's stripMetadata is used.
+   */
+  stripMetadata?: boolean;
 }
 
 export const PRESETS: PresetConfig[] = [
@@ -32,6 +42,8 @@ export const PRESETS: PresetConfig[] = [
     labelKey: "settings.presets.large",
     maxLongSide: 2048,
     defaultQuality: 0.85,
+    outputFormat: "image/png",
+    stripMetadata: true,
   },
   {
     id: "medium",
@@ -39,6 +51,8 @@ export const PRESETS: PresetConfig[] = [
     labelKey: "settings.presets.medium",
     maxLongSide: 1280,
     defaultQuality: 0.8,
+    outputFormat: "image/png",
+    stripMetadata: true,
   },
   {
     id: "small",
@@ -46,16 +60,20 @@ export const PRESETS: PresetConfig[] = [
     labelKey: "settings.presets.small",
     maxLongSide: 800,
     defaultQuality: 0.8,
+    outputFormat: "image/png",
+    stripMetadata: true,
   },
 ];
 
 export const DEFAULT_OPTIONS: ProcessingOptions = {
-  presetId: "medium",
+  // Default configuration represents the "Original" behaviour:
+  // keep source resolution, auto output format, and preserve metadata.
+  presetId: "original",
   targetWidth: null,
   targetHeight: null,
   lockAspectRatio: true,
   resizeMode: "fit",
   outputFormat: "auto",
   quality: 0.8,
-  stripMetadata: true,
+  stripMetadata: false,
 };

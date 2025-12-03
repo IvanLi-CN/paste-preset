@@ -43,20 +43,33 @@ export function SettingsPanel(props: SettingsPanelProps) {
   ) => {
     const preset = PRESETS.find((item) => item.id === presetId);
 
-    // For non-Original presets, apply their suggested default quality.
-    // For Original or presets without an explicit default, keep current
-    // quality, falling back to the global default if still null.
-    const nextQuality =
-      preset?.defaultQuality ?? options.quality ?? defaultUserSettings.quality;
-
-    updateSettings({
+    // Presets are applied as patches against the global default configuration,
+    // not against the current settings:
+    // 1) Start from the default user settings (Original behaviour).
+    // 2) Apply the preset-specific overrides.
+    // 3) Replace the current settings with the result.
+    const base: UserSettings = {
+      ...defaultUserSettings,
       presetId,
-      // Clear explicit dimensions so the preset's maxLongSide logic
-      // can drive the computed target size.
+      // Clear explicit dimensions so the preset's maxLongSide logic (if any)
+      // can determine the target size.
       targetWidth: null,
       targetHeight: null,
-      quality: nextQuality,
-    });
+    };
+
+    if (preset && preset.defaultQuality != null) {
+      base.quality = preset.defaultQuality;
+    }
+
+    if (preset?.outputFormat) {
+      base.outputFormat = preset.outputFormat;
+    }
+
+    if (preset && typeof preset.stripMetadata === "boolean") {
+      base.stripMetadata = preset.stripMetadata;
+    }
+
+    updateSettings(base);
   };
 
   const handleNumericChange = (
