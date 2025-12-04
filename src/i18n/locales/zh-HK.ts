@@ -40,6 +40,9 @@ export const zhHK: TranslationMessages = {
   "settings.presets.medium": "中",
   "settings.presets.small": "小",
   "settings.presets.custom": "自訂",
+  "settings.presets.unsaved": "未儲存",
+  "settings.presets.fallbackWarning":
+    "無法在此裝置上儲存預設。對預設的更改在關閉頁面後不會被保留。",
 
   "settings.resolution.title": "解像度",
   "settings.resolution.width": "闊度（px）",

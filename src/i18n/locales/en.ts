@@ -40,6 +40,9 @@ export const en = {
   "settings.presets.medium": "Medium",
   "settings.presets.small": "Small",
   "settings.presets.custom": "Custom",
+  "settings.presets.unsaved": "Unsaved",
+  "settings.presets.fallbackWarning":
+    "Unable to save presets on this device. Changes to presets will not be remembered after closing this page.",
 
   "settings.resolution.title": "Resolution",
   "settings.resolution.width": "Width (px)",

@@ -1,9 +1,7 @@
 import { useUserPresets } from "../hooks/useUserPresets.tsx";
 import { useUserSettings } from "../hooks/useUserSettings.tsx";
 import { useTranslation } from "../i18n";
-import { PRESETS } from "../lib/presets.ts";
 import type { ImageInfo, ResizeMode, UserSettings } from "../lib/types.ts";
-import { defaultUserSettings } from "../lib/userSettings.ts";
 import { PresetButtons } from "./PresetButtons.tsx";
 
 interface SettingsPanelProps {
@@ -15,7 +13,26 @@ export function SettingsPanel(props: SettingsPanelProps) {
   const { t } = useTranslation();
   const { settings, updateSettings, resetSettings } = useUserSettings();
   const options = settings;
-  const { activePresetId, setActivePresetId } = useUserPresets();
+  const {
+    mode: presetsMode,
+    presets,
+    activePresetId,
+    editingPresetId,
+    unsavedSlot,
+    setActivePresetId,
+    beginEditPreset,
+    applyEditPreset,
+    cancelEditPreset,
+    beginUnsavedFromLocked,
+    applyUnsavedToNewPreset,
+    cancelUnsaved,
+  } = useUserPresets();
+
+  const activePreset = presets.find((preset) => preset.id === activePresetId);
+
+  const isEditingSavedPreset =
+    presetsMode === "normal" && Boolean(editingPresetId) && !unsavedSlot;
+  const isEditingUnsaved = presetsMode === "normal" && Boolean(unsavedSlot);
 
   const aspectRatio = (() => {
     // Prefer the actual source/result image aspect ratio when available.
@@ -40,45 +57,37 @@ export function SettingsPanel(props: SettingsPanelProps) {
     return null;
   })();
 
-  const handlePresetSelect = (
-    presetId: NonNullable<UserSettings["presetId"]>,
-  ) => {
-    const presetConfig = PRESETS.find((item) => item.id === presetId);
-
-    // Presets are applied as patches against the global default configuration,
-    // not against the current settings:
-    // 1) Start from the default user settings (Original behaviour).
-    // 2) Apply the preset-specific overrides.
-    // 3) Replace the current settings with the result.
-    const base: UserSettings = {
-      ...defaultUserSettings,
-      presetId,
-      // Clear explicit dimensions so the preset's maxLongSide logic (if any)
-      // can determine the target size.
-      targetWidth: null,
-      targetHeight: null,
-    };
-
-    if (presetConfig && presetConfig.defaultQuality != null) {
-      base.quality = presetConfig.defaultQuality;
+  const handlePresetSelect = (presetId: string) => {
+    const presetRecord = presets.find((preset) => preset.id === presetId);
+    if (!presetRecord) {
+      return;
     }
 
-    if (presetConfig?.outputFormat) {
-      base.outputFormat = presetConfig.outputFormat;
+    // In both normal and fallback modes, the saved preset list provides
+    // the snapshot to apply to UserSettings.
+    updateSettings(presetRecord.settings);
+    setActivePresetId(presetRecord.id);
+  };
+
+  const beginUnsavedIfNeeded = () => {
+    if (
+      presetsMode !== "normal" ||
+      unsavedSlot ||
+      editingPresetId ||
+      !options.presetId
+    ) {
+      return;
     }
 
-    if (presetConfig && typeof presetConfig.stripMetadata === "boolean") {
-      base.stripMetadata = presetConfig.stripMetadata;
-    }
-
-    updateSettings(base);
-    setActivePresetId(presetId);
+    beginUnsavedFromLocked(options.presetId, options);
   };
 
   const handleNumericChange = (
     key: "targetWidth" | "targetHeight",
     value: string,
   ) => {
+    beginUnsavedIfNeeded();
+
     const parsed = Number.parseInt(value, 10);
     const nextValue = Number.isNaN(parsed) ? null : parsed;
 
@@ -117,18 +126,21 @@ export function SettingsPanel(props: SettingsPanelProps) {
   };
 
   const handleResizeModeChange = (mode: ResizeMode) => {
+    beginUnsavedIfNeeded();
     updateSettings({
       resizeMode: mode,
     });
   };
 
   const handleOutputFormatChange = (value: UserSettings["outputFormat"]) => {
+    beginUnsavedIfNeeded();
     updateSettings({
       outputFormat: value,
     });
   };
 
   const handleQualityChange = (value: string) => {
+    beginUnsavedIfNeeded();
     const asNumber = Number.parseFloat(value);
     updateSettings({
       quality: Number.isNaN(asNumber) ? null : asNumber,
@@ -138,6 +150,64 @@ export function SettingsPanel(props: SettingsPanelProps) {
   const showQuality =
     options.outputFormat === "image/jpeg" ||
     options.outputFormat === "image/webp";
+
+  const handleEditClick = () => {
+    if (!activePresetId || presetsMode !== "normal") {
+      return;
+    }
+
+    const preset = presets.find((item) => item.id === activePresetId);
+    if (!preset) {
+      return;
+    }
+
+    beginEditPreset(activePresetId);
+    // Start editing from the last persisted preset configuration.
+    updateSettings(preset.settings);
+  };
+
+  const handleEditSave = () => {
+    if (!isEditingSavedPreset || !editingPresetId) {
+      return;
+    }
+    applyEditPreset(options);
+  };
+
+  const handleEditCancel = () => {
+    if (!editingPresetId) {
+      return;
+    }
+
+    const preset = presets.find((item) => item.id === editingPresetId);
+    if (preset) {
+      // Restore the last persisted configuration for this preset.
+      updateSettings(preset.settings);
+    }
+
+    cancelEditPreset();
+  };
+
+  const handleUnsavedSave = () => {
+    if (!isEditingUnsaved || !unsavedSlot) {
+      return;
+    }
+    applyUnsavedToNewPreset(options);
+  };
+
+  const handleUnsavedCancel = () => {
+    if (!unsavedSlot) {
+      return;
+    }
+
+    const sourcePreset = presets.find(
+      (preset) => preset.id === unsavedSlot.sourceId,
+    );
+    if (sourcePreset) {
+      updateSettings(sourcePreset.settings);
+    }
+
+    cancelUnsaved();
+  };
 
   return (
     <aside className="space-y-6">
@@ -149,7 +219,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
           </p>
 
           <PresetButtons
-            selectedId={activePresetId as UserSettings["presetId"]}
+            selectedId={isEditingUnsaved ? "__unsaved__" : activePresetId}
             onPresetSelect={handlePresetSelect}
           />
 
@@ -200,11 +270,12 @@ export function SettingsPanel(props: SettingsPanelProps) {
                   type="checkbox"
                   className="toggle toggle-sm"
                   checked={options.lockAspectRatio}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    beginUnsavedIfNeeded();
                     updateSettings({
                       lockAspectRatio: event.target.checked,
-                    })
-                  }
+                    });
+                  }}
                 />
                 <span>{t("settings.resolution.lockAspectRatio")}</span>
               </label>
@@ -304,24 +375,88 @@ export function SettingsPanel(props: SettingsPanelProps) {
                     type="checkbox"
                     className="checkbox checkbox-sm"
                     checked={options.stripMetadata}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      beginUnsavedIfNeeded();
                       updateSettings({
                         stripMetadata: event.target.checked,
-                      })
-                    }
+                      });
+                    }}
                   />
                   <span>{t("settings.output.stripMetadata")}</span>
                 </label>
               </div>
             </div>
-            <div className="pt-2 text-right">
-              <button
-                type="button"
-                className="btn btn-ghost btn-xs"
-                onClick={resetSettings}
-              >
-                {t("settings.actions.reset")}
-              </button>
+            <div className="pt-2 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs"
+                  onClick={resetSettings}
+                >
+                  {t("settings.actions.reset")}
+                </button>
+
+                {presetsMode === "normal" && (
+                  <div className="flex justify-end gap-2">
+                    {isEditingSavedPreset && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-xs"
+                          onClick={handleEditSave}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-xs"
+                          onClick={handleEditCancel}
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    )}
+
+                    {isEditingUnsaved && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-xs"
+                          onClick={handleUnsavedSave}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-xs"
+                          onClick={handleUnsavedCancel}
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    )}
+
+                    {!isEditingSavedPreset &&
+                      !isEditingUnsaved &&
+                      activePreset &&
+                      presetsMode === "normal" && (
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-xs"
+                          onClick={handleEditClick}
+                        >
+                          Edit
+                        </button>
+                      )}
+                  </div>
+                )}
+              </div>
+
+              {presetsMode === "fallback" && (
+                <p className="text-xs text-warning text-right">
+                  {t("settings.presets.fallbackWarning")}
+                </p>
+              )}
             </div>
           </div>
         </div>

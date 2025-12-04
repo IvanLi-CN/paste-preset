@@ -40,6 +40,9 @@ export const zhTW: TranslationMessages = {
   "settings.presets.medium": "中",
   "settings.presets.small": "小",
   "settings.presets.custom": "自訂",
+  "settings.presets.unsaved": "未儲存",
+  "settings.presets.fallbackWarning":
+    "無法在此裝置上儲存預設。對預設的變更在關閉頁面後不會被保留。",
 
   "settings.resolution.title": "解析度",
   "settings.resolution.width": "寬度（px）",

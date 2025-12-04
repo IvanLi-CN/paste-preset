@@ -43,7 +43,14 @@ const UserSettingsContext = createContext<UserSettingsContextValue | undefined>(
 export function UserSettingsProvider(props: { children: ReactNode }) {
   const { children } = props;
 
-  const { setActivePresetId } = useUserPresets();
+  const {
+    mode: presetsMode,
+    presets,
+    activePresetId,
+    editingPresetId,
+    unsavedSlot,
+    setActivePresetId,
+  } = useUserPresets();
 
   const [settings, setSettings] = useState<UserSettings>(() => {
     // Initial load happens synchronously so the first paint reflects persisted
@@ -70,10 +77,39 @@ export function UserSettingsProvider(props: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (settings.presetId) {
-      setActivePresetId(settings.presetId);
+    if (!settings.presetId) {
+      return;
     }
-  }, [settings.presetId, setActivePresetId]);
+
+    if (presetsMode === "normal") {
+      // When editing a saved preset or working with an unsaved slot in normal
+      // mode, the preset lifecycle context owns the active preset id and we
+      // intentionally avoid overwriting it from user settings.
+      if (editingPresetId || unsavedSlot) {
+        return;
+      }
+
+      const activePreset = presets.find(
+        (preset) => preset.id === activePresetId,
+      );
+      if (activePreset && activePreset.kind === "user") {
+        // When a user preset is active, keep it as the primary source of
+        // truth for selection instead of falling back to the underlying
+        // system preset id from UserSettings.
+        return;
+      }
+    }
+
+    setActivePresetId(settings.presetId);
+  }, [
+    settings.presetId,
+    presetsMode,
+    presets,
+    activePresetId,
+    editingPresetId,
+    unsavedSlot,
+    setActivePresetId,
+  ]);
 
   const processingOptions = useMemo(
     () => userSettingsToProcessingOptions(settings),

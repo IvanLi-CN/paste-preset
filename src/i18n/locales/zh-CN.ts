@@ -40,6 +40,9 @@ export const zhCN: TranslationMessages = {
   "settings.presets.medium": "中",
   "settings.presets.small": "小",
   "settings.presets.custom": "自定义",
+  "settings.presets.unsaved": "未保存",
+  "settings.presets.fallbackWarning":
+    "无法在此设备上保存预设。对预设的更改在关闭页面后不会被保留。",
 
   "settings.resolution.title": "分辨率",
   "settings.resolution.width": "宽度（px）",

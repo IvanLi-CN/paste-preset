@@ -183,6 +183,29 @@ function normalizeStoredPreset(value: unknown): UserPresetRecord | null {
   };
 }
 
+export function getNextCustomPresetName(presets: UserPresetRecord[]): string {
+  const prefix = "自定义";
+  const usedNumbers: number[] = [];
+
+  for (const preset of presets) {
+    if (typeof preset.name !== "string") continue;
+    if (!preset.name.startsWith(prefix)) continue;
+
+    const suffix = preset.name.slice(prefix.length);
+    const n = Number.parseInt(suffix, 10);
+    if (!Number.isNaN(n) && n > 0) {
+      usedNumbers.push(n);
+    }
+  }
+
+  if (usedNumbers.length === 0) {
+    return "自定义1";
+  }
+
+  const maxN = Math.max(...usedNumbers);
+  return `${prefix}${maxN + 1}`;
+}
+
 export const userPresetsStorage = {
   load(): { mode: PresetStorageMode; presets: UserPresetRecord[] } {
     const raw = readRawUserPresets();
