@@ -211,25 +211,28 @@ export function SettingsPanel(props: SettingsPanelProps) {
               <div className="mb-2 text-sm font-semibold">
                 {t("settings.resizeMode.title")}
               </div>
-              <div className="join join-vertical lg:join-horizontal">
+              <div className="join">
                 {(["fit", "fill", "stretch"] satisfies ResizeMode[]).map(
-                  (mode) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      className={[
-                        "btn btn-xs join-item",
-                        options.resizeMode === mode
-                          ? "btn-outline btn-primary"
-                          : "btn-ghost",
-                      ].join(" ")}
-                      onClick={() => handleResizeModeChange(mode)}
-                    >
-                      {mode === "fit" && t("settings.resizeMode.fit")}
-                      {mode === "fill" && t("settings.resizeMode.fill")}
-                      {mode === "stretch" && t("settings.resizeMode.stretch")}
-                    </button>
-                  ),
+                  (mode) => {
+                    const label =
+                      mode === "fit"
+                        ? t("settings.resizeMode.fit")
+                        : mode === "fill"
+                          ? t("settings.resizeMode.fill")
+                          : t("settings.resizeMode.stretch");
+
+                    return (
+                      <input
+                        key={mode}
+                        type="radio"
+                        name="resizeMode"
+                        aria-label={label}
+                        className="btn btn-xs join-item"
+                        checked={options.resizeMode === mode}
+                        onChange={() => handleResizeModeChange(mode)}
+                      />
+                    );
+                  },
                 )}
               </div>
             </div>
