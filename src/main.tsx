@@ -4,6 +4,7 @@ import "./index.css";
 import App from "./App.tsx";
 import { UserSettingsProvider } from "./hooks/useUserSettings.tsx";
 import { I18nProvider } from "./i18n";
+import { getInitialUserPresetsState } from "./lib/userPresets.ts";
 
 const LIGHT_THEME = "winter";
 const DARK_THEME = "dim";
@@ -36,6 +37,9 @@ function setupSystemThemeSync() {
 }
 
 setupSystemThemeSync();
+// Initialize the user presets storage once so subsequent React code can rely
+// on a stable in-memory snapshot and localStorage entry when available.
+getInitialUserPresetsState();
 
 const rootElement = document.getElementById("root");
 
