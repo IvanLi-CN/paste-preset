@@ -13,6 +13,16 @@ function readPackageVersion(): string {
   return version;
 }
 
+function readExpectedBaseVersion(): string {
+  // In CI, the app footer uses APP_EFFECTIVE_VERSION (computed via tags);
+  // locally it falls back to package.json version. Mirror that logic here.
+  const fromEnv = (process.env.APP_EFFECTIVE_VERSION ?? "").trim();
+  if (fromEnv) {
+    return fromEnv;
+  }
+  return readPackageVersion();
+}
+
 test("E2E-016 footer shows app version derived from package.json", async ({
   page,
 }, testInfo) => {
@@ -22,7 +32,7 @@ test("E2E-016 footer shows app version derived from package.json", async ({
 
   await page.goto("/");
 
-  const baseVersion = readPackageVersion();
+  const baseVersion = readExpectedBaseVersion();
 
   const footer = page.getByRole("contentinfo");
   const versionLabel = footer.getByText(/^v/);
