@@ -281,7 +281,7 @@ function App() {
               </div>
             </>
           ) : (
-            <div className="flex w-full flex-1 flex-col gap-4 lg:flex-row">
+            <div className="flex w-full flex-1 flex-col gap-4 md:flex-row">
               {(isLgUp || (isMd && !hasImage)) && (
                 <div className="w-full md:w-72 md:shrink-0 lg:w-1/3">
                   <SettingsPanel currentImage={settingsAspectSource} />
