@@ -26,7 +26,7 @@ export function PresetButtons(props: PresetButtonsProps) {
               type="button"
               className={[
                 "btn btn-sm join-item",
-                isActive ? "btn-primary" : "btn-ghost",
+                isActive ? "btn-primary btn-active" : "",
               ].join(" ")}
               onClick={() => onPresetSelect(preset.id)}
             >
