@@ -138,7 +138,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
 
   return (
     <aside className="space-y-6">
-      <section className="card bg-base-200">
+      <section className="card bg-base-100">
         <div className="card-body">
           <h2 className="card-title text-lg">{t("settings.title")}</h2>
           <p className="text-sm text-base-content/70">
