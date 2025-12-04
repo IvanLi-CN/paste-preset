@@ -238,7 +238,7 @@ test("E2E-041 Fill mode outputs exact target dimensions", async ({
   await widthInput.fill("800");
   await heightInput.fill("600");
 
-  await page.getByRole("button", { name: "Fill (crop)" }).click();
+  await page.getByRole("radio", { name: "Fill (crop)" }).check();
   await waitForProcessingToFinish(page);
 
   const resultDimensions = await getImageCardDimensionsText(
@@ -267,7 +267,7 @@ test("E2E-042 Stretch mode outputs exact target dimensions", async ({
   await widthInput.fill("800");
   await heightInput.fill("600");
 
-  await page.getByRole("button", { name: "Stretch" }).click();
+  await page.getByRole("radio", { name: "Stretch" }).check();
   await waitForProcessingToFinish(page);
 
   const resultDimensions = await getImageCardDimensionsText(
