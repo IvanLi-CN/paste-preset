@@ -3,6 +3,7 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -13,6 +14,7 @@ import {
   userSettingsStorage,
   userSettingsToProcessingOptions,
 } from "../lib/userSettings.ts";
+import { useUserPresets } from "./useUserPresets.tsx";
 
 interface UserSettingsContextValue {
   /**
@@ -41,6 +43,8 @@ const UserSettingsContext = createContext<UserSettingsContextValue | undefined>(
 export function UserSettingsProvider(props: { children: ReactNode }) {
   const { children } = props;
 
+  const { setActivePresetId } = useUserPresets();
+
   const [settings, setSettings] = useState<UserSettings>(() => {
     // Initial load happens synchronously so the first paint reflects persisted
     // preferences when possible.
@@ -64,6 +68,12 @@ export function UserSettingsProvider(props: { children: ReactNode }) {
     const next = userSettingsStorage.reset();
     setSettings(next);
   }, []);
+
+  useEffect(() => {
+    if (settings.presetId) {
+      setActivePresetId(settings.presetId);
+    }
+  }, [settings.presetId, setActivePresetId]);
 
   const processingOptions = useMemo(
     () => userSettingsToProcessingOptions(settings),

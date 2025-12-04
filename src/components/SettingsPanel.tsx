@@ -1,3 +1,4 @@
+import { useUserPresets } from "../hooks/useUserPresets.tsx";
 import { useUserSettings } from "../hooks/useUserSettings.tsx";
 import { useTranslation } from "../i18n";
 import { PRESETS } from "../lib/presets.ts";
@@ -14,6 +15,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
   const { t } = useTranslation();
   const { settings, updateSettings, resetSettings } = useUserSettings();
   const options = settings;
+  const { activePresetId, setActivePresetId } = useUserPresets();
 
   const aspectRatio = (() => {
     // Prefer the actual source/result image aspect ratio when available.
@@ -41,7 +43,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
   const handlePresetSelect = (
     presetId: NonNullable<UserSettings["presetId"]>,
   ) => {
-    const preset = PRESETS.find((item) => item.id === presetId);
+    const presetConfig = PRESETS.find((item) => item.id === presetId);
 
     // Presets are applied as patches against the global default configuration,
     // not against the current settings:
@@ -57,19 +59,20 @@ export function SettingsPanel(props: SettingsPanelProps) {
       targetHeight: null,
     };
 
-    if (preset && preset.defaultQuality != null) {
-      base.quality = preset.defaultQuality;
+    if (presetConfig && presetConfig.defaultQuality != null) {
+      base.quality = presetConfig.defaultQuality;
     }
 
-    if (preset?.outputFormat) {
-      base.outputFormat = preset.outputFormat;
+    if (presetConfig?.outputFormat) {
+      base.outputFormat = presetConfig.outputFormat;
     }
 
-    if (preset && typeof preset.stripMetadata === "boolean") {
-      base.stripMetadata = preset.stripMetadata;
+    if (presetConfig && typeof presetConfig.stripMetadata === "boolean") {
+      base.stripMetadata = presetConfig.stripMetadata;
     }
 
     updateSettings(base);
+    setActivePresetId(presetId);
   };
 
   const handleNumericChange = (
@@ -146,7 +149,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
           </p>
 
           <PresetButtons
-            selectedId={options.presetId}
+            selectedId={activePresetId as UserSettings["presetId"]}
             onPresetSelect={handlePresetSelect}
           />
 

@@ -8,6 +8,7 @@ import { StatusBar } from "./components/StatusBar.tsx";
 import { useAppVersion } from "./hooks/useAppVersion.ts";
 import { useClipboard } from "./hooks/useClipboard.ts";
 import { useImageProcessor } from "./hooks/useImageProcessor.ts";
+import { useUserPresets } from "./hooks/useUserPresets.tsx";
 import { useUserSettings } from "./hooks/useUserSettings.tsx";
 import type { TranslationKey } from "./i18n";
 import { useTranslation } from "./i18n";
@@ -16,6 +17,7 @@ import type { ImageInfo } from "./lib/types.ts";
 
 function App() {
   const { t } = useTranslation();
+  const { presets, activePresetId } = useUserPresets();
   const { settings, processingOptions } = useUserSettings();
   const { version } = useAppVersion();
   const [uiError, setUiError] = useState<string | null>(null);
@@ -50,10 +52,32 @@ function App() {
   const isSmOrMd = isSm || isMd;
   const isLgUp = viewportWidth >= 1024;
 
-  const presetConfig = PRESETS.find((item) => item.id === settings.presetId);
-  const presetLabel = presetConfig
-    ? t(presetConfig.labelKey as TranslationKey)
-    : t("settings.presets.custom");
+  const activePreset = presets.find((preset) => preset.id === activePresetId);
+
+  const presetLabel = (() => {
+    if (activePreset) {
+      // System presets keep using the i18n label for the current locale.
+      if (activePreset.kind === "system") {
+        const presetConfig = PRESETS.find(
+          (item) => item.id === activePreset.id,
+        );
+        if (presetConfig) {
+          return t(presetConfig.labelKey as TranslationKey);
+        }
+      }
+      // Future user presets may provide custom display names.
+      return activePreset.name;
+    }
+
+    const fallbackConfig = PRESETS.find(
+      (item) => item.id === settings.presetId,
+    );
+    if (fallbackConfig) {
+      return t(fallbackConfig.labelKey as TranslationKey);
+    }
+
+    return t("settings.presets.custom");
+  })();
 
   const formatLabel = (() => {
     switch (settings.outputFormat) {

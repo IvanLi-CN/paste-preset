@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.tsx";
+import { UserPresetsProvider } from "./hooks/useUserPresets.tsx";
 import { UserSettingsProvider } from "./hooks/useUserSettings.tsx";
 import { I18nProvider } from "./i18n";
 import { getInitialUserPresetsState } from "./lib/userPresets.ts";
@@ -50,9 +51,11 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <I18nProvider>
-      <UserSettingsProvider>
-        <App />
-      </UserSettingsProvider>
+      <UserPresetsProvider>
+        <UserSettingsProvider>
+          <App />
+        </UserSettingsProvider>
+      </UserPresetsProvider>
     </I18nProvider>
   </StrictMode>,
 );
