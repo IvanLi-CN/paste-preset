@@ -1,7 +1,7 @@
 import type { TranslationKey } from "../i18n";
 import { DEFAULT_OPTIONS, PRESETS } from "./presets.ts";
 import type { UserSettings } from "./types.ts";
-import { normalizeUserSettings } from "./userSettings.ts";
+import { defaultUserSettings, normalizeUserSettings } from "./userSettings.ts";
 
 export type PresetStorageMode = "normal" | "fallback";
 
@@ -248,6 +248,119 @@ export function getPresetDisplayName(
   }
 
   return t("settings.presets.custom" as TranslationKey);
+}
+
+export interface PresetDiffToken {
+  kind: "size" | "format" | "quality" | "metadata";
+  short: string;
+}
+
+export function getPresetDiffTokens(
+  settings: UserSettings,
+  t: (key: TranslationKey) => string,
+): PresetDiffToken[] {
+  const width = settings.targetWidth;
+  const height = settings.targetHeight;
+
+  const widthChanged =
+    width !== null && width !== defaultUserSettings.targetWidth;
+  const heightChanged =
+    height !== null && height !== defaultUserSettings.targetHeight;
+
+  const tokens: PresetDiffToken[] = [];
+
+  if (widthChanged || heightChanged) {
+    const widthLabel = widthChanged && width !== null ? String(width) : "auto";
+    const heightLabel =
+      heightChanged && height !== null ? String(height) : "auto";
+
+    tokens.push({
+      kind: "size",
+      short: `${widthLabel}×${heightLabel}`,
+    });
+  }
+
+  if (settings.outputFormat !== defaultUserSettings.outputFormat) {
+    const formatLabelKey =
+      settings.outputFormat === "image/jpeg"
+        ? "settings.output.format.jpeg"
+        : settings.outputFormat === "image/png"
+          ? "settings.output.format.png"
+          : settings.outputFormat === "image/webp"
+            ? "settings.output.format.webp"
+            : "settings.output.format.auto";
+    const formatLabel = t(formatLabelKey as TranslationKey);
+    tokens.push({
+      kind: "format",
+      short: formatLabel,
+    });
+  }
+
+  if (
+    settings.quality != null &&
+    settings.quality !== defaultUserSettings.quality
+  ) {
+    const percent = Math.round(settings.quality * 100);
+    tokens.push({
+      kind: "quality",
+      short: `${percent}%`,
+    });
+  }
+
+  if (settings.stripMetadata && !defaultUserSettings.stripMetadata) {
+    tokens.push({
+      kind: "metadata",
+      short: t("settings.presets.diff.stripMetadata.short" as TranslationKey),
+    });
+  }
+
+  return tokens;
+}
+
+export function describePresetDiff(
+  settings: UserSettings,
+  t: (key: TranslationKey) => string,
+): string {
+  const tokens = getPresetDiffTokens(settings, t);
+  if (!tokens.length) {
+    return "";
+  }
+
+  const parts: string[] = [];
+
+  for (const token of tokens) {
+    switch (token.kind) {
+      case "size":
+        parts.push(
+          t("settings.presets.diff.size" as TranslationKey).replace(
+            "{value}",
+            token.short,
+          ),
+        );
+        break;
+      case "format":
+        parts.push(
+          t("settings.presets.diff.format" as TranslationKey).replace(
+            "{value}",
+            token.short,
+          ),
+        );
+        break;
+      case "quality":
+        parts.push(
+          t("settings.presets.diff.quality" as TranslationKey).replace(
+            "{value}",
+            token.short,
+          ),
+        );
+        break;
+      case "metadata":
+        parts.push(t("settings.presets.diff.stripMetadata" as TranslationKey));
+        break;
+    }
+  }
+
+  return parts.join(", ");
 }
 
 export const userPresetsStorage = {

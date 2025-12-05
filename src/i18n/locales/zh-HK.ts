@@ -41,6 +41,7 @@ export const zhHK: TranslationMessages = {
   "settings.presets.small": "小",
   "settings.presets.custom": "自訂",
   "settings.presets.unsaved": "未儲存",
+  "settings.presets.delete": "刪除",
   "settings.presets.fallbackWarning":
     "無法在此裝置上儲存預設。對預設的更改在關閉頁面後不會被保留。",
 
@@ -63,6 +64,12 @@ export const zhHK: TranslationMessages = {
   "settings.output.format.webp": "WebP",
   "settings.output.quality.label": "質素",
   "settings.output.stripMetadata": "移除中繼資料（EXIF 等）",
+
+  "settings.presets.diff.size": "尺寸: {value}",
+  "settings.presets.diff.format": "格式: {value}",
+  "settings.presets.diff.quality": "質素: {value}",
+  "settings.presets.diff.stripMetadata": "移除中繼資料",
+  "settings.presets.diff.stripMetadata.short": "脫敏",
 
   "settings.actions.reset": "重設設定",
 

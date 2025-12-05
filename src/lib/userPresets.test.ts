@@ -2,9 +2,11 @@ import { describe, expect, test } from "vitest";
 import type { TranslationKey } from "../i18n";
 import type { UserPresetRecord } from "./userPresets.ts";
 import {
+  describePresetDiff,
   getNextCustomPresetName,
   getPresetDisplayName,
 } from "./userPresets.ts";
+import { defaultUserSettings } from "./userSettings.ts";
 
 describe("getNextCustomPresetName", () => {
   test("returns 自定义1 when there are no existing custom presets", () => {
@@ -142,5 +144,89 @@ describe("getPresetDisplayName", () => {
     const t: (key: TranslationKey) => string = (key) => key;
 
     expect(getPresetDisplayName(preset, t)).toBe("settings.presets.custom");
+  });
+});
+
+describe("describePresetDiff", () => {
+  test("returns empty string when there are no differences", () => {
+    const t: (key: TranslationKey) => string = (key) => {
+      if (key === "settings.presets.diff.size") return "Size: {value}";
+      if (key === "settings.presets.diff.format") return "Format: {value}";
+      if (key === "settings.presets.diff.quality") return "Quality: {value}";
+      if (key === "settings.presets.diff.stripMetadata")
+        return "Strip metadata";
+      if (key === "settings.presets.diff.stripMetadata.short") {
+        return "Strip meta";
+      }
+      return key;
+    };
+
+    const summary = describePresetDiff(defaultUserSettings, t);
+    expect(summary).toBe("");
+  });
+
+  test("describes size when only dimensions change", () => {
+    const summary = describePresetDiff(
+      {
+        ...defaultUserSettings,
+        targetWidth: 800,
+        targetHeight: 600,
+      },
+      (key) =>
+        key === "settings.presets.diff.size"
+          ? "Size: {value}"
+          : (key as string),
+    );
+    expect(summary).toBe("Size: 800×600");
+  });
+
+  test("describes width-only override as width×auto", () => {
+    const summary = describePresetDiff(
+      {
+        ...defaultUserSettings,
+        targetWidth: 1024,
+        targetHeight: null,
+      },
+      (key) =>
+        key === "settings.presets.diff.size"
+          ? "Size: {value}"
+          : (key as string),
+    );
+    expect(summary).toBe("Size: 1024×auto");
+  });
+
+  test("describes format override", () => {
+    const summary = describePresetDiff(
+      {
+        ...defaultUserSettings,
+        outputFormat: "image/png",
+      },
+      (key) =>
+        key === "settings.presets.diff.format"
+          ? "Format: {value}"
+          : key === "settings.output.format.png"
+            ? "PNG"
+            : (key as string),
+    );
+    expect(summary).toBe("Format: PNG");
+  });
+
+  test("describes stripMetadata override when enabled", () => {
+    const summary = describePresetDiff(
+      {
+        ...defaultUserSettings,
+        stripMetadata: true,
+      },
+      (key) => {
+        if (key === "settings.presets.diff.stripMetadata") {
+          return "Strip metadata";
+        }
+        if (key === "settings.presets.diff.stripMetadata.short") {
+          return "Strip meta";
+        }
+        return key as string;
+      },
+    );
+    expect(summary).toBe("Strip metadata");
   });
 });

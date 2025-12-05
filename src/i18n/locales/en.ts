@@ -41,6 +41,7 @@ export const en = {
   "settings.presets.small": "Small",
   "settings.presets.custom": "Custom",
   "settings.presets.unsaved": "Unsaved",
+  "settings.presets.delete": "Delete",
   "settings.presets.fallbackWarning":
     "Unable to save presets on this device. Changes to presets will not be remembered after closing this page.",
 
@@ -63,6 +64,12 @@ export const en = {
   "settings.output.format.webp": "WebP",
   "settings.output.quality.label": "Quality",
   "settings.output.stripMetadata": "Strip metadata (EXIF, etc.)",
+
+  "settings.presets.diff.size": "Size: {value}",
+  "settings.presets.diff.format": "Format: {value}",
+  "settings.presets.diff.quality": "Quality: {value}",
+  "settings.presets.diff.stripMetadata": "Strip metadata",
+  "settings.presets.diff.stripMetadata.short": "Strip meta",
 
   "settings.actions.reset": "Reset settings",
 

@@ -42,6 +42,7 @@ interface UserPresetsContextValue {
   beginEditPreset: (id: string) => void;
   applyEditPreset: (settings: UserSettings) => void;
   cancelEditPreset: () => void;
+  deletePreset: (id: string) => void;
   beginRenamingPreset: (id: string) => void;
   applyRenamePreset: (id: string, newName: string) => void;
   cancelRenamePreset: () => void;
@@ -261,6 +262,29 @@ export function UserPresetsProvider(props: { children: ReactNode }) {
     }
   }, [unsavedSlot]);
 
+  const deletePreset = useCallback(
+    (id: string) => {
+      if (mode !== "normal") return;
+      if (editingPresetId || unsavedSlot || renamingPresetId) return;
+
+      setPresets((current) => {
+        const index = current.findIndex((preset) => preset.id === id);
+        if (index === -1) return current;
+
+        const nextPresets = current.filter((preset) => preset.id !== id);
+
+        const result = userPresetsStorage.save(nextPresets);
+        setMode(result.mode);
+
+        return result.presets;
+      });
+
+      // Active preset fallback and Settings synchronization are handled
+      // at the SettingsPanel layer based on the latest presets state.
+    },
+    [mode, editingPresetId, unsavedSlot, renamingPresetId],
+  );
+
   const value = useMemo<UserPresetsContextValue>(
     () => ({
       mode,
@@ -273,6 +297,7 @@ export function UserPresetsProvider(props: { children: ReactNode }) {
       beginEditPreset,
       applyEditPreset,
       cancelEditPreset,
+      deletePreset,
       beginRenamingPreset,
       applyRenamePreset,
       cancelRenamePreset,
@@ -291,6 +316,7 @@ export function UserPresetsProvider(props: { children: ReactNode }) {
       beginEditPreset,
       applyEditPreset,
       cancelEditPreset,
+      deletePreset,
       beginRenamingPreset,
       applyRenamePreset,
       cancelRenamePreset,

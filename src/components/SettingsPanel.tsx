@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { useUserPresets } from "../hooks/useUserPresets.tsx";
 import { useUserSettings } from "../hooks/useUserSettings.tsx";
 import { useTranslation } from "../i18n";
 import type { ImageInfo, ResizeMode, UserSettings } from "../lib/types.ts";
+import type { SystemPresetId } from "../lib/userPresets.ts";
 import { PresetButtons } from "./PresetButtons.tsx";
 
 interface SettingsPanelProps {
@@ -208,6 +210,31 @@ export function SettingsPanel(props: SettingsPanelProps) {
 
     cancelUnsaved();
   };
+
+  useEffect(() => {
+    if (!activePresetId) return;
+
+    const exists = presets.some((preset) => preset.id === activePresetId);
+    if (exists) return;
+
+    const bySystemId = (id: SystemPresetId) =>
+      presets.find((preset) => preset.systemPresetId === id);
+
+    const fallbackPreset =
+      bySystemId("original") ??
+      bySystemId("large") ??
+      bySystemId("medium") ??
+      bySystemId("small") ??
+      presets[0] ??
+      null;
+
+    if (!fallbackPreset) {
+      return;
+    }
+
+    setActivePresetId(fallbackPreset.id);
+    updateSettings(fallbackPreset.settings);
+  }, [activePresetId, presets, setActivePresetId, updateSettings]);
 
   return (
     <aside className="space-y-6">

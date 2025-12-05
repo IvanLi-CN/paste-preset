@@ -531,3 +531,225 @@ test("E2E-147: renaming cancelled by Esc keeps original name", async ({
     kind: "system",
   });
 });
+
+test("E2E-148: deleting a user preset removes it and falls back to another preset", async ({
+  page,
+}, testInfo) => {
+  if (testInfo.project.name !== "desktop") {
+    test.skip();
+  }
+
+  await page.goto("/");
+
+  const smallButton = page.getByRole("button", { name: "Small" });
+  await smallButton.click();
+
+  // Create a custom preset via the unsaved flow so that we reach vertical mode.
+  const widthInput = page.getByLabel("Width (px)");
+  await widthInput.fill("1234");
+
+  const saveButton = page.getByRole("button", { name: "Save", exact: true });
+  await expect(saveButton).toBeVisible();
+  await saveButton.click();
+
+  const customPresetButton = page.getByRole("button", { name: "自定义1" });
+  await expect(customPresetButton).toBeVisible();
+  await expect(customPresetButton).toHaveClass(/btn-ghost/);
+
+  const customRow = customPresetButton.locator("xpath=..");
+  const deleteButton = customRow.getByRole("button", { name: "Delete" });
+
+  await expect(deleteButton).toBeEnabled();
+  await deleteButton.click();
+
+  // Custom preset entry is removed from the list.
+  await expect(page.getByRole("button", { name: "自定义1" })).toHaveCount(0);
+
+  // Active preset falls back to an existing system preset (Original preferred).
+  const originalButtonAfterDelete = page.getByRole("button", {
+    name: "Original",
+  });
+  await expect(originalButtonAfterDelete).toHaveClass(/btn-primary/);
+});
+
+test("E2E-149: deleting a system preset updates storage and reselects a fallback", async ({
+  page,
+}, testInfo) => {
+  if (testInfo.project.name !== "desktop") {
+    test.skip();
+  }
+
+  const storedPresets = {
+    version: 1,
+    presets: [
+      {
+        id: "original",
+        name: "Original",
+        kind: "system" as const,
+        settings: {
+          presetId: "original" as const,
+          targetWidth: null,
+          targetHeight: null,
+          lockAspectRatio: true,
+          resizeMode: "fit" as const,
+          outputFormat: "auto" as const,
+          quality: 0.8,
+          stripMetadata: false,
+        },
+      },
+      {
+        id: "large",
+        name: "Large",
+        kind: "system" as const,
+        settings: {
+          presetId: "large" as const,
+          targetWidth: null,
+          targetHeight: null,
+          lockAspectRatio: true,
+          resizeMode: "fit" as const,
+          outputFormat: "auto" as const,
+          quality: 0.8,
+          stripMetadata: false,
+        },
+      },
+      {
+        id: "medium",
+        name: "Medium",
+        kind: "system" as const,
+        settings: {
+          presetId: "medium" as const,
+          targetWidth: null,
+          targetHeight: null,
+          lockAspectRatio: true,
+          resizeMode: "fit" as const,
+          outputFormat: "auto" as const,
+          quality: 0.8,
+          stripMetadata: false,
+        },
+      },
+      {
+        id: "small",
+        name: "Small",
+        kind: "system" as const,
+        settings: {
+          presetId: "small" as const,
+          targetWidth: null,
+          targetHeight: null,
+          lockAspectRatio: true,
+          resizeMode: "fit" as const,
+          outputFormat: "auto" as const,
+          quality: 0.8,
+          stripMetadata: false,
+        },
+      },
+      {
+        id: "user-1",
+        name: "自定义1",
+        kind: "user" as const,
+        settings: {
+          presetId: null,
+          targetWidth: null,
+          targetHeight: null,
+          lockAspectRatio: true,
+          resizeMode: "fit" as const,
+          outputFormat: "auto" as const,
+          quality: 0.8,
+          stripMetadata: false,
+        },
+      },
+    ],
+  } as const;
+
+  await page.addInitScript(
+    ({ key, payload }) => {
+      window.localStorage.setItem(key, JSON.stringify(payload));
+    },
+    { key: USER_PRESETS_KEY, payload: storedPresets },
+  );
+
+  await page.goto("/");
+
+  const originalButton = page.getByRole("button", { name: "Original" });
+  await originalButton.click();
+
+  const originalRow = originalButton.locator("xpath=..");
+  const deleteButton = originalRow.getByRole("button", { name: "Delete" });
+
+  await expect(deleteButton).toBeEnabled();
+  await deleteButton.click();
+
+  // Original preset is removed from the UI.
+  await expect(page.getByRole("button", { name: "Original" })).toHaveCount(0);
+
+  const storageSnapshot = await page.evaluate((key) => {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+
+    try {
+      const parsed = JSON.parse(raw) as {
+        presets?: { id?: string | null }[];
+      };
+      if (!Array.isArray(parsed.presets)) {
+        return null;
+      }
+      const hasOriginal = parsed.presets.some(
+        (preset) => preset.id === "original",
+      );
+      return { hasOriginal };
+    } catch {
+      return null;
+    }
+  }, USER_PRESETS_KEY);
+
+  expect(storageSnapshot).toEqual({ hasOriginal: false });
+
+  // Active preset falls back to Large (first remaining system preset).
+  const largeButton = page.getByRole("button", { name: "Large" });
+  await expect(largeButton).toHaveClass(/btn-primary/);
+});
+
+test("E2E-150: fallback mode disables preset deletion", async ({
+  page,
+}, testInfo) => {
+  if (testInfo.project.name !== "desktop") {
+    test.skip();
+  }
+
+  await page.addInitScript((key) => {
+    // Ensure a clean starting point and then simulate failing writes so that
+    // presets enter fallback mode on first load.
+    window.localStorage.removeItem(key);
+
+    Storage.prototype.setItem = function (
+      this: Storage,
+      _storageKey: string,
+      _value: string,
+    ): void {
+      throw new Error(
+        "Simulated localStorage.setItem failure for presets (fallback)",
+      );
+    };
+  }, USER_PRESETS_KEY);
+
+  await page.goto("/");
+
+  const originalButton = page.getByRole("button", { name: "Original" });
+  const originalRow = originalButton.locator("xpath=..");
+  const deleteButton = originalRow.getByRole("button", { name: "Delete" });
+
+  await expect(deleteButton).toBeDisabled();
+
+  // Force-click should still not change storage or UI.
+  await deleteButton.click({ force: true });
+
+  await expect(page.getByRole("button", { name: "Original" })).toHaveCount(1);
+
+  const storageSnapshot = await page.evaluate((key) => {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    return raw;
+  }, USER_PRESETS_KEY);
+
+  // Storage writes should still be failing, so no presets are persisted.
+  expect(storageSnapshot).toBeNull();
+});
