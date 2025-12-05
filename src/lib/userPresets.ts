@@ -1,12 +1,16 @@
+import type { TranslationKey } from "../i18n";
 import { DEFAULT_OPTIONS, PRESETS } from "./presets.ts";
 import type { UserSettings } from "./types.ts";
 import { normalizeUserSettings } from "./userSettings.ts";
 
 export type PresetStorageMode = "normal" | "fallback";
 
+export type SystemPresetId = "original" | "large" | "medium" | "small";
+
 export interface UserPresetRecord {
   id: string; // globally unique identifier, including system preset ids
-  name: string; // display name; system presets use the current English labels
+  systemPresetId: SystemPresetId | null;
+  name: string | null; // display name; system presets use the current English labels
   kind: "system" | "user";
   settings: UserSettings; // snapshot compatible with docs/presets.md semantics
 }
@@ -39,6 +43,8 @@ function hasLocalStorage(): boolean {
  * docs/presets.md, producing a normalized UserSettings snapshot.
  */
 function buildSystemUserPresets(): UserPresetRecord[] {
+  const systemIds: SystemPresetId[] = ["original", "large", "medium", "small"];
+
   const base: UserSettings = {
     ...DEFAULT_OPTIONS,
   };
@@ -67,6 +73,9 @@ function buildSystemUserPresets(): UserPresetRecord[] {
 
     return {
       id: preset.id,
+      systemPresetId: systemIds.includes(preset.id as SystemPresetId)
+        ? (preset.id as SystemPresetId)
+        : null,
       name: preset.label,
       kind: "system",
       settings: normalizeUserSettings(settings),
@@ -168,15 +177,33 @@ function normalizeStoredPreset(value: unknown): UserPresetRecord | null {
       ? candidate.kind
       : "user";
 
-  const name =
-    typeof candidate.name === "string" && candidate.name.trim()
-      ? candidate.name
-      : id;
+  const rawSystemPresetId = (
+    candidate as {
+      systemPresetId?: unknown;
+    }
+  ).systemPresetId;
+
+  const systemPresetId: SystemPresetId | null =
+    rawSystemPresetId === "original" ||
+    rawSystemPresetId === "large" ||
+    rawSystemPresetId === "medium" ||
+    rawSystemPresetId === "small"
+      ? rawSystemPresetId
+      : kind === "system" &&
+          (id === "original" ||
+            id === "large" ||
+            id === "medium" ||
+            id === "small")
+        ? (id as SystemPresetId)
+        : null;
+
+  const name = typeof candidate.name === "string" ? candidate.name : null;
 
   const normalizedSettings = normalizeUserSettings(candidate.settings);
 
   return {
     id,
+    systemPresetId,
     name,
     kind,
     settings: normalizedSettings,
@@ -204,6 +231,23 @@ export function getNextCustomPresetName(presets: UserPresetRecord[]): string {
 
   const maxN = Math.max(...usedNumbers);
   return `${prefix}${maxN + 1}`;
+}
+
+export function getPresetDisplayName(
+  preset: UserPresetRecord,
+  t: (key: TranslationKey) => string,
+): string {
+  const raw = preset.name?.trim();
+  if (raw) {
+    return raw;
+  }
+
+  if (preset.systemPresetId) {
+    const key = `settings.presets.${preset.systemPresetId}` as TranslationKey;
+    return t(key);
+  }
+
+  return t("settings.presets.custom" as TranslationKey);
 }
 
 export const userPresetsStorage = {

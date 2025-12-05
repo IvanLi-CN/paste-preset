@@ -1,7 +1,8 @@
+import { useEffect, useRef } from "react";
 import { useUserPresets } from "../hooks/useUserPresets.tsx";
 import type { TranslationKey } from "../i18n";
 import { useTranslation } from "../i18n";
-import { PRESETS } from "../lib/presets.ts";
+import { getPresetDisplayName } from "../lib/userPresets.ts";
 
 interface PresetButtonsProps {
   selectedId: string | null;
@@ -11,10 +12,28 @@ interface PresetButtonsProps {
 export function PresetButtons(props: PresetButtonsProps) {
   const { selectedId, onPresetSelect } = props;
   const { t } = useTranslation();
-  const { presets, editingPresetId, unsavedSlot } = useUserPresets();
+  const {
+    presets,
+    editingPresetId,
+    unsavedSlot,
+    renamingPresetId,
+    beginRenamingPreset,
+    applyRenamePreset,
+    cancelRenamePreset,
+  } = useUserPresets();
 
-  const canSwitchPresets = !editingPresetId && !unsavedSlot;
+  const canSwitchPresets =
+    !editingPresetId && !unsavedSlot && !renamingPresetId;
   const hasUnsavedSlot = Boolean(unsavedSlot);
+
+  const renameInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (renamingPresetId && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [renamingPresetId]);
 
   return (
     <div className="mb-4">
@@ -26,18 +45,32 @@ export function PresetButtons(props: PresetButtonsProps) {
           const isActive = selectedId === preset.id;
           const isDisabled = !canSwitchPresets && !isActive;
 
-          const label =
-            preset.kind === "system"
-              ? (() => {
-                  const presetConfig = PRESETS.find(
-                    (item) => item.id === preset.id,
-                  );
-                  if (presetConfig) {
-                    return t(presetConfig.labelKey as TranslationKey);
+          const label = getPresetDisplayName(preset, (key) => t(key));
+
+          if (renamingPresetId === preset.id) {
+            return (
+              <input
+                key={preset.id}
+                ref={renameInputRef}
+                className="input input-sm join-item input-bordered"
+                defaultValue={preset.name ?? label}
+                onBlur={(e) => applyRenamePreset(preset.id, e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    applyRenamePreset(
+                      preset.id,
+                      (e.target as HTMLInputElement).value,
+                    );
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    (e.target as HTMLInputElement).blur();
+                    cancelRenamePreset();
                   }
-                  return preset.name;
-                })()
-              : preset.name;
+                }}
+              />
+            );
+          }
 
           return (
             <button
@@ -48,6 +81,9 @@ export function PresetButtons(props: PresetButtonsProps) {
                 isActive ? "btn-primary btn-active" : "",
               ].join(" ")}
               onClick={() => canSwitchPresets && onPresetSelect(preset.id)}
+              onDoubleClick={() =>
+                canSwitchPresets && beginRenamingPreset(preset.id)
+              }
               disabled={isDisabled}
             >
               {label}

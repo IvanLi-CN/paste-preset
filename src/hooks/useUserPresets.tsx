@@ -28,6 +28,11 @@ interface UserPresetsContextValue {
    */
   editingPresetId: string | null;
   /**
+   * Id of the preset that is currently being renamed inline.
+   * At most one preset may be in renaming mode at any time.
+   */
+  renamingPresetId: string | null;
+  /**
    * Single temporary unsaved slot derived from a locked preset.
    * When non-null, preset switching is disabled until saved or cancelled.
    */
@@ -37,6 +42,9 @@ interface UserPresetsContextValue {
   beginEditPreset: (id: string) => void;
   applyEditPreset: (settings: UserSettings) => void;
   cancelEditPreset: () => void;
+  beginRenamingPreset: (id: string) => void;
+  applyRenamePreset: (id: string, newName: string) => void;
+  cancelRenamePreset: () => void;
   beginUnsavedFromLocked: (
     lockedId: string,
     baseSettings: UserSettings,
@@ -78,6 +86,7 @@ export function UserPresetsProvider(props: { children: ReactNode }) {
     settings: UserSettings;
     sourceId: string;
   } | null>(null);
+  const [renamingPresetId, setRenamingPresetId] = useState<string | null>(null);
 
   const setActivePresetId = useCallback(
     (id: string) => {
@@ -94,14 +103,14 @@ export function UserPresetsProvider(props: { children: ReactNode }) {
   const beginEditPreset = useCallback(
     (id: string) => {
       if (mode !== "normal") return;
-      if (editingPresetId || unsavedSlot) return;
+      if (editingPresetId || unsavedSlot || renamingPresetId) return;
 
       const existing = presets.find((preset) => preset.id === id);
       if (!existing) return;
 
       setEditingPresetId(id);
     },
-    [mode, editingPresetId, unsavedSlot, presets],
+    [mode, editingPresetId, unsavedSlot, renamingPresetId, presets],
   );
 
   const applyEditPreset = useCallback(
@@ -140,10 +149,60 @@ export function UserPresetsProvider(props: { children: ReactNode }) {
     setEditingPresetId(null);
   }, [editingPresetId]);
 
+  const beginRenamingPreset = useCallback(
+    (id: string) => {
+      if (mode !== "normal") return;
+      if (editingPresetId || unsavedSlot) return;
+
+      const existing = presets.find((preset) => preset.id === id);
+      if (!existing) return;
+
+      setRenamingPresetId(id);
+    },
+    [mode, editingPresetId, unsavedSlot, presets],
+  );
+
+  const applyRenamePreset = useCallback(
+    (id: string, newName: string) => {
+      if (mode !== "normal") return;
+      if (renamingPresetId !== id) return;
+
+      const trimmed = newName.trim();
+      if (!trimmed) {
+        setRenamingPresetId(null);
+        return;
+      }
+
+      setPresets((current) => {
+        const index = current.findIndex((preset) => preset.id === id);
+        if (index === -1) {
+          return current;
+        }
+
+        const nextPresets = [...current];
+        nextPresets[index] = {
+          ...nextPresets[index],
+          name: trimmed,
+        };
+
+        const result = userPresetsStorage.save(nextPresets);
+        setMode(result.mode);
+        return result.presets;
+      });
+
+      setRenamingPresetId(null);
+    },
+    [mode, renamingPresetId],
+  );
+
+  const cancelRenamePreset = useCallback(() => {
+    setRenamingPresetId(null);
+  }, []);
+
   const beginUnsavedFromLocked = useCallback(
     (lockedId: string, baseSettings: UserSettings) => {
       if (mode !== "normal") return;
-      if (unsavedSlot || editingPresetId) return;
+      if (unsavedSlot || editingPresetId || renamingPresetId) return;
 
       const sourcePreset = presets.find((preset) => preset.id === lockedId);
       if (!sourcePreset) return;
@@ -156,7 +215,7 @@ export function UserPresetsProvider(props: { children: ReactNode }) {
       // of the UI can continue to derive labels from it. The unsavedSlot flag
       // itself is used to gate interactions.
     },
-    [mode, unsavedSlot, editingPresetId, presets],
+    [mode, unsavedSlot, editingPresetId, renamingPresetId, presets],
   );
 
   const applyUnsavedToNewPreset = useCallback(
@@ -171,6 +230,7 @@ export function UserPresetsProvider(props: { children: ReactNode }) {
         const name = getNextCustomPresetName(current);
         const newPreset: UserPresetRecord = {
           id: newId,
+          systemPresetId: null,
           name,
           kind: "user",
           settings: normalizedSettings,
@@ -207,11 +267,15 @@ export function UserPresetsProvider(props: { children: ReactNode }) {
       presets,
       activePresetId,
       editingPresetId,
+      renamingPresetId,
       unsavedSlot,
       setActivePresetId,
       beginEditPreset,
       applyEditPreset,
       cancelEditPreset,
+      beginRenamingPreset,
+      applyRenamePreset,
+      cancelRenamePreset,
       beginUnsavedFromLocked,
       applyUnsavedToNewPreset,
       cancelUnsaved,
@@ -221,11 +285,15 @@ export function UserPresetsProvider(props: { children: ReactNode }) {
       presets,
       activePresetId,
       editingPresetId,
+      renamingPresetId,
       unsavedSlot,
       setActivePresetId,
       beginEditPreset,
       applyEditPreset,
       cancelEditPreset,
+      beginRenamingPreset,
+      applyRenamePreset,
+      cancelRenamePreset,
       beginUnsavedFromLocked,
       applyUnsavedToNewPreset,
       cancelUnsaved,

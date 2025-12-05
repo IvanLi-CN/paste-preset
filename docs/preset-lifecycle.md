@@ -54,15 +54,53 @@ initialisation of the user-local preset list.
 The user-local preset list is stored as an array of records, conceptually:
 
 ```ts
+type SystemPresetId = "original" | "large" | "medium" | "small";
+
 interface UserPresetRecord {
-  id: string; // stable identifier; system presets reuse "original"/"large"/...
-  name: string; // display name; translated for system presets, arbitrary for user presets
+  /**
+   * Stable identifier for this record. System presets reuse
+   * "original" / "large" / "medium" / "small" for the four canonical
+   * presets; user presets use generated ids such as "user-...".
+   */
+  id: string;
+  /**
+   * When non-null, ties this record to one of the four system presets.
+   * This expresses the preset's "behavioural identity" (patch semantics)
+   * independently of its current display name.
+   *
+   * Examples:
+   * - The built-in "Original" preset has systemPresetId: "original".
+   * - A user-created preset derived from "Small" may also keep
+   *   systemPresetId: "small".
+   * - A fully custom preset can use systemPresetId: null.
+   */
+  systemPresetId: SystemPresetId | null;
+  /**
+   * User-visible name. This may be:
+   * - null/empty for system presets, in which case the UI falls back to
+   *   the i18n label for systemPresetId; or
+   * - a non-empty string for both system and user presets, in which case
+   *   it overrides the default label.
+   *
+   * User-created presets must always persist a non-empty name when saved;
+   * the only time a preset has "no name" is for the temporary unsaved slot,
+   * which is not persisted.
+   */
+  name: string | null;
+  /**
+   * Legacy semantic flag:
+   * - "system" is used for the four canonical presets initialised on
+   *   first load;
+   * - "user" is used for all presets created or edited by the user.
+   *
+   * Behavioural identity is expressed via systemPresetId; kind is kept
+   * for clarity and backwards-compatibility.
+   */
   kind: "system" | "user";
   /**
-   * Configuration patch or full snapshot.
-   * Semantics must be compatible with docs/presets.md.
+   * Full configuration snapshot compatible with docs/presets.md.
    */
-  config: unknown;
+  settings: UserSettings;
 }
 ```
 
@@ -86,8 +124,17 @@ interface SavedPresetViewModel extends UserPresetRecord {
 }
 
 interface UnsavedPresetSlot {
-  /** Current working configuration not yet promoted to a saved preset. */
-  config: unknown;
+  /**
+   * Current working configuration not yet promoted to a saved preset.
+   * The unsaved slot is derived from an existing locked preset and is
+   * not persisted.
+   */
+  settings: UserSettings;
+  /**
+   * Id of the preset from which this unsaved configuration was derived.
+   * Used to restore settings when the user cancels the unsaved slot.
+   */
+  sourceId: string;
 }
 ```
 
@@ -259,8 +306,22 @@ Invariant:
 
 ### 4.4 Naming rules for user presets (“自定义N”)
 
-Unsaved presets have **no name**. A name is assigned only when the user
-clicks “Save” on the unsaved slot.
+Unsaved presets have **no persisted name**. A name is assigned only when the
+user clicks “Save” on the unsaved slot, at which point a new saved preset
+record is created.
+
+All saved presets (system and user) ultimately have a user-visible name:
+
+- If `name` is a non-empty string, the UI displays it as-is.
+- If `name` is null/empty and `systemPresetId` is non-null, the UI falls
+  back to the i18n label for that system preset id (for example
+  `settings.presets.original`).
+- If `name` is null/empty and `systemPresetId` is null (a purely custom
+  preset), the UI falls back to the “Custom” label
+  (`settings.presets.custom`), which is localised in each locale.
+
+In addition to manual renaming, the app provides an automatic naming scheme
+for newly saved presets created from the unsaved slot.
 
 Naming rules:
 
@@ -278,6 +339,12 @@ This rule guarantees:
 
 - No duplicate names of the form `"自定义N"` among saved presets.
 - Predictable, monotonically increasing numbering for user presets.
+
+Manual renaming:
+
+- Any saved preset, including system presets, may be renamed by the user.
+- When a preset is renamed, only the `name` field changes; the underlying
+  `systemPresetId` (if any) and `settings` continue to define its behaviour.
 
 ### 4.5 Interaction between locked, editing, and unsaved states
 
@@ -300,6 +367,25 @@ Summary of key rules:
   - The user cannot switch to another preset.
   - Preset list entries other than the one being edited must be disabled for
     selection.
+
+### 4.6 Deletion rules
+
+Deletion semantics are intentionally simple:
+
+- Any saved preset (system or user) may be deleted by the user.
+- Deletion removes the record from the saved preset list and persists the
+  updated list when storage is available.
+- When the currently active preset is deleted:
+  - Any active editing or unsaved state is cleared.
+  - The app selects a new active preset:
+    - Prefer an existing system preset in a deterministic order
+      (for example `"original"`, then `"large"`, `"medium"`, `"small"`),
+      if any remain.
+    - Otherwise, fall back to the first remaining preset in the list.
+    - If no presets remain at all, the implementation may reset the list to
+      the canonical four system presets as defined in §2.1.
+- In fallback mode (`mode === "fallback"`), deletion controls should be
+  disabled, as changes cannot be persisted reliably.
 
 ---
 
@@ -326,4 +412,3 @@ Error/fallback behaviour:
 - When the app is in fallback mode (local preset storage unavailable), the
   preset management area should be either hidden or clearly disabled, and a
   warning message as described in §3.3 should be visible to the user.
-
