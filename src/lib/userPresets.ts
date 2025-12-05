@@ -43,13 +43,19 @@ function hasLocalStorage(): boolean {
  * docs/presets.md, producing a normalized UserSettings snapshot.
  */
 function buildSystemUserPresets(): UserPresetRecord[] {
-  const systemIds: SystemPresetId[] = ["original", "large", "medium", "small"];
-
   const base: UserSettings = {
     ...DEFAULT_OPTIONS,
   };
 
   return PRESETS.map((preset) => {
+    const systemPresetId: SystemPresetId | null =
+      preset.id === "original" ||
+      preset.id === "large" ||
+      preset.id === "medium" ||
+      preset.id === "small"
+        ? (preset.id as SystemPresetId)
+        : null;
+
     const settings: UserSettings = {
       ...base,
       presetId: preset.id,
@@ -73,10 +79,11 @@ function buildSystemUserPresets(): UserPresetRecord[] {
 
     return {
       id: preset.id,
-      systemPresetId: systemIds.includes(preset.id as SystemPresetId)
-        ? (preset.id as SystemPresetId)
-        : null,
-      name: preset.label,
+      systemPresetId,
+      // System presets start without a custom name so that the UI can show
+      // the i18n label for their systemPresetId by default. Users can later
+      // override this with a custom name via the rename flow.
+      name: null,
       kind: "system",
       settings: normalizeUserSettings(settings),
     };
@@ -197,7 +204,23 @@ function normalizeStoredPreset(value: unknown): UserPresetRecord | null {
         ? (id as SystemPresetId)
         : null;
 
-  const name = typeof candidate.name === "string" ? candidate.name : null;
+  let name: string | null = null;
+  if (typeof candidate.name === "string") {
+    const trimmed = candidate.name.trim();
+    if (trimmed) {
+      name = trimmed;
+    }
+  }
+
+  // For system presets, treat the original English label as "no custom name"
+  // so that the UI can fall back to the current locale's i18n label. This
+  // also migrates existing stored presets that still use the default label.
+  if (name && systemPresetId) {
+    const preset = PRESETS.find((item) => item.id === systemPresetId);
+    if (preset && name === preset.label) {
+      name = null;
+    }
+  }
 
   const normalizedSettings = normalizeUserSettings(candidate.settings);
 

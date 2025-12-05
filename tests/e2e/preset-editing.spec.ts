@@ -419,7 +419,8 @@ test("E2E-146: renaming a user preset created from unsaved slot", async ({
 
   await custom1Button.dblclick();
 
-  const renameInput = page.locator("input.input-sm.join-item.input-bordered");
+  // Rename input appears in the presets header before the numeric inputs.
+  const renameInput = page.locator("input.input-sm.input-bordered").first();
   await renameInput.fill("Renamed Custom");
   await renameInput.press("Enter");
 
@@ -527,7 +528,7 @@ test("E2E-147: renaming cancelled by Esc keeps original name", async ({
 
   expect(snapshot).toEqual({
     id: "original",
-    name: "Original",
+    name: null,
     kind: "system",
   });
 });
