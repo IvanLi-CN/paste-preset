@@ -330,3 +330,204 @@ test("E2E-144: fallback mode disables preset editing and shows warning", async (
 
   expect(pageErrors).toHaveLength(0);
 });
+
+test("E2E-145: renaming a system preset persists across reloads", async ({
+  page,
+}, testInfo) => {
+  if (testInfo.project.name !== "desktop") {
+    test.skip();
+  }
+
+  await page.goto("/");
+
+  const originalButton = page.getByRole("button", { name: "Original" });
+  await originalButton.dblclick();
+
+  const renameInput = page.locator("input.input-sm.join-item.input-bordered");
+  await renameInput.fill("My Original");
+  await renameInput.press("Enter");
+
+  const renamedButton = page.getByRole("button", { name: "My Original" });
+  await expect(renamedButton).toBeVisible();
+
+  await page.reload();
+
+  const renamedButtonAfterReload = page.getByRole("button", {
+    name: "My Original",
+  });
+  await expect(renamedButtonAfterReload).toBeVisible();
+  await expect(renamedButtonAfterReload).toHaveClass(/btn-primary/);
+
+  const snapshot = await page.evaluate((key) => {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+
+    try {
+      const parsed = JSON.parse(raw) as {
+        presets?: {
+          id?: string | null;
+          name?: string | null;
+          kind?: string | null;
+        }[];
+      };
+      if (!Array.isArray(parsed.presets)) {
+        return null;
+      }
+      const preset = parsed.presets.find((entry) => entry.id === "original");
+      if (!preset) {
+        return null;
+      }
+      return {
+        id: preset.id ?? null,
+        name: preset.name ?? null,
+        kind: preset.kind ?? null,
+      };
+    } catch {
+      return null;
+    }
+  }, USER_PRESETS_KEY);
+
+  expect(snapshot).toEqual({
+    id: "original",
+    name: "My Original",
+    kind: "system",
+  });
+});
+
+test("E2E-146: renaming a user preset created from unsaved slot", async ({
+  page,
+}, testInfo) => {
+  if (testInfo.project.name !== "desktop") {
+    test.skip();
+  }
+
+  await page.goto("/");
+
+  const smallButton = page.getByRole("button", { name: "Small" });
+  await smallButton.click();
+
+  const widthInput = page.getByLabel("Width (px)");
+  await widthInput.fill("4321");
+
+  const saveButton = page.getByRole("button", { name: "Save", exact: true });
+  await expect(saveButton).toBeVisible();
+  await saveButton.click();
+
+  const custom1Button = page.getByRole("button", { name: "自定义1" });
+  await expect(custom1Button).toBeVisible();
+  await expect(custom1Button).toHaveClass(/btn-primary/);
+
+  await custom1Button.dblclick();
+
+  const renameInput = page.locator("input.input-sm.join-item.input-bordered");
+  await renameInput.fill("Renamed Custom");
+  await renameInput.press("Enter");
+
+  const renamedButton = page.getByRole("button", {
+    name: "Renamed Custom",
+  });
+  await expect(renamedButton).toBeVisible();
+  await expect(renamedButton).toHaveClass(/btn-primary/);
+
+  await page.reload();
+
+  const renamedButtonAfterReload = page.getByRole("button", {
+    name: "Renamed Custom",
+  });
+  await expect(renamedButtonAfterReload).toBeVisible();
+
+  const snapshot = await page.evaluate((key) => {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+
+    try {
+      const parsed = JSON.parse(raw) as {
+        presets?: { name?: string | null; kind?: string | null }[];
+      };
+      if (!Array.isArray(parsed.presets)) {
+        return null;
+      }
+      const preset = parsed.presets.find(
+        (entry) => entry.name === "Renamed Custom",
+      );
+      if (!preset) {
+        return null;
+      }
+      return {
+        name: preset.name ?? null,
+        kind: preset.kind ?? null,
+      };
+    } catch {
+      return null;
+    }
+  }, USER_PRESETS_KEY);
+
+  expect(snapshot).toEqual({
+    name: "Renamed Custom",
+    kind: "user",
+  });
+});
+
+test("E2E-147: renaming cancelled by Esc keeps original name", async ({
+  page,
+}, testInfo) => {
+  if (testInfo.project.name !== "desktop") {
+    test.skip();
+  }
+
+  await page.addInitScript((key) => {
+    window.localStorage.removeItem(key);
+  }, USER_PRESETS_KEY);
+
+  await page.goto("/");
+
+  const originalButton = page.getByRole("button", { name: "Original" });
+  await expect(originalButton).toBeVisible();
+
+  await originalButton.dblclick();
+
+  const renameInput = page.locator("input.input-sm.join-item.input-bordered");
+  await renameInput.press("Escape");
+
+  await page.reload();
+
+  const originalButtonAfterReload = page.getByRole("button", {
+    name: "Original",
+  });
+  await expect(originalButtonAfterReload).toBeVisible();
+
+  const snapshot = await page.evaluate((key) => {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+
+    try {
+      const parsed = JSON.parse(raw) as {
+        presets?: {
+          id?: string | null;
+          name?: string | null;
+          kind?: string | null;
+        }[];
+      };
+      if (!Array.isArray(parsed.presets)) {
+        return null;
+      }
+      const preset = parsed.presets.find((entry) => entry.id === "original");
+      if (!preset) {
+        return null;
+      }
+      return {
+        id: preset.id ?? null,
+        name: preset.name ?? null,
+        kind: preset.kind ?? null,
+      };
+    } catch {
+      return null;
+    }
+  }, USER_PRESETS_KEY);
+
+  expect(snapshot).toEqual({
+    id: "original",
+    name: "Original",
+    kind: "system",
+  });
+});
