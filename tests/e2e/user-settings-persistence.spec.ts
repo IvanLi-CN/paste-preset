@@ -1,6 +1,7 @@
 import { expect, test } from "./_helpers";
 
 const USER_SETTINGS_KEY = "paste-preset:user-settings:v1";
+const USER_PRESETS_KEY = "paste-preset:user-presets:v1";
 
 test("E2E-120: user settings persist across reloads", async ({
   page,
@@ -165,4 +166,113 @@ test("E2E-122: corrupted stored user settings fall back to defaults", async ({
   await expect(
     page.getByLabel("Strip metadata (EXIF, etc.)"),
   ).not.toBeChecked();
+});
+
+test("E2E-123: active preset id stays in sync with user settings", async ({
+  page,
+}, testInfo) => {
+  if (testInfo.project.name !== "desktop") {
+    test.skip();
+  }
+
+  const storedSettings = {
+    version: 1,
+    settings: {
+      presetId: "small" as const,
+      targetWidth: 1024,
+      targetHeight: null,
+      lockAspectRatio: true,
+      resizeMode: "fit",
+      outputFormat: "image/jpeg" as const,
+      quality: 0.8,
+      stripMetadata: false,
+    },
+  };
+
+  await page.addInitScript(
+    ({ userSettingsKey, userPresetsKey, payload }) => {
+      const existing = window.localStorage.getItem(userSettingsKey);
+      if (!existing) {
+        window.localStorage.setItem(userSettingsKey, JSON.stringify(payload));
+      }
+      window.localStorage.removeItem(userPresetsKey);
+    },
+    {
+      userSettingsKey: USER_SETTINGS_KEY,
+      userPresetsKey: USER_PRESETS_KEY,
+      payload: storedSettings,
+    },
+  );
+
+  await page.goto("/");
+
+  const smallButton = page.getByRole("button", { name: "Small" });
+  await expect(smallButton).toHaveClass(/btn-primary/);
+
+  const hasSmallPreset = await page.evaluate((key) => {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return false;
+
+    try {
+      const parsed = JSON.parse(raw) as {
+        presets?: { id?: string | null }[];
+      };
+
+      if (!Array.isArray(parsed.presets)) {
+        return false;
+      }
+
+      return parsed.presets.some(
+        (preset) => typeof preset.id === "string" && preset.id === "small",
+      );
+    } catch {
+      return false;
+    }
+  }, USER_PRESETS_KEY);
+
+  expect(hasSmallPreset).toBe(true);
+
+  const mediumButton = page.getByRole("button", { name: "Medium" });
+  await mediumButton.click();
+  await expect(mediumButton).toHaveClass(/btn-primary/);
+
+  const presetIdFromStorage = await page.evaluate((key) => {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+
+    try {
+      const parsed = JSON.parse(raw) as {
+        version: number;
+        settings?: { presetId?: string | null };
+      };
+      return parsed.settings?.presetId ?? null;
+    } catch {
+      return null;
+    }
+  }, USER_SETTINGS_KEY);
+
+  expect(presetIdFromStorage).toBe("medium");
+
+  await page.reload();
+
+  await expect(page.getByRole("button", { name: "Medium" })).toHaveClass(
+    /btn-primary/,
+  );
+
+  const presetIdAfterReload = await page.evaluate((key) => {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+
+    try {
+      const parsed = JSON.parse(raw) as {
+        version: number;
+        settings?: { presetId?: string | null };
+      };
+      return parsed.settings?.presetId ?? null;
+    } catch {
+      return null;
+    }
+  }, USER_SETTINGS_KEY);
+
+  expect(presetIdAfterReload).toBe("medium");
 });

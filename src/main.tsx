@@ -2,8 +2,10 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.tsx";
+import { UserPresetsProvider } from "./hooks/useUserPresets.tsx";
 import { UserSettingsProvider } from "./hooks/useUserSettings.tsx";
 import { I18nProvider } from "./i18n";
+import { getInitialUserPresetsState } from "./lib/userPresets.ts";
 
 const LIGHT_THEME = "winter";
 const DARK_THEME = "dim";
@@ -36,6 +38,9 @@ function setupSystemThemeSync() {
 }
 
 setupSystemThemeSync();
+// Initialize the user presets storage once so subsequent React code can rely
+// on a stable in-memory snapshot and localStorage entry when available.
+getInitialUserPresetsState();
 
 const rootElement = document.getElementById("root");
 
@@ -46,9 +51,11 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <I18nProvider>
-      <UserSettingsProvider>
-        <App />
-      </UserSettingsProvider>
+      <UserPresetsProvider>
+        <UserSettingsProvider>
+          <App />
+        </UserSettingsProvider>
+      </UserPresetsProvider>
     </I18nProvider>
   </StrictMode>,
 );

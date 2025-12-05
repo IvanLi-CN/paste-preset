@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node scripts/write-version.mjs && vite",
     "build": "tsc -b && vite build && node scripts/write-version.mjs",
+    "test": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "lint": "biome lint .",
@@ -31,12 +32,16 @@
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.22",
     "daisyui": "^5.5.5",
+    "@vitest/coverage-v8": "^2.0.0",
+    "@vitest/ui": "^2.0.0",
+    "jsdom": "^27.0.0",
     "lefthook": "^2.0.4",
     "playwright": "^1.57.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.17",
     "typescript": "~5.9.3",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "vitest": "^2.0.0"
   },
   "engines": {
     "bun": ">=1.0.0"

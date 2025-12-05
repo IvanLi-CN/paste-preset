@@ -40,6 +40,10 @@ export const zhCN: TranslationMessages = {
   "settings.presets.medium": "中",
   "settings.presets.small": "小",
   "settings.presets.custom": "自定义",
+  "settings.presets.unsaved": "未保存",
+  "settings.presets.delete": "删除",
+  "settings.presets.fallbackWarning":
+    "无法在此设备上保存预设。对预设的更改在关闭页面后不会被保留。",
 
   "settings.resolution.title": "分辨率",
   "settings.resolution.width": "宽度（px）",
@@ -60,6 +64,12 @@ export const zhCN: TranslationMessages = {
   "settings.output.format.webp": "WebP",
   "settings.output.quality.label": "质量",
   "settings.output.stripMetadata": "移除元数据（EXIF 等）",
+
+  "settings.presets.diff.size": "尺寸: {value}",
+  "settings.presets.diff.format": "格式: {value}",
+  "settings.presets.diff.quality": "质量: {value}",
+  "settings.presets.diff.stripMetadata": "移除元数据",
+  "settings.presets.diff.stripMetadata.short": "脱敏",
 
   "settings.actions.reset": "重置设置",
 
