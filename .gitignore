@@ -26,3 +26,6 @@ test-results
 *.njsproj
 *.sln
 *.sw?
+
+# Local AI assistant data
+.serena/
