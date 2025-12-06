@@ -93,9 +93,7 @@ test("E2E-091: processing status is shown in preview and status bar", async ({
 
   await uploadFixtureViaFileInput(page, testImagesDir, "very-large.png");
 
-  const previewProcessing = page
-    .locator(".alert.alert-warning")
-    .filter({ hasText: "Processing image…" });
+  const previewProcessing = page.locator(".loading.loading-spinner").first();
   const statusProcessing = page
     .getByRole("status")
     .filter({ hasText: "Processing image…" });

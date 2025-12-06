@@ -12,6 +12,7 @@ import { useUserPresets } from "./hooks/useUserPresets.tsx";
 import { useUserSettings } from "./hooks/useUserSettings.tsx";
 import type { TranslationKey } from "./i18n";
 import { useTranslation } from "./i18n";
+import { preloadHeicConverter } from "./lib/heic.ts";
 import { PRESETS } from "./lib/presets.ts";
 import type { ImageInfo } from "./lib/types.ts";
 
@@ -51,6 +52,34 @@ function App() {
   const isMd = viewportWidth >= 768 && viewportWidth < 1024;
   const isSmOrMd = isSm || isMd;
   const isLgUp = viewportWidth >= 1024;
+
+  // Best-effort preload for the HEIC conversion bundle so the first HEIC paste
+  // does not have to wait on the dynamic import network round-trip.
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const schedulePreload = () => {
+      void preloadHeicConverter();
+    };
+
+    if ("requestIdleCallback" in window) {
+      // Prefer not to compete with initial rendering work.
+      (
+        window as typeof window & {
+          requestIdleCallback?:
+            | ((cb: IdleRequestCallback) => number)
+            | undefined;
+        }
+      ).requestIdleCallback?.(schedulePreload);
+    } else {
+      const timeoutId = setTimeout(schedulePreload, 1500);
+      return () => {
+        clearTimeout(timeoutId);
+      };
+    }
+  }, []);
 
   const activePreset = presets.find((preset) => preset.id === activePresetId);
 
@@ -361,29 +390,23 @@ function App() {
               </div>
 
               {!isLgUp && (isSm || (isMd && hasImage)) && (
-                <button
-                  type="button"
-                  className={`fixed inset-0 z-40 flex items-stretch justify-start bg-base-200/80 backdrop-blur-sm transition-opacity duration-200 ${
-                    isSettingsOpen
-                      ? "opacity-100 pointer-events-auto"
-                      : "opacity-0 pointer-events-none"
-                  }`}
-                  onClick={(event) => {
-                    if (event.target !== event.currentTarget) {
-                      return;
-                    }
-                    setIsSettingsOpen(false);
-                  }}
-                >
+                <>
+                  <button
+                    type="button"
+                    className={`fixed inset-0 z-40 cursor-default bg-base-200/80 backdrop-blur-sm transition-opacity duration-200 ${
+                      isSettingsOpen
+                        ? "opacity-100 pointer-events-auto"
+                        : "opacity-0 pointer-events-none"
+                    }`}
+                    aria-label={t("settings.drawer.overlayAria")}
+                    onClick={() => setIsSettingsOpen(false)}
+                  />
                   <div
-                    className={`h-full bg-base-100 p-4 shadow-lg transform transition-transform duration-200 ${
+                    className={`fixed inset-y-0 left-0 z-50 h-full bg-base-100 p-4 shadow-lg transform transition-transform duration-200 ${
                       isSm ? "w-full max-w-md" : "w-80 md:w-80"
                     } ${
                       isSettingsOpen ? "translate-x-0" : "-translate-x-full"
                     }`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                    }}
                     role="none"
                   >
                     <div className="mb-2 flex items-center justify-between">
@@ -401,7 +424,7 @@ function App() {
                     </div>
                     <SettingsPanel currentImage={settingsAspectSource} />
                   </div>
-                </button>
+                </>
               )}
             </div>
           )}

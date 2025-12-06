@@ -189,7 +189,8 @@ export function PreviewPanel(props: PreviewPanelProps) {
   const { source, result, status, onCopyResult } = props;
   const { t } = useTranslation();
 
-  const hasImage = source || result;
+  const hasImage = Boolean(source || result);
+  const isProcessing = status === "processing";
 
   const handleCopyKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (!result) {
@@ -208,18 +209,31 @@ export function PreviewPanel(props: PreviewPanelProps) {
 
   return (
     <section className="flex flex-1 flex-col gap-4">
-      {!hasImage && (
+      {!hasImage && !isProcessing && (
         <div className="alert alert-info text-sm">
           <span>{t("preview.empty")}</span>
         </div>
       )}
 
-      {status === "processing" && (
+      {hasImage && isProcessing && (
         <div className="alert alert-warning text-sm">
           <span>{t("status.processing")}</span>
         </div>
       )}
       <div className="flex flex-1 flex-col gap-4">
+        {!hasImage && isProcessing && (
+          <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-base-300 bg-base-200/60 py-10">
+            <div className="flex flex-col items-center gap-3">
+              <span
+                className="loading loading-spinner loading-lg text-primary"
+                aria-hidden="true"
+              />
+              <div className="text-sm font-medium">
+                {t("status.processing")}
+              </div>
+            </div>
+          </div>
+        )}
         {hasImage && (
           <div className="grid gap-4 md:grid-cols-2">
             {source && (
