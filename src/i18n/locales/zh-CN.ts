@@ -77,6 +77,14 @@ export const zhCN: TranslationMessages = {
   "settings.about.description":
     "PastePreset 完全在浏览器中运行，图片不会离开你的设备。粘贴截图或将照片拖到右侧即可开始处理。",
 
+  "settings.tools.title": "高级操作",
+  "settings.tools.description": "管理 PastePreset 在本设备上存储的本地数据。",
+  "settings.tools.resetPresets": "重置预设列表",
+  "settings.tools.resetPresets.confirm":
+    "确定要重置本设备上的预设列表吗？这会恢复默认预设并删除你创建的自定义预设。",
+  "settings.tools.resetPresets.confirmButton": "重置预设",
+  "settings.tools.resetPresets.cancelButton": "取消",
+
   "settings.drawer.closeAria": "关闭设置",
 
   // Paste area

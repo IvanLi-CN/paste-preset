@@ -77,6 +77,15 @@ export const en = {
   "settings.about.description":
     "PastePreset runs entirely in your browser. Images never leave your device. Paste a screenshot or drop a photo on the right to get started.",
 
+  "settings.tools.title": "Advanced tools",
+  "settings.tools.description":
+    "Manage local data stored by PastePreset on this device.",
+  "settings.tools.resetPresets": "Reset preset list",
+  "settings.tools.resetPresets.confirm":
+    "Reset the preset list on this device? This will restore the default presets and remove any custom presets you created.",
+  "settings.tools.resetPresets.confirmButton": "Reset presets",
+  "settings.tools.resetPresets.cancelButton": "Cancel",
+
   "settings.drawer.closeAria": "Close settings",
 
   // Paste area

@@ -37,7 +37,11 @@ interface UserPresetsContextValue {
    * When non-null, preset switching is disabled until saved or cancelled.
    */
   unsavedSlot: { settings: UserSettings; sourceId: string } | null;
-
+  /**
+   * Reset the preset list back to the canonical system presets and clear any
+   * custom user presets stored on this device.
+   */
+  resetPresets: () => void;
   setActivePresetId: (id: string) => void;
   beginEditPreset: (id: string) => void;
   applyEditPreset: (settings: UserSettings) => void;
@@ -285,6 +289,25 @@ export function UserPresetsProvider(props: { children: ReactNode }) {
     [mode, editingPresetId, unsavedSlot, renamingPresetId],
   );
 
+  const resetPresets = useCallback(() => {
+    // Clear any transient editing state before resetting the list.
+    setEditingPresetId(null);
+    setUnsavedSlot(null);
+    setRenamingPresetId(null);
+
+    const result = userPresetsStorage.reset();
+    setMode(result.mode);
+    setPresets(result.presets);
+
+    const original = result.presets.find((preset) => preset.id === "original");
+
+    if (original) {
+      setActivePresetIdState(original.id);
+    } else {
+      setActivePresetIdState(result.presets[0]?.id ?? null);
+    }
+  }, []);
+
   const value = useMemo<UserPresetsContextValue>(
     () => ({
       mode,
@@ -293,6 +316,7 @@ export function UserPresetsProvider(props: { children: ReactNode }) {
       editingPresetId,
       renamingPresetId,
       unsavedSlot,
+      resetPresets,
       setActivePresetId,
       beginEditPreset,
       applyEditPreset,
@@ -312,6 +336,7 @@ export function UserPresetsProvider(props: { children: ReactNode }) {
       editingPresetId,
       renamingPresetId,
       unsavedSlot,
+      resetPresets,
       setActivePresetId,
       beginEditPreset,
       applyEditPreset,

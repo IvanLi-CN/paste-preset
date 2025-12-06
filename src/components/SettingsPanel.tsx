@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useUserPresets } from "../hooks/useUserPresets.tsx";
 import { useUserSettings } from "../hooks/useUserSettings.tsx";
 import { useTranslation } from "../i18n";
@@ -15,7 +15,9 @@ export function SettingsPanel(props: SettingsPanelProps) {
   const { t } = useTranslation();
   const { settings, updateSettings, resetSettings } = useUserSettings();
   const options = settings;
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const {
+    resetPresets,
     mode: presetsMode,
     presets,
     activePresetId,
@@ -209,6 +211,19 @@ export function SettingsPanel(props: SettingsPanelProps) {
     }
 
     cancelUnsaved();
+  };
+
+  const handleResetPresetsClick = () => {
+    setIsResetDialogOpen(true);
+  };
+
+  const handleResetPresetsConfirm = () => {
+    resetPresets();
+    setIsResetDialogOpen(false);
+  };
+
+  const handleResetPresetsCancel = () => {
+    setIsResetDialogOpen(false);
   };
 
   useEffect(() => {
@@ -497,6 +512,68 @@ export function SettingsPanel(props: SettingsPanelProps) {
           </p>
         </div>
       </section>
+
+      <section className="card bg-base-100">
+        <div className="card-body space-y-3 text-sm">
+          <h3 className="font-semibold">{t("settings.tools.title")}</h3>
+          <p className="text-base-content/70">
+            {t("settings.tools.description")}
+          </p>
+          <div>
+            <button
+              type="button"
+              className="btn btn-outline btn-xs"
+              onClick={handleResetPresetsClick}
+            >
+              {t("settings.tools.resetPresets")}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {isResetDialogOpen && (
+        <dialog className="modal" open>
+          <div className="modal-box">
+            <h3 className="font-bold text-lg">
+              {t("settings.tools.resetPresets")}
+            </h3>
+            <p className="py-2 text-sm text-base-content/70">
+              {t("settings.tools.resetPresets.confirm")}
+            </p>
+            <div className="modal-action">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={handleResetPresetsCancel}
+              >
+                {t("settings.tools.resetPresets.cancelButton")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-error btn-sm"
+                onClick={handleResetPresetsConfirm}
+              >
+                {t("settings.tools.resetPresets.confirmButton")}
+              </button>
+            </div>
+          </div>
+          <form method="dialog" className="modal-backdrop">
+            <button
+              type="submit"
+              aria-label={t("settings.drawer.closeAria")}
+              onClick={handleResetPresetsCancel}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  handleResetPresetsCancel();
+                }
+              }}
+            >
+              close
+            </button>
+          </form>
+        </dialog>
+      )}
     </aside>
   );
 }

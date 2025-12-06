@@ -77,6 +77,14 @@ export const zhTW: TranslationMessages = {
   "settings.about.description":
     "PastePreset 完全在瀏覽器中執行，圖片不會離開你的裝置。貼上螢幕截圖或將照片拖曳到右側即可開始處理。",
 
+  "settings.tools.title": "進階操作",
+  "settings.tools.description": "管理 PastePreset 在此裝置上儲存的本機資料。",
+  "settings.tools.resetPresets": "重設預設清單",
+  "settings.tools.resetPresets.confirm":
+    "確定要重設此裝置上的預設清單嗎？這會還原預設列表並刪除你建立的自訂預設。",
+  "settings.tools.resetPresets.confirmButton": "重設預設",
+  "settings.tools.resetPresets.cancelButton": "取消",
+
   "settings.drawer.closeAria": "關閉設定",
 
   // Paste area
