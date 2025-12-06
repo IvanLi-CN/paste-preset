@@ -16,6 +16,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
   const { settings, updateSettings, resetSettings } = useUserSettings();
   const options = settings;
   const {
+    resetPresets,
     mode: presetsMode,
     presets,
     activePresetId,
@@ -209,6 +210,19 @@ export function SettingsPanel(props: SettingsPanelProps) {
     }
 
     cancelUnsaved();
+  };
+
+  const handleResetPresetsClick = () => {
+    const message = t("settings.tools.resetPresets.confirm");
+
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm(message);
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    resetPresets();
   };
 
   useEffect(() => {
@@ -495,6 +509,24 @@ export function SettingsPanel(props: SettingsPanelProps) {
           <p className="text-base-content/70">
             {t("settings.about.description")}
           </p>
+        </div>
+      </section>
+
+      <section className="card bg-base-100">
+        <div className="card-body space-y-3 text-sm">
+          <h3 className="font-semibold">{t("settings.tools.title")}</h3>
+          <p className="text-base-content/70">
+            {t("settings.tools.description")}
+          </p>
+          <div>
+            <button
+              type="button"
+              className="btn btn-outline btn-xs"
+              onClick={handleResetPresetsClick}
+            >
+              {t("settings.tools.resetPresets")}
+            </button>
+          </div>
         </div>
       </section>
     </aside>
