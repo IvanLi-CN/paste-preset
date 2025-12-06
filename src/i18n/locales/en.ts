@@ -87,6 +87,7 @@ export const en = {
   "settings.tools.resetPresets.cancelButton": "Cancel",
 
   "settings.drawer.closeAria": "Close settings",
+  "settings.drawer.overlayAria": "Close settings panel",
 
   // Paste area
   "pasteArea.aria.replace":

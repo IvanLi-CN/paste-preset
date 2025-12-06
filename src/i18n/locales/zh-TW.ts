@@ -86,6 +86,7 @@ export const zhTW: TranslationMessages = {
   "settings.tools.resetPresets.cancelButton": "取消",
 
   "settings.drawer.closeAria": "關閉設定",
+  "settings.drawer.overlayAria": "關閉設定面板",
 
   // Paste area
   "pasteArea.aria.replace": "貼上、拖曳或點擊以取代目前圖片",

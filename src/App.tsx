@@ -74,9 +74,9 @@ function App() {
         }
       ).requestIdleCallback?.(schedulePreload);
     } else {
-      const timeoutId = window.setTimeout(schedulePreload, 1500);
+      const timeoutId = setTimeout(schedulePreload, 1500);
       return () => {
-        window.clearTimeout(timeoutId);
+        clearTimeout(timeoutId);
       };
     }
   }, []);
@@ -392,21 +392,19 @@ function App() {
               </div>
 
               {!isLgUp && (isSm || (isMd && hasImage)) && (
-                <div
-                  className={`fixed inset-0 z-40 flex items-stretch justify-start bg-base-200/80 backdrop-blur-sm transition-opacity duration-200 ${
-                    isSettingsOpen
-                      ? "opacity-100 pointer-events-auto"
-                      : "opacity-0 pointer-events-none"
-                  }`}
-                >
+                <>
                   <button
                     type="button"
-                    className="absolute inset-0 z-0 cursor-default"
-                    aria-label={t("settings.drawer.closeAria")}
+                    className={`fixed inset-0 z-40 cursor-default bg-base-200/80 backdrop-blur-sm transition-opacity duration-200 ${
+                      isSettingsOpen
+                        ? "opacity-100 pointer-events-auto"
+                        : "opacity-0 pointer-events-none"
+                    }`}
+                    aria-label={t("settings.drawer.overlayAria")}
                     onClick={() => setIsSettingsOpen(false)}
                   />
                   <div
-                    className={`relative z-10 h-full bg-base-100 p-4 shadow-lg transform transition-transform duration-200 ${
+                    className={`fixed inset-y-0 left-0 z-50 h-full bg-base-100 p-4 shadow-lg transform transition-transform duration-200 ${
                       isSm ? "w-full max-w-md" : "w-80 md:w-80"
                     } ${
                       isSettingsOpen ? "translate-x-0" : "-translate-x-full"
@@ -428,7 +426,7 @@ function App() {
                     </div>
                     <SettingsPanel currentImage={settingsAspectSource} />
                   </div>
-                </div>
+                </>
               )}
             </div>
           )}
