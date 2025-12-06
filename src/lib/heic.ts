@@ -2,6 +2,18 @@ import type { OutputFormat } from "./types.ts";
 
 const HEIC_MIME_PREFIXES = ["image/heic", "image/heif"];
 
+type GlobalWithHeicOverride = typeof globalThis & {
+  __heic2anyOverride?:
+    | ((options: { blob: Blob; toType: string }) => Promise<Blob | Blob[]>)
+    | "unavailable"
+    | null;
+  /**
+   * Test-only marker used by E2E suites to assert that the preload
+   * path was actually triggered in the running app.
+   */
+  __heicPreloadTriggered?: boolean | null;
+};
+
 export interface NormalizedImageBlob {
   /**
    * Blob that is safe to decode with browser canvas APIs.
@@ -25,6 +37,57 @@ export function isHeicMimeType(mimeType: string): boolean {
   return HEIC_MIME_PREFIXES.some((prefix) => mimeType.startsWith(prefix));
 }
 
+let heicPreloadPromise: Promise<void> | null = null;
+
+/**
+ * Best-effort preloader for the HEIC conversion library.
+ *
+ * This is intentionally fire-and-forget: failures are swallowed here and
+ * surfaced from the main `normalizeImageBlobForCanvas` path instead so
+ * user-facing error handling stays in one place.
+ */
+export function preloadHeicConverter(): Promise<void> {
+  if (heicPreloadPromise) {
+    return heicPreloadPromise;
+  }
+
+  const globalWithOverride = globalThis as GlobalWithHeicOverride;
+
+  // Mark the fact that we attempted to preload the converter so E2E tests
+  // can assert behavior without relying on network-level heuristics.
+  globalWithOverride.__heicPreloadTriggered = true;
+
+  // Respect the special test hook: if the library is marked as unavailable,
+  // do not attempt to import it here.
+  if (globalWithOverride.__heic2anyOverride === "unavailable") {
+    heicPreloadPromise = Promise.resolve();
+    return heicPreloadPromise;
+  }
+
+  heicPreloadPromise = (async () => {
+    try {
+      if (typeof globalWithOverride.__heic2anyOverride === "function") {
+        // Test-only path: an injected implementation will be used, no need
+        // to import the real module ahead of time.
+        return;
+      }
+
+      const module = await import("heic2any");
+      // If the default export is missing we simply let the main conversion
+      // flow surface a friendlier error when actually needed.
+      if (!module.default) {
+        return;
+      }
+    } catch {
+      // Silently ignore preload failures – the main conversion code will
+      // still attempt to import and translate any errors to user-friendly
+      // messages.
+    }
+  })();
+
+  return heicPreloadPromise;
+}
+
 /**
  * Convert HEIC/HEIF blobs to a canvas-friendly format (JPEG),
  * leaving other formats untouched.
@@ -40,12 +103,7 @@ export async function normalizeImageBlobForCanvas(
   // app loads to simulate successful or failing HEIC conversions without
   // changing the default runtime behavior. When the property is not set,
   // the implementation behaves exactly as before.
-  const globalWithOverride = globalThis as typeof globalThis & {
-    __heic2anyOverride?:
-      | ((options: { blob: Blob; toType: string }) => Promise<Blob | Blob[]>)
-      | "unavailable"
-      | null;
-  };
+  const globalWithOverride = globalThis as GlobalWithHeicOverride;
 
   if (!isHeicMimeType(mimeType)) {
     return {

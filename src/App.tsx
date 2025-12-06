@@ -12,6 +12,7 @@ import { useUserPresets } from "./hooks/useUserPresets.tsx";
 import { useUserSettings } from "./hooks/useUserSettings.tsx";
 import type { TranslationKey } from "./i18n";
 import { useTranslation } from "./i18n";
+import { preloadHeicConverter } from "./lib/heic.ts";
 import { PRESETS } from "./lib/presets.ts";
 import type { ImageInfo } from "./lib/types.ts";
 
@@ -51,6 +52,34 @@ function App() {
   const isMd = viewportWidth >= 768 && viewportWidth < 1024;
   const isSmOrMd = isSm || isMd;
   const isLgUp = viewportWidth >= 1024;
+
+  // Best-effort preload for the HEIC conversion bundle so the first HEIC paste
+  // does not have to wait on the dynamic import network round-trip.
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const schedulePreload = () => {
+      void preloadHeicConverter();
+    };
+
+    if ("requestIdleCallback" in window) {
+      // Prefer not to compete with initial rendering work.
+      (
+        window as typeof window & {
+          requestIdleCallback?:
+            | ((cb: IdleRequestCallback) => number)
+            | undefined;
+        }
+      ).requestIdleCallback?.(schedulePreload);
+    } else {
+      const timeoutId = window.setTimeout(schedulePreload, 1500);
+      return () => {
+        window.clearTimeout(timeoutId);
+      };
+    }
+  }, []);
 
   const activePreset = presets.find((preset) => preset.id === activePresetId);
 

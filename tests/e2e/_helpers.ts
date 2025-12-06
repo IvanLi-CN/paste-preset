@@ -291,3 +291,23 @@ export async function makeClipboardWriteFail(
     }
   });
 }
+
+/**
+ * Configure an artificial processing delay so E2E tests can reliably observe
+ * intermediate UI states (such as loading spinners) while an image is being
+ * processed.
+ *
+ * This relies on the `__processingDelayMsForTest` hook consumed by
+ * `useImageProcessor` in the app.
+ */
+export async function setProcessingDelayForTest(
+  page: import("@playwright/test").Page,
+  delayMs: number,
+) {
+  await page.addInitScript((ms: number) => {
+    const globalWindow = window as unknown as {
+      __processingDelayMsForTest?: number | null;
+    };
+    globalWindow.__processingDelayMsForTest = ms;
+  }, delayMs);
+}
