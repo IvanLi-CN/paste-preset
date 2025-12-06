@@ -264,16 +264,14 @@ function App() {
 
   return (
     <div className="relative min-h-screen bg-base-200 text-base-content">
-      <div className="absolute right-4 top-4 z-30">
-        <LanguageSelector />
-      </div>
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-4 lg:px-6 lg:py-6">
         <header className="mb-4 border-b border-base-300 pb-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline">
-            <div>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
               <h1 className="text-2xl font-semibold">{t("app.title")}</h1>
-              <p className="text-sm text-base-content/70">{t("app.tagline")}</p>
+              <LanguageSelector />
             </div>
+            <p className="text-sm text-base-content/70">{t("app.tagline")}</p>
           </div>
         </header>
 
