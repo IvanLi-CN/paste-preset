@@ -392,29 +392,25 @@ function App() {
               </div>
 
               {!isLgUp && (isSm || (isMd && hasImage)) && (
-                <button
-                  type="button"
+                <div
                   className={`fixed inset-0 z-40 flex items-stretch justify-start bg-base-200/80 backdrop-blur-sm transition-opacity duration-200 ${
                     isSettingsOpen
                       ? "opacity-100 pointer-events-auto"
                       : "opacity-0 pointer-events-none"
                   }`}
-                  onClick={(event) => {
-                    if (event.target !== event.currentTarget) {
-                      return;
-                    }
-                    setIsSettingsOpen(false);
-                  }}
                 >
+                  <button
+                    type="button"
+                    className="absolute inset-0 z-0 cursor-default"
+                    aria-label={t("settings.drawer.closeAria")}
+                    onClick={() => setIsSettingsOpen(false)}
+                  />
                   <div
-                    className={`h-full bg-base-100 p-4 shadow-lg transform transition-transform duration-200 ${
+                    className={`relative z-10 h-full bg-base-100 p-4 shadow-lg transform transition-transform duration-200 ${
                       isSm ? "w-full max-w-md" : "w-80 md:w-80"
                     } ${
                       isSettingsOpen ? "translate-x-0" : "-translate-x-full"
                     }`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                    }}
                     role="none"
                   >
                     <div className="mb-2 flex items-center justify-between">
@@ -432,7 +428,7 @@ function App() {
                     </div>
                     <SettingsPanel currentImage={settingsAspectSource} />
                   </div>
-                </button>
+                </div>
               )}
             </div>
           )}
