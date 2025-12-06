@@ -83,6 +83,8 @@ export const en = {
   "settings.tools.resetPresets": "Reset preset list",
   "settings.tools.resetPresets.confirm":
     "Reset the preset list on this device? This will restore the default presets and remove any custom presets you created.",
+  "settings.tools.resetPresets.confirmButton": "Reset presets",
+  "settings.tools.resetPresets.cancelButton": "Cancel",
 
   "settings.drawer.closeAria": "Close settings",
 

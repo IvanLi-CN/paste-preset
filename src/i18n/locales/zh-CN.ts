@@ -82,6 +82,8 @@ export const zhCN: TranslationMessages = {
   "settings.tools.resetPresets": "重置预设列表",
   "settings.tools.resetPresets.confirm":
     "确定要重置本设备上的预设列表吗？这会恢复默认预设并删除你创建的自定义预设。",
+  "settings.tools.resetPresets.confirmButton": "重置预设",
+  "settings.tools.resetPresets.cancelButton": "取消",
 
   "settings.drawer.closeAria": "关闭设置",
 
