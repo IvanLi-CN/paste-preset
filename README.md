@@ -1,6 +1,20 @@
+<p align="center">
+  <img src="public/paste-preset-icon.svg" alt="PastePreset icon" width="96" />
+</p>
+
 # PastePreset
 
+[![Release](https://img.shields.io/github/v/release/IvanLi-CN/paste-preset?logo=github)](https://github.com/IvanLi-CN/paste-preset/releases)
+[![CI Pipeline](https://github.com/IvanLi-CN/paste-preset/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/IvanLi-CN/paste-preset/actions/workflows/ci.yml)
+[![Bun](https://img.shields.io/badge/Bun-1.x-000000?logo=bun&logoColor=white)](https://bun.sh/)
+[![React](https://img.shields.io/badge/React-19.x-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-7.x-646CFF?logo=vite&logoColor=white)](vite.config.ts)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.x-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![DaisyUI](https://img.shields.io/badge/DaisyUI-5.x-ec4899)](https://daisyui.com/)
+
 PastePreset is a browser-based single-page application for quickly processing screenshots and mobile photos. It lets you crop, resize, transcode, and strip metadata entirely in the browser, then either copy the result to the clipboard or download it locally. No image data ever leaves your machine.
+
+![PastePreset main UI](docs/assets/app-screenshot.png)
 
 ## Features
 
