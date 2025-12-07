@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/paste-preset-icon.svg" alt="PastePreset icon" width="96" />
+</p>
+
 # PastePreset
 
 PastePreset is a browser-based single-page application for quickly processing screenshots and mobile photos. It lets you crop, resize, transcode, and strip metadata entirely in the browser, then either copy the result to the clipboard or download it locally. No image data ever leaves your machine.
