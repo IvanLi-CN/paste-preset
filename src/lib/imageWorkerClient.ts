@@ -1,0 +1,197 @@
+import { isHeicMimeType } from "./heic.ts";
+import type { ProcessResult } from "./imageProcessing.ts";
+import { createImageInfo, processImageBlob } from "./imageProcessing.ts";
+import type { ProcessRequest, ProcessResponse } from "./imageWorkerTypes.ts";
+import type { ProcessingOptions } from "./types.ts";
+
+type PendingRequest = {
+  resolve: (value: ProcessResult) => void;
+  reject: (reason?: unknown) => void;
+  sourceBlob: Blob;
+  sourceName?: string;
+};
+
+const pending = new Map<string, PendingRequest>();
+let workerInstance: Worker | null = null;
+
+function supportsOffscreenProcessing(): boolean {
+  return (
+    typeof Worker !== "undefined" &&
+    typeof OffscreenCanvas !== "undefined" &&
+    typeof createImageBitmap === "function"
+  );
+}
+
+function shouldUseWorker(blob: Blob): boolean {
+  if (!supportsOffscreenProcessing()) {
+    return false;
+  }
+  // heic2any relies on DOM APIs, so HEIC inputs stay on the main thread.
+  if (isHeicMimeType(blob.type || "")) {
+    return false;
+  }
+  return true;
+}
+
+function createWorker(): Worker | null {
+  if (workerInstance) {
+    return workerInstance;
+  }
+  if (!supportsOffscreenProcessing()) {
+    return null;
+  }
+  try {
+    const worker = new Worker(
+      new URL("../workers/imageProcessor.worker.ts", import.meta.url),
+      { type: "module" },
+    );
+    worker.onmessage = handleWorkerMessage;
+    worker.onerror = (event) => {
+      console.error("[PastePreset] Image worker error:", event.message);
+      flushPending(new Error(event.message || "image.exportFailed"));
+    };
+    worker.onmessageerror = (event) => {
+      console.error("[PastePreset] Image worker message error:", event.data);
+      flushPending(new Error("image.exportFailed"));
+    };
+    workerInstance = worker;
+    return workerInstance;
+  } catch (error) {
+    console.error("[PastePreset] Failed to create image worker:", error);
+    workerInstance = null;
+    return null;
+  }
+}
+
+function generateRequestId(): string {
+  const globalCrypto = globalThis.crypto;
+  if (globalCrypto?.randomUUID) {
+    return globalCrypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function handleWorkerMessage(event: MessageEvent<ProcessResponse>): void {
+  const data = event.data;
+  if (!data || (data.type !== "success" && data.type !== "failure")) {
+    return;
+  }
+  const pendingRequest = pending.get(data.id);
+  if (!pendingRequest) {
+    return;
+  }
+  pending.delete(data.id);
+
+  if (data.type === "failure") {
+    pendingRequest.reject(new Error(data.errorMessage));
+    return;
+  }
+
+  const { sourceBlob, sourceName, resolve, reject: _reject } = pendingRequest;
+
+  try {
+    const resultBlob = new Blob([data.resultBuffer], {
+      type: data.resultMimeType,
+    });
+
+    const normalizedBlob =
+      data.normalizedBuffer && data.normalizedBuffer.byteLength > 0
+        ? new Blob([data.normalizedBuffer], {
+            type: data.normalizedMimeType ?? "image/png",
+          })
+        : undefined;
+
+    const sourceInfo = normalizedBlob
+      ? {
+          ...createImageInfo(
+            sourceBlob,
+            data.sourceWidth,
+            data.sourceHeight,
+            sourceName,
+            normalizedBlob,
+          ),
+          metadata: data.metadata,
+          metadataStripped: false,
+        }
+      : {
+          ...createImageInfo(
+            sourceBlob,
+            data.sourceWidth,
+            data.sourceHeight,
+            sourceName,
+          ),
+          metadata: data.metadata,
+          metadataStripped: false,
+        };
+
+    const resultInfo = {
+      ...createImageInfo(
+        resultBlob,
+        data.width,
+        data.height,
+        sourceName ?? sourceInfo.sourceName,
+      ),
+      metadataStripped: data.metadataStripped,
+      metadata: data.metadataStripped ? undefined : data.metadata,
+    };
+
+    resolve({ source: sourceInfo, result: resultInfo });
+  } catch (error) {
+    pendingRequest.reject(error);
+  }
+}
+
+function flushPending(error: Error): void {
+  for (const [, entry] of pending) {
+    entry.reject(error);
+  }
+  pending.clear();
+}
+
+async function runWithWorker(
+  blob: Blob,
+  options: ProcessingOptions,
+  sourceName?: string,
+): Promise<ProcessResult> {
+  const worker = createWorker();
+  if (!worker) {
+    return processImageBlob(blob, options, sourceName);
+  }
+
+  const id = generateRequestId();
+  const buffer = await blob.arrayBuffer();
+
+  const request: ProcessRequest = {
+    type: "process",
+    id,
+    buffer,
+    mimeType: blob.type || "image/png",
+    sourceName,
+    options,
+  };
+
+  return new Promise<ProcessResult>((resolve, reject) => {
+    pending.set(id, { resolve, reject, sourceBlob: blob, sourceName });
+    worker.postMessage(request, [request.buffer]);
+  });
+}
+
+export async function processImageViaWorker(
+  blob: Blob,
+  options: ProcessingOptions,
+  sourceName?: string,
+): Promise<ProcessResult> {
+  if (!shouldUseWorker(blob)) {
+    return processImageBlob(blob, options, sourceName);
+  }
+
+  try {
+    return await runWithWorker(blob, options, sourceName);
+  } catch (error) {
+    console.warn(
+      "[PastePreset] Worker processing failed, falling back to main thread:",
+      error,
+    );
+    return processImageBlob(blob, options, sourceName);
+  }
+}

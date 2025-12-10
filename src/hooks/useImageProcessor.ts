@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { TranslationKey } from "../i18n";
 import { useTranslation } from "../i18n";
-import { processImageBlob } from "../lib/imageProcessing.ts";
+import { processImageViaWorker } from "../lib/imageWorkerClient.ts";
 import type { AppStatus, ImageInfo, ProcessingOptions } from "../lib/types.ts";
 
 export interface UseImageProcessorResult {
@@ -54,11 +54,8 @@ export function useImageProcessor(
       }
 
       try {
-        const { source: srcInfo, result: resultInfo } = await processImageBlob(
-          blob,
-          options,
-          sourceName,
-        );
+        const { source: srcInfo, result: resultInfo } =
+          await processImageViaWorker(blob, options, sourceName);
 
         if (cancelled) {
           return;
