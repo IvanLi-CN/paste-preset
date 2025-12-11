@@ -120,6 +120,21 @@ export const SingleDoneTask: Story = {
   },
 };
 
+export const SingleTaskExpanded: Story = {
+  args: {
+    tasks: [doneTask],
+  },
+  async play({ canvasElement }) {
+    const canvas = within(canvasElement);
+    const toggle = canvas.getByRole("button", { name: /Finished shot/i });
+    const collapse = toggle.closest(".collapse") as HTMLElement | null;
+    await waitFor(() => {
+      expect(collapse).not.toBeNull();
+      expect(collapse).toHaveClass("collapse-open");
+    });
+  },
+};
+
 export const HeaderActions: Story = {
   args: {
     tasks: [

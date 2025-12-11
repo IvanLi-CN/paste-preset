@@ -1,5 +1,5 @@
 import { Icon } from "@iconify/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "../i18n";
 import type { ImageTask } from "../lib/types.ts";
 import { TaskRow } from "./TaskRow.tsx";
@@ -21,7 +21,34 @@ export function TasksPanel(props: TasksPanelProps) {
     isBuildingZip = false,
   } = props;
   const { t } = useTranslation();
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
+    if (tasks.length === 1) {
+      return new Set([tasks[0].id]);
+    }
+    return new Set();
+  });
+  const previousTaskCountRef = useRef<number>(0);
+
+  // Automatically expand the single task when transitioning from 0 -> 1 task.
+  useEffect(() => {
+    const previousCount = previousTaskCountRef.current;
+
+    if (previousCount === 0 && tasks.length === 1) {
+      const onlyTask = tasks[0];
+      if (onlyTask) {
+        setExpandedIds((prev) => {
+          if (prev.has(onlyTask.id)) {
+            return prev;
+          }
+          const next = new Set(prev);
+          next.add(onlyTask.id);
+          return next;
+        });
+      }
+    }
+
+    previousTaskCountRef.current = tasks.length;
+  }, [tasks]);
 
   // If no tasks, we could show empty state, or let App handle it.
   // Requirement says: "当 tasks 为空时，TasksPanel 应向用户显示一个友好的空态提示"

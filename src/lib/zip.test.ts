@@ -18,15 +18,11 @@ vi.mock("jszip", () => {
 });
 
 describe("buildResultsZip", () => {
-  const mockBlob = new Blob(["fake-image-content"], { type: "image/png" });
-  // Ensure arrayBuffer is present even if environment Blob is limited
-  if (!mockBlob.arrayBuffer) {
-    (mockBlob as any).arrayBuffer = async () =>
-      new TextEncoder().encode("fake-image-content").buffer;
-  } else {
-    (mockBlob as any).arrayBuffer = async () =>
-      new TextEncoder().encode("fake-image-content").buffer;
-  }
+  const mockBlob: Blob & {
+    arrayBuffer?: () => Promise<ArrayBuffer>;
+  } = new Blob(["fake-image-content"], { type: "image/png" });
+  mockBlob.arrayBuffer = async () =>
+    new TextEncoder().encode("fake-image-content").buffer;
 
   beforeEach(() => {
     vi.clearAllMocks();
