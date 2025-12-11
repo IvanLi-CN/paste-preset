@@ -63,6 +63,8 @@ export function LanguageSelector() {
         type="button"
         className="btn btn-ghost btn-sm gap-2"
         aria-label={t("language.ariaLabel")}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
         onClick={handleToggle}
       >
         <Icon icon={currentLanguage.icon} className="h-5 w-5 rounded-full" />
@@ -71,7 +73,10 @@ export function LanguageSelector() {
         </span>
       </button>
 
-      <ul className="menu menu-sm dropdown-content mt-2 w-40 rounded-box bg-base-100 p-1 shadow">
+      <ul
+        className="menu menu-sm dropdown-content mt-2 w-40 rounded-box bg-base-100 p-1 shadow"
+        aria-label={t("language.ariaLabel")}
+      >
         {LANGUAGES.map((language) => {
           const isActive = language.code === locale;
 
@@ -80,6 +85,7 @@ export function LanguageSelector() {
               <button
                 type="button"
                 className={isActive ? "active" : ""}
+                role="menuitem"
                 onClick={() => handleSelect(language.code)}
               >
                 <Icon icon={language.icon} className="h-4 w-4 rounded-full" />
