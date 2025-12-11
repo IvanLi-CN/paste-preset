@@ -18,6 +18,7 @@ import { useTranslation } from "./i18n";
 import { preloadHeicConverter } from "./lib/heic.ts";
 import { PRESETS } from "./lib/presets.ts";
 import type { ImageInfo } from "./lib/types.ts";
+import { buildResultsZip } from "./lib/zip.ts";
 
 function App() {
   const { t } = useTranslation();
@@ -29,6 +30,7 @@ function App() {
     typeof window === "undefined" ? 0 : window.innerWidth,
   );
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
+  const [isBuildingZip, setIsBuildingZip] = useState(false);
   const currentYear = new Date().getFullYear();
 
   const { tasks, enqueueFiles, clearAll } =
@@ -198,6 +200,41 @@ function App() {
     [copyImage, resetClipboardError],
   );
 
+  const handleDownloadAll = async () => {
+    setIsBuildingZip(true);
+    try {
+      const blob = await buildResultsZip(tasks);
+      if (!blob) return;
+
+      const now = new Date();
+      const timestamp =
+        now.getFullYear().toString() +
+        (now.getMonth() + 1).toString().padStart(2, "0") +
+        now.getDate().toString().padStart(2, "0") +
+        "-" +
+        now.getHours().toString().padStart(2, "0") +
+        now.getMinutes().toString().padStart(2, "0") +
+        now.getSeconds().toString().padStart(2, "0");
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `pastepreset-batch-${timestamp}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      setUiError(
+        "Failed to create ZIP: " +
+          (err instanceof Error ? err.message : String(err)),
+      );
+    } finally {
+      setIsBuildingZip(false);
+    }
+  };
+
   const settingsAspectSource: ImageInfo | null = result ?? source;
 
   useEffect(() => {
@@ -336,6 +373,9 @@ function App() {
                 <TasksPanel
                   tasks={tasks}
                   onCopyResult={(_, blob, mime) => handleCopyResult(blob, mime)}
+                  onDownloadAll={handleDownloadAll}
+                  onClearAll={clearAll}
+                  isBuildingZip={isBuildingZip}
                 />
 
                 {isCopying && (
@@ -392,6 +432,9 @@ function App() {
                 <TasksPanel
                   tasks={tasks}
                   onCopyResult={(_, blob, mime) => handleCopyResult(blob, mime)}
+                  onDownloadAll={handleDownloadAll}
+                  onClearAll={clearAll}
+                  isBuildingZip={isBuildingZip}
                 />
 
                 {isCopying && (

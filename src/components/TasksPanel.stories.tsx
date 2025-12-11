@@ -61,6 +61,8 @@ const meta = {
   tags: ["autodocs"],
   args: {
     onCopyResult: fn(),
+    onDownloadAll: fn(),
+    onClearAll: fn(),
   },
 } satisfies Meta<typeof TasksPanel>;
 
@@ -91,6 +93,13 @@ export const SingleDoneTask: Story = {
   async play({ canvasElement, step, args }) {
     const canvas = within(canvasElement);
 
+    await step("Check header buttons", async () => {
+      const clearBtn = canvas.getByRole("button", { name: /Clear all/i });
+      const downloadBtn = canvas.getByRole("button", { name: /Download all/i });
+      expect(clearBtn).toBeInTheDocument();
+      expect(downloadBtn).toBeEnabled();
+    });
+
     await step("Find and click copy", async () => {
       const copyButton = canvas.getByRole("button", {
         name: /copy to clipboard/i,
@@ -107,6 +116,36 @@ export const SingleDoneTask: Story = {
           doneTask.result?.mimeType,
         ),
       );
+    });
+  },
+};
+
+export const HeaderActions: Story = {
+  args: {
+    tasks: [
+      doneTask,
+      createTask({
+        id: "task-queued",
+        fileName: "Queued.png",
+        status: "queued",
+      }),
+    ],
+  },
+  async play({ canvasElement, step, args }) {
+    const canvas = within(canvasElement);
+
+    const clearBtn = canvas.getByRole("button", { name: /Clear all/i });
+    const downloadBtn = canvas.getByRole("button", { name: /Download all/i });
+
+    await step("Download all interaction", async () => {
+      expect(downloadBtn).toBeEnabled();
+      await userEvent.click(downloadBtn);
+      expect(args.onDownloadAll).toHaveBeenCalled();
+    });
+
+    await step("Clear all interaction", async () => {
+      await userEvent.click(clearBtn);
+      expect(args.onClearAll).toHaveBeenCalled();
     });
   },
 };

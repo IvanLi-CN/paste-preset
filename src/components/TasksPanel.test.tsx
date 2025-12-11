@@ -22,16 +22,30 @@ const mockTask = (overrides: Partial<ImageTask>): ImageTask => ({
 function renderTasksPanel({
   tasks = [],
   onCopyResult = vi.fn(),
+  onDownloadAll = vi.fn(),
+  onClearAll = vi.fn(),
+  isBuildingZip = false,
 }: {
   tasks?: ImageTask[];
   onCopyResult?: (taskId: string, blob: Blob, mimeType: string) => void;
+  onDownloadAll?: () => void;
+  onClearAll?: () => void;
+  isBuildingZip?: boolean;
 } = {}) {
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
 
   act(() => {
-    root.render(<TasksPanel tasks={tasks} onCopyResult={onCopyResult} />);
+    root.render(
+      <TasksPanel
+        tasks={tasks}
+        onCopyResult={onCopyResult}
+        onDownloadAll={onDownloadAll}
+        onClearAll={onClearAll}
+        isBuildingZip={isBuildingZip}
+      />,
+    );
   });
 
   const cleanup = () => {
@@ -45,11 +59,15 @@ function renderTasksPanel({
 describe("TasksPanel", () => {
   it("renders empty state when no tasks", () => {
     const { container, cleanup } = renderTasksPanel({ tasks: [] });
+    // Should NOT show header actions if empty (implemented logic)
     expect(container.textContent).toContain("preview.empty");
+    expect(
+      container.querySelector('button[title="Clear all tasks"]'),
+    ).toBeNull();
     cleanup();
   });
 
-  it("renders list of tasks", () => {
+  it("renders list of tasks and header actions", () => {
     const tasks = [
       mockTask({ id: "1", status: "queued" }),
       mockTask({ id: "2", status: "processing" }),
@@ -62,8 +80,14 @@ describe("TasksPanel", () => {
     ];
     const { container, cleanup } = renderTasksPanel({ tasks });
 
-    // Check for task rows.
-    // They have class "collapse-title"
+    // Check header actions exist
+    expect(
+      container.querySelector('button[title="Clear all tasks"]'),
+    ).toBeTruthy();
+    expect(
+      container.querySelector('button[title="Download all results"]'),
+    ).toBeTruthy();
+
     const titles = container.querySelectorAll(".collapse-title");
     expect(titles).toHaveLength(3);
 
@@ -156,8 +180,6 @@ describe("TasksPanel", () => {
       onCopyResult: onCopy,
     });
 
-    // Find copy button in the folded row.
-    // It has specific title logic: t("preview.actions.copyLabel") -> "preview.actions.copyLabel" (mocked)
     const copyBtn = container.querySelector(
       'button[title="preview.actions.copyLabel"]',
     );
@@ -169,6 +191,46 @@ describe("TasksPanel", () => {
 
     expect(onCopy).toHaveBeenCalledWith("1", "blob", "image/png");
 
+    cleanup();
+  });
+
+  it("calls onDownloadAll when clicking Download all button", () => {
+    const onDownload = vi.fn();
+    // Must have done tasks to enable the button
+    const tasks = [mockTask({ id: "1", status: "done", result: {} as any })];
+    const { container, cleanup } = renderTasksPanel({
+      tasks,
+      onDownloadAll: onDownload,
+    });
+
+    const downloadBtn = container.querySelector(
+      'button[title="Download all results"]',
+    );
+    expect(downloadBtn).toBeTruthy();
+    expect((downloadBtn as HTMLButtonElement).disabled).toBe(false);
+
+    act(() => {
+      downloadBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onDownload).toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("calls onClearAll when clicking Clear all button", () => {
+    const onClear = vi.fn();
+    const tasks = [mockTask({ id: "1", status: "queued" })];
+    const { container, cleanup } = renderTasksPanel({
+      tasks,
+      onClearAll: onClear,
+    });
+
+    const clearBtn = container.querySelector('button[title="Clear all tasks"]');
+    expect(clearBtn).toBeTruthy();
+
+    act(() => {
+      clearBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onClear).toHaveBeenCalled();
     cleanup();
   });
 });
