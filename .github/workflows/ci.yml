@@ -43,6 +43,9 @@ jobs:
           VITE_APP_VERSION: ${{ env.APP_EFFECTIVE_VERSION }}
         run: bun run build
 
+      - name: Run Storybook interaction tests
+        run: bun run test-storybook
+
       - name: Install Playwright browsers (chromium)
         run: bunx playwright install --with-deps chromium
 
