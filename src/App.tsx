@@ -2,9 +2,9 @@ import { Icon } from "@iconify/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LanguageSelector } from "./components/LanguageSelector.tsx";
 import { PasteArea } from "./components/PasteArea.tsx";
-import { PreviewPanel } from "./components/PreviewPanel.tsx";
 import { SettingsPanel } from "./components/SettingsPanel.tsx";
 import { StatusBar } from "./components/StatusBar.tsx";
+import { TasksPanel } from "./components/TasksPanel.tsx";
 import { useAppVersion } from "./hooks/useAppVersion.ts";
 import { useClipboard } from "./hooks/useClipboard.ts";
 import {
@@ -333,11 +333,9 @@ function App() {
                   onImagesSelected={handleImagesSelected}
                   onError={handleError}
                 />
-                <PreviewPanel
-                  source={source}
-                  result={result}
-                  status={status}
-                  onCopyResult={handleCopyResult}
+                <TasksPanel
+                  tasks={tasks}
+                  onCopyResult={(_, blob, mime) => handleCopyResult(blob, mime)}
                 />
 
                 {isCopying && (
@@ -391,11 +389,9 @@ function App() {
                   onImagesSelected={handleImagesSelected}
                   onError={handleError}
                 />
-                <PreviewPanel
-                  source={source}
-                  result={result}
-                  status={status}
-                  onCopyResult={handleCopyResult}
+                <TasksPanel
+                  tasks={tasks}
+                  onCopyResult={(_, blob, mime) => handleCopyResult(blob, mime)}
                 />
 
                 {isCopying && (

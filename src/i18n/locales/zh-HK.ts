@@ -27,8 +27,11 @@ export const zhHK: TranslationMessages = {
   "clipboard.error.convertFailed": "轉換圖片以複製到剪貼簿時失敗。",
   "clipboard.error.generic": "複製圖片失敗",
 
-  "status.processing": "正在處理圖片…",
-  "status.error.unknown": "發生未知的處理錯誤",
+  "status.processing": "處理中…",
+  "status.queued": "排隊中",
+  "status.done": "已完成",
+  "status.error": "錯誤",
+  "status.error.unknown": "未知處理錯誤",
 
   // Settings panel
   "settings.title": "設定",
