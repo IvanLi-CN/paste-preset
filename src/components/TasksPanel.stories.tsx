@@ -6,14 +6,20 @@ import type { ImageInfo, ImageTask } from "../lib/types.ts";
 import { TasksPanel } from "./TasksPanel";
 
 const sampleImage = (overrides: Partial<ImageInfo> = {}): ImageInfo => {
+  const width = overrides.width ?? 800;
+  const height = overrides.height ?? 600;
   const blob = new Blob(["sample-image"], { type: "image/png" });
+  const pickLocal = () =>
+    width >= 800
+      ? "/storybook/sample-800x600.jpg"
+      : "/storybook/sample-640x360.jpg";
   return {
     blob,
-    url: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mO0dOjYfwAIfwN5mDoAuQAAAABJRU5ErkJggg==",
-    width: 640,
-    height: 360,
+    url: overrides.url ?? pickLocal(),
+    width,
+    height,
     mimeType: "image/png",
-    fileSize: blob.size,
+    fileSize: blob.size || 1024,
     metadataStripped: false,
     ...overrides,
   };

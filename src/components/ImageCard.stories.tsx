@@ -3,15 +3,20 @@ import type { ImageInfo } from "../lib/types.ts";
 import { ImageCard } from "./ImageCard";
 
 const sampleImage = (overrides: Partial<ImageInfo> = {}): ImageInfo => {
+  const width = overrides.width ?? 800;
+  const height = overrides.height ?? 450;
   const blob = new Blob(["sample-image"], {
     type: overrides.mimeType ?? "image/png",
   });
+  const pickLocal = () =>
+    width >= 800
+      ? "/storybook/sample-800x600.jpg"
+      : "/storybook/sample-640x360.jpg";
   return {
     blob,
-    url:
-      overrides.url ?? "https://via.placeholder.com/800x450.png?text=Preview",
-    width: overrides.width ?? 800,
-    height: overrides.height ?? 450,
+    url: overrides.url ?? pickLocal(),
+    width,
+    height,
     mimeType: overrides.mimeType ?? "image/png",
     fileSize: overrides.fileSize ?? blob.size,
     metadataStripped: overrides.metadataStripped ?? false,
