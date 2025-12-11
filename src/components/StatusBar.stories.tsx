@@ -7,6 +7,7 @@ const meta = {
   component: StatusBar,
   tags: ["autodocs"],
   args: {
+    status: "idle",
     processingError: null,
     clipboardError: null,
   },
@@ -22,6 +23,12 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
+export const HiddenWhenIdle: Story = {
+  args: {
+    status: "idle",
+  },
+};
+
 export const Processing: Story = {
   args: {
     status: "processing",
@@ -33,5 +40,12 @@ export const WithErrors: Story = {
     status: "error",
     processingError: "Failed to process image",
     clipboardError: "Clipboard unavailable",
+  },
+};
+
+export const ClipboardOnlyError: Story = {
+  args: {
+    status: "error",
+    clipboardError: "Clipboard permission denied",
   },
 };
