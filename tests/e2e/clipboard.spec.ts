@@ -19,9 +19,7 @@ test("E2E-070: copy button uses clipboard API when available", async ({
   await uploadFixtureViaFileInput(page, testImagesDir, "screenshot-png.png");
   await waitForProcessingToFinish(page);
 
-  const copyButton = page.getByRole("button", {
-    name: "Copy result image to clipboard",
-  });
+  const copyButton = page.getByTestId("task-copy").first();
 
   await copyButton.click();
 
@@ -42,9 +40,7 @@ test("E2E-071: Ctrl/Cmd+C on copy button triggers clipboard write", async ({
   await uploadFixtureViaFileInput(page, testImagesDir, "screenshot-png.png");
   await waitForProcessingToFinish(page);
 
-  const copyButton = page.getByRole("button", {
-    name: "Copy result image to clipboard",
-  });
+  const copyButton = page.getByTestId("task-copy").first();
   await copyButton.focus();
 
   await page.keyboard.press("Control+C");
@@ -114,9 +110,7 @@ test("E2E-074: clipboard API unavailable shows fallback error", async ({
   await uploadFixtureViaFileInput(page, testImagesDir, "screenshot-png.png");
   await waitForProcessingToFinish(page);
 
-  const copyButton = page.getByRole("button", {
-    name: "Copy result image to clipboard",
-  });
+  const copyButton = page.getByTestId("task-copy").first();
   await copyButton.click();
 
   await expect(
@@ -141,9 +135,7 @@ test("E2E-092: explicit clipboard write failure surfaces error message", async (
   await uploadFixtureViaFileInput(page, testImagesDir, "screenshot-png.png");
   await waitForProcessingToFinish(page);
 
-  const copyButton = page.getByRole("button", {
-    name: "Copy result image to clipboard",
-  });
+  const copyButton = page.getByTestId("task-copy").first();
   await copyButton.click();
 
   const errorAlert = page

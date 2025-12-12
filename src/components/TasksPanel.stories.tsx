@@ -101,9 +101,7 @@ export const SingleDoneTask: Story = {
     });
 
     await step("Find and click copy", async () => {
-      const copyButton = canvas.getByRole("button", {
-        name: /copy to clipboard/i,
-      });
+      const copyButton = canvas.getByTestId("task-copy");
       expect(copyButton).toBeEnabled();
       await userEvent.click(copyButton);
     });

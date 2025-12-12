@@ -160,9 +160,7 @@ test("E2E-110: primary operations are keyboard accessible", async ({
   await waitForProcessingToFinish(page);
 
   // Copy and Download buttons are focusable and can be triggered with Enter.
-  const copyButton = page.getByRole("button", {
-    name: "Copy result image to clipboard",
-  });
+  const copyButton = page.getByTestId("task-copy").first();
   await copyButton.focus();
   await copyButton.press("Enter");
 
@@ -210,17 +208,13 @@ test("E2E-111: StatusBar ARIA roles and labels match implementation", async ({
   await uploadFixtureViaFileInput(page, testImagesDir, "screenshot-png.png");
   await waitForProcessingToFinish(page);
 
-  const copyButton = page.getByRole("button", {
-    name: "Copy result image to clipboard",
-  });
+  const copyButton = page.getByTestId("task-copy").first();
   await expect(copyButton).toHaveAttribute(
     "aria-label",
     "Copy result image to clipboard",
   );
 
-  const downloadLink = page.getByRole("link", {
-    name: "Download result image",
-  });
+  const downloadLink = page.getByTestId("task-download").first();
   await expect(downloadLink).toHaveAttribute(
     "aria-label",
     "Download result image",

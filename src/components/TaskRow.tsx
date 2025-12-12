@@ -63,11 +63,13 @@ export function TaskRow(props: TaskRowProps) {
 
   return (
     <div
+      data-testid="task-row"
       className={`collapse bg-base-100 border border-base-300 ${isExpanded ? "collapse-open" : "collapse-close"}`}
     >
       {/* biome-ignore lint/a11y/useSemanticElements: DaisyUI structure requires div or specifically styled element */}
       <div
         role="button"
+        data-testid="task-toggle"
         tabIndex={0}
         className="collapse-title flex items-center gap-4 py-3 px-4 outline-none focus-visible:bg-base-200"
         onClick={onToggleExpand}
@@ -134,6 +136,8 @@ export function TaskRow(props: TaskRowProps) {
                 type="button"
                 className="btn btn-ghost btn-sm btn-square"
                 onClick={handleCopy}
+                aria-label={t("preview.actions.copyAria")}
+                data-testid="task-copy"
                 title={t("preview.actions.copyLabel")}
               >
                 <Icon icon="mdi:content-copy" className="w-5 h-5" />
@@ -143,6 +147,8 @@ export function TaskRow(props: TaskRowProps) {
                 download={buildDownloadFileName(result, task.fileName)}
                 className="btn btn-ghost btn-sm btn-square"
                 onClick={handleDownloadClick}
+                aria-label={t("preview.actions.downloadAria")}
+                data-testid="task-download"
                 title={t("preview.actions.downloadLabel")}
               >
                 <Icon icon="mdi:download" className="w-5 h-5" />
