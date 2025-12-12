@@ -94,6 +94,17 @@ export function useImageTaskQueue(
     updateTask(id, (task) => ({ ...task, status: "processing" }));
 
     const run = async () => {
+      const globalWithTestHook = globalThis as typeof globalThis & {
+        __processingDelayMsForTest?: number | null;
+      };
+
+      const delayMs = globalWithTestHook.__processingDelayMsForTest;
+      if (typeof delayMs === "number" && delayMs > 0) {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, delayMs);
+        });
+      }
+
       try {
         const { source, result } = await processImageViaWorker(
           file,
