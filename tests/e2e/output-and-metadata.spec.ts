@@ -1,5 +1,8 @@
 import {
+  expandTaskRow,
   expect,
+  getTaskDownloadLink,
+  getTaskRows,
   test,
   uploadFixtureViaFileInput,
   waitForProcessingToFinish,
@@ -14,12 +17,14 @@ test("E2E-050 Auto output format keeps PNG as PNG", async ({
   await uploadFixtureViaFileInput(page, testImagesDir, "screenshot-png.png");
   await waitForProcessingToFinish(page);
 
-  // Source and result formats should both be image/png.
-  await expect(page.getByText("image/png")).toHaveCount(2);
+  const taskRow = getTaskRows(page).last();
+  await expandTaskRow(taskRow);
+  await expect(taskRow.getByText("Done")).toBeVisible();
 
-  const downloadLink = page.getByRole("link", {
-    name: "Download result image",
-  });
+  // Source and result formats should both be image/png.
+  await expect(taskRow.getByText("image/png")).toHaveCount(2);
+
+  const downloadLink = getTaskDownloadLink(taskRow);
   const downloadName = await downloadLink.getAttribute("download");
 
   expect(downloadName).not.toBeNull();
@@ -247,9 +252,10 @@ test("E2E-062: HEIC conversion produces JPEG result with stripped metadata", asy
   await uploadFixtureViaFileInput(page, testImagesDir, "heic-photo.heic");
   await waitForProcessingToFinish(page);
 
-  const heicError = page.getByText(
-    /HEIC\/HEIF conversion is not available in this environment\. Please convert the image to JPEG or PNG and try again\.|Failed to convert HEIC\/HEIF image\. Please convert it to JPEG or PNG and try again\./,
-  );
+  const heicError = page.getByRole("alert").filter({
+    hasText:
+      /HEIC\/HEIF conversion is not available in this environment\. Please convert the image to JPEG or PNG and try again\.|Failed to convert HEIC\/HEIF image\. Please convert it to JPEG or PNG and try again\./,
+  });
 
   if (await heicError.isVisible()) {
     test.skip(
@@ -257,10 +263,13 @@ test("E2E-062: HEIC conversion produces JPEG result with stripped metadata", asy
     );
   }
 
-  const sourceCard = page
+  const taskRow = getTaskRows(page).last();
+  await expandTaskRow(taskRow);
+
+  const sourceCard = taskRow
     .getByRole("heading", { name: "Source image" })
     .locator("xpath=../..");
-  const resultCard = page
+  const resultCard = taskRow
     .getByRole("heading", { name: "Result image" })
     .locator("xpath=../..");
 
@@ -303,14 +312,18 @@ test("E2E-063: HEIC converter missing surfaces a clear error", async ({
   await uploadFixtureViaFileInput(page, testImagesDir, "heic-photo.heic");
 
   // An explanatory error should be shown in the StatusBar.
-  await expect(
-    page.getByText(
+  const statusError = page.getByRole("alert").filter({
+    hasText:
       "HEIC/HEIF conversion is not available in this environment. Please convert the image to JPEG or PNG and try again.",
-    ),
-  ).toBeVisible();
+  });
+  await expect(statusError).toBeVisible();
+
+  const taskRow = getTaskRows(page).last();
+  await expect(taskRow.getByText("Error")).toBeVisible();
+  await expandTaskRow(taskRow);
 
   // The Result image card should not be rendered when processing fails.
-  await expect(page.getByRole("heading", { name: "Result image" })).toHaveCount(
-    0,
-  );
+  await expect(
+    taskRow.getByRole("heading", { name: "Result image" }),
+  ).toHaveCount(0);
 });

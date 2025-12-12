@@ -9,13 +9,13 @@ import {
 import { useTranslation } from "../i18n";
 
 interface PasteAreaProps {
-  onImageSelected: (file: File) => void;
+  onImagesSelected: (files: File[]) => void;
   onError: (message: string) => void;
   hasImage: boolean;
 }
 
 export function PasteArea(props: PasteAreaProps) {
-  const { onImageSelected, onError, hasImage } = props;
+  const { onImagesSelected, onError, hasImage } = props;
   const { t } = useTranslation();
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -25,43 +25,44 @@ export function PasteArea(props: PasteAreaProps) {
       const iterable =
         files instanceof FileList ? Array.from(files) : (files as File[]);
 
-      const image = iterable.find((file) => file.type.startsWith("image/"));
-      if (!image) {
+      const images = iterable.filter((file) => file.type.startsWith("image/"));
+      if (images.length === 0) {
         onError(t("pasteArea.error.noImageFile"));
-        return;
+        return [] as File[];
       }
 
-      onImageSelected(image);
+      onImagesSelected(images);
+      return images;
     },
-    [onError, onImageSelected, t],
+    [onError, onImagesSelected, t],
   );
 
   const handlePaste = useCallback(
     (event: ClipboardEvent<HTMLButtonElement>) => {
       const { items, files } = event.clipboardData;
 
-      const imageItem = Array.from(items).find((item) =>
-        item.type.startsWith("image/"),
-      );
+      const clipboardImages = Array.from(items)
+        .filter((item) => item.type.startsWith("image/"))
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => Boolean(file));
 
-      if (imageItem) {
-        const blob = imageItem.getAsFile();
-        if (blob) {
-          event.preventDefault();
-          onImageSelected(blob);
-          return;
-        }
+      if (clipboardImages.length > 0) {
+        event.preventDefault();
+        onImagesSelected(clipboardImages);
+        return;
       }
 
       if (files.length > 0) {
         event.preventDefault();
-        handleFiles(files);
-        return;
+        const collected = handleFiles(files);
+        if (collected.length > 0) {
+          return;
+        }
       }
 
       onError(t("pasteArea.error.noClipboardImage"));
     },
-    [handleFiles, onError, onImageSelected, t],
+    [handleFiles, onError, onImagesSelected, t],
   );
 
   const handleDrop = useCallback(
@@ -161,6 +162,7 @@ export function PasteArea(props: PasteAreaProps) {
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            multiple
             className="hidden"
             onChange={handleFileInputChange}
           />

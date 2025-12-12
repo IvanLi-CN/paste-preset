@@ -35,6 +35,7 @@ export const DropdownToggle: Story = {
       });
       const option = canvas.getByRole("menuitem", { name: /english/i });
       await userEvent.click(option);
+      await userEvent.click(document.body);
       await waitFor(() =>
         expect(toggle).toHaveAttribute("aria-expanded", "false"),
       );

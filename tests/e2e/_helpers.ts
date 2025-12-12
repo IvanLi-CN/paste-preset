@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import type { Locator, Page } from "@playwright/test";
 import { test as base, expect } from "@playwright/test";
 
 type Fixtures = {
@@ -141,8 +142,10 @@ export async function dropFixtureOnPasteArea(
 export async function getImageCardDimensionsText(
   page: import("@playwright/test").Page,
   title: string,
+  scope?: Locator,
 ): Promise<string> {
-  const card = page
+  const root = scope ?? page;
+  const card = root
     .getByRole("heading", { name: title })
     // Walk up from the <h3> to the card container.
     .locator("xpath=../..");
@@ -151,6 +154,31 @@ export async function getImageCardDimensionsText(
 
   const text = await dimensionsValue.textContent();
   return (text ?? "").trim();
+}
+
+export function getTaskRows(page: import("@playwright/test").Page): Locator {
+  return page.getByTestId("task-row");
+}
+
+export async function expandTaskRow(taskRow: Locator) {
+  const className = await taskRow.getAttribute("class");
+  const isOpen = className?.includes("collapse-open");
+  if (isOpen) return;
+  await taskRow.getByTestId("task-toggle").click();
+}
+
+export function getTaskDownloadLink(taskRow: Locator): Locator {
+  return taskRow.getByTestId("task-download");
+}
+
+export async function waitForLatestTaskStatus(page: Page, statusText: string) {
+  const tasks = getTaskRows(page);
+  const latest = tasks.last();
+  await latest.waitFor({ state: "visible", timeout: 15_000 });
+  await expect(latest.getByText(statusText, { exact: false })).toBeVisible({
+    timeout: 15_000,
+  });
+  return latest;
 }
 
 export async function waitForProcessingToFinish(

@@ -1,6 +1,8 @@
 import {
+  expandTaskRow,
   expect,
   getImageCardDimensionsText,
+  getTaskRows,
   test,
   uploadFixtureViaFileInput,
   waitForProcessingToFinish,
@@ -15,22 +17,27 @@ test("E2E-020 default Original preset keeps large JPEG size", async ({
   await uploadFixtureViaFileInput(page, testImagesDir, "photo-large-jpeg.jpg");
   await waitForProcessingToFinish(page);
 
+  const taskRow = getTaskRows(page).first();
+  await expandTaskRow(taskRow);
+
   const sourceDimensions = await getImageCardDimensionsText(
     page,
     "Source image",
+    taskRow,
   );
   const resultDimensions = await getImageCardDimensionsText(
     page,
     "Result image",
+    taskRow,
   );
 
   // Default configuration is the Original preset: keep original resolution.
   expect(sourceDimensions).toBe("4000 × 3000");
   expect(resultDimensions).toBe("4000 × 3000");
 
-  await expect(page.getByText("Original size")).toBeVisible();
+  await expect(taskRow.getByText("Original size")).toBeVisible();
   // With outputFormat=auto, source and result formats both remain JPEG.
-  await expect(page.getByText("image/jpeg")).toHaveCount(2);
+  await expect(taskRow.getByText("image/jpeg")).toHaveCount(2);
 });
 
 test("E2E-021 Original preset keeps original dimensions", async ({
@@ -44,19 +51,24 @@ test("E2E-021 Original preset keeps original dimensions", async ({
   await uploadFixtureViaFileInput(page, testImagesDir, "photo-large-jpeg.jpg");
   await waitForProcessingToFinish(page);
 
+  const taskRow = getTaskRows(page).first();
+  await expandTaskRow(taskRow);
+
   const sourceDimensions = await getImageCardDimensionsText(
     page,
     "Source image",
+    taskRow,
   );
   const resultDimensions = await getImageCardDimensionsText(
     page,
     "Result image",
+    taskRow,
   );
 
   expect(sourceDimensions).toBe("4000 × 3000");
   expect(resultDimensions).toBe("4000 × 3000");
 
-  await expect(page.getByText("Original size")).toBeVisible();
+  await expect(taskRow.getByText("Original size")).toBeVisible();
 });
 
 test("E2E-022 switching preset reprocesses existing image", async ({
@@ -73,22 +85,40 @@ test("E2E-022 switching preset reprocesses existing image", async ({
   await uploadFixtureViaFileInput(page, testImagesDir, "photo-large-jpeg.jpg");
   await waitForProcessingToFinish(page);
 
-  // Switch to Small preset to trigger reprocessing.
+  const firstTask = getTaskRows(page).first();
+  await expandTaskRow(firstTask);
+  const originalResult = await getImageCardDimensionsText(
+    page,
+    "Result image",
+    firstTask,
+  );
+  expect(originalResult).toBe("4000 × 3000");
+
+  // Switch to Small preset and enqueue a new task (multi-image semantics).
   await page.getByRole("button", { name: "Small" }).click();
+  await uploadFixtureViaFileInput(page, testImagesDir, "photo-large-jpeg.jpg");
   await waitForProcessingToFinish(page);
+
+  const tasks = getTaskRows(page);
+  await expect(tasks).toHaveCount(2);
+
+  const latestTask = tasks.last();
+  await expandTaskRow(latestTask);
 
   const sourceDimensions = await getImageCardDimensionsText(
     page,
     "Source image",
+    latestTask,
   );
   const resultDimensions = await getImageCardDimensionsText(
     page,
     "Result image",
+    latestTask,
   );
 
   expect(sourceDimensions).toBe("4000 × 3000");
   expect(resultDimensions).toBe("800 × 600");
-  await expect(page.getByText("Resized to 800 × 600")).toBeVisible();
+  await expect(latestTask.getByText("Resized to 800 × 600")).toBeVisible();
 });
 
 test("E2E-023 Medium preset resizes JPEG to 1280-wide PNG and strips metadata", async ({
@@ -102,22 +132,27 @@ test("E2E-023 Medium preset resizes JPEG to 1280-wide PNG and strips metadata", 
   await uploadFixtureViaFileInput(page, testImagesDir, "photo-large-jpeg.jpg");
   await waitForProcessingToFinish(page);
 
+  const taskRow = getTaskRows(page).first();
+  await expandTaskRow(taskRow);
+
   const sourceDimensions = await getImageCardDimensionsText(
     page,
     "Source image",
+    taskRow,
   );
   const resultDimensions = await getImageCardDimensionsText(
     page,
     "Result image",
+    taskRow,
   );
 
   expect(sourceDimensions).toBe("4000 × 3000");
   expect(resultDimensions).toBe("1280 × 960");
 
   // Medium preset forces PNG output and enables stripMetadata.
-  await expect(page.getByText("image/jpeg")).toHaveCount(1);
-  await expect(page.getByText("image/png")).toHaveCount(1);
-  await expect(page.getByText("Stripped metadata")).toBeVisible();
+  await expect(taskRow.getByText("image/jpeg")).toHaveCount(1);
+  await expect(taskRow.getByText("image/png")).toHaveCount(1);
+  await expect(taskRow.getByText("Stripped metadata")).toBeVisible();
 });
 
 test("E2E-030 lock aspect ratio updates height when width changes", async ({
@@ -139,11 +174,16 @@ test("E2E-030 lock aspect ratio updates height when width changes", async ({
 
   await expect(heightInput).toHaveValue("750");
 
+  // Enqueue a new task with the updated dimensions.
+  await uploadFixtureViaFileInput(page, testImagesDir, "screenshot-png.png");
   await waitForProcessingToFinish(page);
 
+  const latestTask = getTaskRows(page).last();
+  await expandTaskRow(latestTask);
   const resultDimensions = await getImageCardDimensionsText(
     page,
     "Result image",
+    latestTask,
   );
   expect(resultDimensions).toBe("1000 × 750");
 });
@@ -170,11 +210,15 @@ test("E2E-031 unlocked aspect ratio keeps independent width and height", async (
   await widthInput.fill("1000");
   await heightInput.fill("300");
 
+  await uploadFixtureViaFileInput(page, testImagesDir, "screenshot-png.png");
   await waitForProcessingToFinish(page);
 
+  const latestTask = getTaskRows(page).last();
+  await expandTaskRow(latestTask);
   const resultDimensions = await getImageCardDimensionsText(
     page,
     "Result image",
+    latestTask,
   );
   expect(resultDimensions).toBe("1000 × 300");
 });
@@ -201,23 +245,25 @@ test("E2E-040 Fit mode keeps result within target box", async ({
 }) => {
   await page.goto("/");
 
-  await uploadFixtureViaFileInput(page, testImagesDir, "photo-large-jpeg.jpg");
-  await waitForProcessingToFinish(page);
-
   const widthInput = page.getByLabel("Width (px)");
   const heightInput = page.getByLabel("Height (px)");
 
   await widthInput.fill("800");
   await heightInput.fill("600");
 
+  await uploadFixtureViaFileInput(page, testImagesDir, "photo-large-jpeg.jpg");
   await waitForProcessingToFinish(page);
+
+  const taskRow = getTaskRows(page).last();
+  await expandTaskRow(taskRow);
 
   const resultDimensions = await getImageCardDimensionsText(
     page,
     "Result image",
+    taskRow,
   );
   expect(resultDimensions).toBe("800 × 600");
-  await expect(page.getByText("Resized to 800 × 600")).toBeVisible();
+  await expect(taskRow.getByText("Resized to 800 × 600")).toBeVisible();
 });
 
 test("E2E-041 Fill mode outputs exact target dimensions", async ({
@@ -229,9 +275,6 @@ test("E2E-041 Fill mode outputs exact target dimensions", async ({
   }
   await page.goto("/");
 
-  await uploadFixtureViaFileInput(page, testImagesDir, "photo-large-jpeg.jpg");
-  await waitForProcessingToFinish(page);
-
   const widthInput = page.getByLabel("Width (px)");
   const heightInput = page.getByLabel("Height (px)");
 
@@ -239,14 +282,19 @@ test("E2E-041 Fill mode outputs exact target dimensions", async ({
   await heightInput.fill("600");
 
   await page.getByRole("radio", { name: "Fill (crop)" }).check();
+  await uploadFixtureViaFileInput(page, testImagesDir, "photo-large-jpeg.jpg");
   await waitForProcessingToFinish(page);
+
+  const taskRow = getTaskRows(page).last();
+  await expandTaskRow(taskRow);
 
   const resultDimensions = await getImageCardDimensionsText(
     page,
     "Result image",
+    taskRow,
   );
   expect(resultDimensions).toBe("800 × 600");
-  await expect(page.getByText("Resized to 800 × 600")).toBeVisible();
+  await expect(taskRow.getByText("Resized to 800 × 600")).toBeVisible();
 });
 
 test("E2E-042 Stretch mode outputs exact target dimensions", async ({
@@ -258,9 +306,6 @@ test("E2E-042 Stretch mode outputs exact target dimensions", async ({
   }
   await page.goto("/");
 
-  await uploadFixtureViaFileInput(page, testImagesDir, "photo-large-jpeg.jpg");
-  await waitForProcessingToFinish(page);
-
   const widthInput = page.getByLabel("Width (px)");
   const heightInput = page.getByLabel("Height (px)");
 
@@ -268,12 +313,17 @@ test("E2E-042 Stretch mode outputs exact target dimensions", async ({
   await heightInput.fill("600");
 
   await page.getByRole("radio", { name: "Stretch" }).check();
+  await uploadFixtureViaFileInput(page, testImagesDir, "photo-large-jpeg.jpg");
   await waitForProcessingToFinish(page);
+
+  const taskRow = getTaskRows(page).last();
+  await expandTaskRow(taskRow);
 
   const resultDimensions = await getImageCardDimensionsText(
     page,
     "Result image",
+    taskRow,
   );
   expect(resultDimensions).toBe("800 × 600");
-  await expect(page.getByText("Resized to 800 × 600")).toBeVisible();
+  await expect(taskRow.getByText("Resized to 800 × 600")).toBeVisible();
 });

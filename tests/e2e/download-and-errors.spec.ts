@@ -1,5 +1,9 @@
 import {
+  expandTaskRow,
   expect,
+  getImageCardDimensionsText,
+  getTaskDownloadLink,
+  getTaskRows,
   test,
   uploadFixtureViaFileInput,
   waitForProcessingToFinish,
@@ -15,10 +19,11 @@ test("E2E-080: download link has correct name and extension", async ({
     await uploadFixtureViaFileInput(page, testImagesDir, fileName);
     await waitForProcessingToFinish(page);
 
-    const downloadLink = page.getByRole("link", {
-      name: "Download result image",
-    });
+    const latestTask = getTaskRows(page).last();
+    await expect(latestTask).toBeVisible();
+    await expect(latestTask.getByText(fileName)).toBeVisible();
 
+    const downloadLink = getTaskDownloadLink(latestTask);
     await expect(downloadLink).toBeVisible();
 
     const name = await downloadLink.getAttribute("download");
@@ -26,19 +31,32 @@ test("E2E-080: download link has correct name and extension", async ({
     return name as string;
   };
 
-  // Default auto format with PNG source -> .png extension.
+  // Default auto format with PNG source keeps original name/extension.
   const pngName = await uploadAndGetDownloadName("screenshot-png.png");
-  expect(pngName).toMatch(/^pastepreset-\d{8}-\d{6}\.png$/);
+  expect(pngName).toBe("screenshot-png.png");
 
-  // JPEG output -> .jpg extension.
+  // JPEG output -> .jpg extension while preserving base name.
   await page.getByLabel("Format").selectOption("image/jpeg");
   const jpegName = await uploadAndGetDownloadName("photo-large-jpeg.jpg");
-  expect(jpegName).toMatch(/^pastepreset-\d{8}-\d{6}\.jpg$/);
+  expect(jpegName).toBe("photo-large-jpeg.jpg");
 
   // WebP output -> .webp extension.
   await page.getByLabel("Format").selectOption("image/webp");
   const webpName = await uploadAndGetDownloadName("screenshot-png.png");
-  expect(webpName).toMatch(/^pastepreset-\d{8}-\d{6}\.webp$/);
+  expect(webpName).toBe("screenshot-png.webp");
+
+  // Download all should emit a batch ZIP when at least one task is done.
+  const downloadAllButton = page.getByRole("button", { name: "Download all" });
+  await expect(downloadAllButton).toBeEnabled();
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    downloadAllButton.click(),
+  ]);
+
+  expect(download.suggestedFilename()).toMatch(
+    /^pastepreset-batch-\d{8}-\d{6}\.zip$/,
+  );
 });
 
 test("E2E-090: oversized output dimensions produce a clear error", async ({
@@ -47,31 +65,38 @@ test("E2E-090: oversized output dimensions produce a clear error", async ({
 }) => {
   await page.goto("/");
 
-  await uploadFixtureViaFileInput(page, testImagesDir, "screenshot-png.png");
-  await waitForProcessingToFinish(page);
-
   const widthInput = page.getByLabel("Width (px)");
   const heightInput = page.getByLabel("Height (px)");
 
   await widthInput.fill("10000");
   await heightInput.fill("10000");
 
+  await uploadFixtureViaFileInput(page, testImagesDir, "screenshot-png.png");
+  await waitForProcessingToFinish(page);
+
+  const errorRow = getTaskRows(page).last();
+  await expect(errorRow.getByText("Error")).toBeVisible();
   await expect(
-    page.getByText(
+    errorRow.getByText(
       "The requested output size is too large to process safely. Please choose smaller dimensions or a lower-resolution preset and try again.",
     ),
   ).toBeVisible();
 
-  // After reducing the size, processing should succeed and the error disappear.
+  // After reducing the size, a new task should succeed.
   await widthInput.fill("1000");
   await heightInput.fill("1000");
+  await uploadFixtureViaFileInput(page, testImagesDir, "screenshot-png.png");
   await waitForProcessingToFinish(page);
 
-  await expect(
-    page.getByText(
-      "The requested output size is too large to process safely. Please choose smaller dimensions or a lower-resolution preset and try again.",
-    ),
-  ).toHaveCount(0);
+  const successRow = getTaskRows(page).last();
+  await expect(successRow.getByText("Done")).toBeVisible();
+  await expandTaskRow(successRow);
+  const resultDimensions = await getImageCardDimensionsText(
+    page,
+    "Result image",
+    successRow,
+  );
+  expect(resultDimensions).toBe("1000 × 1000");
 });
 
 test("E2E-091: processing status is shown in preview and status bar", async ({
@@ -93,16 +118,19 @@ test("E2E-091: processing status is shown in preview and status bar", async ({
 
   await uploadFixtureViaFileInput(page, testImagesDir, "very-large.png");
 
-  const previewProcessing = page.locator(".loading.loading-spinner").first();
+  const tasks = getTaskRows(page);
+  await expect(tasks).toHaveCount(1);
+
   const statusProcessing = page
     .getByRole("status")
     .filter({ hasText: "Processing image…" });
 
-  await expect(previewProcessing).toBeVisible();
   await expect(statusProcessing).toBeVisible();
 
   await waitForProcessingToFinish(page);
 
-  await expect(previewProcessing).toHaveCount(0);
   await expect(statusProcessing).toHaveCount(0);
+  await expect(
+    getTaskRows(page).first().getByText("Done", { exact: false }),
+  ).toBeVisible();
 });

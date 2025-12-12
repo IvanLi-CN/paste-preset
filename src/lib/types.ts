@@ -74,3 +74,16 @@ export interface ImageMetadataSummary {
 }
 
 export type AppStatus = "idle" | "processing" | "error";
+
+export type TaskStatus = "queued" | "processing" | "done" | "error";
+
+export interface ImageTask {
+  id: string;
+  fileName?: string;
+  source?: ImageInfo;
+  result?: ImageInfo;
+  status: TaskStatus;
+  errorMessage?: string;
+  createdAt: number;
+  completedAt?: number;
+}

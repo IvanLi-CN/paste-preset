@@ -2,12 +2,15 @@ import { Icon } from "@iconify/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LanguageSelector } from "./components/LanguageSelector.tsx";
 import { PasteArea } from "./components/PasteArea.tsx";
-import { PreviewPanel } from "./components/PreviewPanel.tsx";
 import { SettingsPanel } from "./components/SettingsPanel.tsx";
 import { StatusBar } from "./components/StatusBar.tsx";
+import { TasksPanel } from "./components/TasksPanel.tsx";
 import { useAppVersion } from "./hooks/useAppVersion.ts";
 import { useClipboard } from "./hooks/useClipboard.ts";
-import { useImageProcessor } from "./hooks/useImageProcessor.ts";
+import {
+  getLastCompletedTask,
+  useImageTaskQueue,
+} from "./hooks/useImageTaskQueue.ts";
 import { useUserPresets } from "./hooks/useUserPresets.tsx";
 import { useUserSettings } from "./hooks/useUserSettings.tsx";
 import type { TranslationKey } from "./i18n";
@@ -15,6 +18,7 @@ import { useTranslation } from "./i18n";
 import { preloadHeicConverter } from "./lib/heic.ts";
 import { PRESETS } from "./lib/presets.ts";
 import type { ImageInfo } from "./lib/types.ts";
+import { buildResultsZip } from "./lib/zip.ts";
 
 function App() {
   const { t } = useTranslation();
@@ -26,16 +30,36 @@ function App() {
     typeof window === "undefined" ? 0 : window.innerWidth,
   );
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
+  const [isBuildingZip, setIsBuildingZip] = useState(false);
   const currentYear = new Date().getFullYear();
 
-  const {
-    status,
-    errorMessage: processingError,
-    source,
-    result,
-    processBlob,
-    resetError: resetProcessingError,
-  } = useImageProcessor(processingOptions);
+  const { tasks, enqueueFiles, clearAll } =
+    useImageTaskQueue(processingOptions);
+  const lastCompleted = getLastCompletedTask(tasks);
+  const source = lastCompleted?.source ?? null;
+  const result = lastCompleted?.result ?? null;
+  const hasProcessing = tasks.some((task) => task.status === "processing");
+  const hasError = tasks.some((task) => task.status === "error");
+
+  const deriveStatus = () => {
+    if (hasProcessing) {
+      return "processing" as const;
+    }
+    if (hasError) {
+      return "error" as const;
+    }
+    return "idle" as const;
+  };
+
+  const status = deriveStatus();
+  const processingError = (() => {
+    const latestError = [...tasks]
+      .filter((task) => task.status === "error")
+      .sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))[0];
+    return latestError?.errorMessage ?? null;
+  })();
+
+  useEffect(() => () => clearAll(), [clearAll]);
 
   const {
     isCopying,
@@ -156,18 +180,15 @@ function App() {
     }
   })();
 
-  const handleImageSelected = useCallback(
-    async (file: File) => {
-      resetProcessingError();
+  const handleImagesSelected = useCallback(
+    (files: File[]) => {
       setUiError(null);
-
-      await processBlob(file, file.name);
+      enqueueFiles(files);
     },
-    [processBlob, resetProcessingError],
+    [enqueueFiles],
   );
 
   const handleError = (message: string) => {
-    resetProcessingError();
     setUiError(message);
   };
 
@@ -178,6 +199,41 @@ function App() {
     },
     [copyImage, resetClipboardError],
   );
+
+  const handleDownloadAll = async () => {
+    setIsBuildingZip(true);
+    try {
+      const blob = await buildResultsZip(tasks);
+      if (!blob) return;
+
+      const now = new Date();
+      const timestamp =
+        now.getFullYear().toString() +
+        (now.getMonth() + 1).toString().padStart(2, "0") +
+        now.getDate().toString().padStart(2, "0") +
+        "-" +
+        now.getHours().toString().padStart(2, "0") +
+        now.getMinutes().toString().padStart(2, "0") +
+        now.getSeconds().toString().padStart(2, "0");
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `pastepreset-batch-${timestamp}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      setUiError(
+        "Failed to create ZIP: " +
+          (err instanceof Error ? err.message : String(err)),
+      );
+    } finally {
+      setIsBuildingZip(false);
+    }
+  };
 
   const settingsAspectSource: ImageInfo | null = result ?? source;
 
@@ -190,27 +246,24 @@ function App() {
 
       const { items, files } = clipboardData;
 
-      const imageItem = Array.from(items).find((item) =>
-        item.type.startsWith("image/"),
-      );
+      const imageItems = Array.from(items)
+        .filter((item) => item.type.startsWith("image/"))
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => Boolean(file));
 
-      if (imageItem) {
-        const file = imageItem.getAsFile();
-        if (file) {
-          event.preventDefault();
-          void handleImageSelected(file);
-          return;
-        }
+      if (imageItems.length > 0) {
+        event.preventDefault();
+        handleImagesSelected(imageItems);
+        return;
       }
 
       if (files.length > 0) {
-        const image = Array.from(files).find((file) =>
+        const images = Array.from(files).filter((file) =>
           file.type.startsWith("image/"),
         );
-        if (image) {
+        if (images.length > 0) {
           event.preventDefault();
-          void handleImageSelected(image);
-          return;
+          handleImagesSelected(images);
         }
       }
     };
@@ -219,7 +272,7 @@ function App() {
     return () => {
       window.removeEventListener("paste", handleWindowPaste);
     };
-  }, [handleImageSelected]);
+  }, [handleImagesSelected]);
 
   useEffect(() => {
     const handleWindowKeyDown = (event: KeyboardEvent) => {
@@ -314,14 +367,15 @@ function App() {
               <div className="flex w-full flex-1 flex-col gap-4">
                 <PasteArea
                   hasImage={hasImage}
-                  onImageSelected={handleImageSelected}
+                  onImagesSelected={handleImagesSelected}
                   onError={handleError}
                 />
-                <PreviewPanel
-                  source={source}
-                  result={result}
-                  status={status}
-                  onCopyResult={handleCopyResult}
+                <TasksPanel
+                  tasks={tasks}
+                  onCopyResult={(_, blob, mime) => handleCopyResult(blob, mime)}
+                  onDownloadAll={handleDownloadAll}
+                  onClearAll={clearAll}
+                  isBuildingZip={isBuildingZip}
                 />
 
                 {isCopying && (
@@ -372,14 +426,15 @@ function App() {
 
                 <PasteArea
                   hasImage={hasImage}
-                  onImageSelected={handleImageSelected}
+                  onImagesSelected={handleImagesSelected}
                   onError={handleError}
                 />
-                <PreviewPanel
-                  source={source}
-                  result={result}
-                  status={status}
-                  onCopyResult={handleCopyResult}
+                <TasksPanel
+                  tasks={tasks}
+                  onCopyResult={(_, blob, mime) => handleCopyResult(blob, mime)}
+                  onDownloadAll={handleDownloadAll}
+                  onClearAll={clearAll}
+                  isBuildingZip={isBuildingZip}
                 />
 
                 {isCopying && (

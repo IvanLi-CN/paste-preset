@@ -9,4 +9,7 @@ export default defineConfig({
   server: {
     port: 25119,
   },
+  worker: {
+    format: "es",
+  },
 });

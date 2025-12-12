@@ -1,10 +1,14 @@
 import path from "node:path";
 import {
   dropFixtureOnPasteArea,
+  expandTaskRow,
   expect,
+  getImageCardDimensionsText,
+  getTaskRows,
   pasteFixtureImageFromClipboard,
   pastePlainTextToPasteArea,
   test,
+  waitForLatestTaskStatus,
   waitForProcessingToFinish,
 } from "./_helpers";
 
@@ -23,16 +27,20 @@ test("E2E-010 paste PNG from clipboard (happy path)", async ({
 
   await waitForProcessingToFinish(page);
 
-  // Source and result cards should be visible.
-  const sourceCard = page.getByRole("heading", { name: "Source image" });
-  const resultCard = page.getByRole("heading", { name: "Result image" });
+  const taskRow = await waitForLatestTaskStatus(page, "Done");
+  await expect(taskRow).toBeVisible();
+  await expandTaskRow(taskRow);
+
+  // Source and result cards should be visible within the task detail.
+  const sourceCard = taskRow.getByRole("heading", { name: "Source image" });
+  const resultCard = taskRow.getByRole("heading", { name: "Result image" });
 
   await expect(sourceCard).toBeVisible();
   await expect(resultCard).toBeVisible();
 
   // Dimensions and format text are rendered in the card body.
-  await expect(page.getByText("800 × 600")).toHaveCount(2);
-  await expect(page.getByText("image/png")).toHaveCount(2);
+  await expect(taskRow.getByText("800 × 600")).toHaveCount(2);
+  await expect(taskRow.getByText("image/png")).toHaveCount(2);
 
   // PasteArea label updates when an image is present.
   await expect(
@@ -61,18 +69,13 @@ test("E2E-011 paste non-image clipboard data on PasteArea", async ({
     ),
   ).toBeVisible();
 
-  // PreviewPanel should still show the initial info banner (no image cards).
+  // TasksPanel should still show the initial info banner (no tasks).
   await expect(
     page.getByText(
       "Paste, drop, or select an image to see the original and processed previews here.",
     ),
   ).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Source image" })).toHaveCount(
-    0,
-  );
-  await expect(page.getByRole("heading", { name: "Result image" })).toHaveCount(
-    0,
-  );
+  await expect(getTaskRows(page)).toHaveCount(0);
 });
 
 test("E2E-012 drag and drop PNG onto PasteArea", async ({
@@ -90,11 +93,14 @@ test("E2E-012 drag and drop PNG onto PasteArea", async ({
 
   await waitForProcessingToFinish(page);
 
+  const taskRow = await waitForLatestTaskStatus(page, "Done");
+  await expect(taskRow).toBeVisible();
+  await expandTaskRow(taskRow);
   await expect(
-    page.getByRole("heading", { name: "Source image" }),
+    taskRow.getByRole("heading", { name: "Source image" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Result image" }),
+    taskRow.getByRole("heading", { name: "Result image" }),
   ).toBeVisible();
 
   // StatusBar should not show any error message.
@@ -119,12 +125,7 @@ test("E2E-013 drag and drop non-image file shows error", async ({
   ).toBeVisible();
 
   // No image cards should be rendered.
-  await expect(page.getByRole("heading", { name: "Source image" })).toHaveCount(
-    0,
-  );
-  await expect(page.getByRole("heading", { name: "Result image" })).toHaveCount(
-    0,
-  );
+  await expect(getTaskRows(page)).toHaveCount(0);
 });
 
 test("E2E-014 select PNG via file chooser", async ({ page, testImagesDir }) => {
@@ -143,11 +144,14 @@ test("E2E-014 select PNG via file chooser", async ({ page, testImagesDir }) => {
 
   await waitForProcessingToFinish(page);
 
+  const taskRow = await waitForLatestTaskStatus(page, "Done");
+  await expect(taskRow).toBeVisible();
+  await expandTaskRow(taskRow);
   await expect(
-    page.getByRole("heading", { name: "Source image" }),
+    taskRow.getByRole("heading", { name: "Source image" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Result image" }),
+    taskRow.getByRole("heading", { name: "Result image" }),
   ).toBeVisible();
 });
 
@@ -170,7 +174,7 @@ test("E2E-015 selecting a new image replaces the previous one", async ({
 
   await waitForProcessingToFinish(page);
 
-  // Then choose a JPEG to replace it.
+  // Then choose a JPEG; in multi-task mode this appends a new task.
   const replaceButton = page.getByRole("button", {
     name: "Paste, drop, or click to replace the current image",
   });
@@ -185,8 +189,28 @@ test("E2E-015 selecting a new image replaces the previous one", async ({
 
   await waitForProcessingToFinish(page);
 
-  // Source card format should now reflect JPEG.
-  await expect(page.getByText("image/jpeg")).toHaveCount(2);
+  await waitForLatestTaskStatus(page, "Done");
+
+  const tasks = getTaskRows(page);
+  await expect(tasks).toHaveCount(2);
+
+  const firstTask = tasks.first();
+  const latestTask = tasks.last();
+
+  // Old task remains with PNG result.
+  await expandTaskRow(firstTask);
+  await expect(firstTask.getByText("Done")).toBeVisible();
+  await expect(firstTask.getByText("image/png").first()).toBeVisible();
+
+  // Latest task reflects the new JPEG image and sits at the end of the list.
+  await expandTaskRow(latestTask);
+  await expect(latestTask.getByText("image/jpeg").first()).toBeVisible();
+  const latestDimensions = await getImageCardDimensionsText(
+    page,
+    "Source image",
+    latestTask,
+  );
+  expect(latestDimensions).toBe("4000 × 3000");
 
   await expect(
     page.getByRole("button", {

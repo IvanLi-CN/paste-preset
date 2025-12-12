@@ -27,6 +27,9 @@ export const en = {
   "clipboard.error.generic": "Failed to copy image",
 
   "status.processing": "Processing image…",
+  "status.queued": "Queued",
+  "status.done": "Done",
+  "status.error": "Error",
   "status.error.unknown": "Unknown processing error",
 
   // Settings panel

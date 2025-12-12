@@ -27,8 +27,11 @@ export const zhCN: TranslationMessages = {
   "clipboard.error.convertFailed": "转换图片以复制到剪贴板时失败。",
   "clipboard.error.generic": "复制图片失败",
 
-  "status.processing": "正在处理图片…",
-  "status.error.unknown": "发生未知的处理错误",
+  "status.processing": "处理中…",
+  "status.queued": "排队中",
+  "status.done": "已完成",
+  "status.error": "错误",
+  "status.error.unknown": "未知处理错误",
 
   // Settings panel
   "settings.title": "设置",
