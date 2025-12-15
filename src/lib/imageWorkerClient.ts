@@ -1,6 +1,7 @@
 import { isHeicMimeType } from "./heic.ts";
 import type { ProcessResult } from "./imageProcessing.ts";
 import { createImageInfo, processImageBlob } from "./imageProcessing.ts";
+import { extractImageMetadata } from "./imageProcessingCommon.ts";
 import type { ProcessRequest, ProcessResponse } from "./imageWorkerTypes.ts";
 import type { ProcessingOptions } from "./types.ts";
 
@@ -176,6 +177,87 @@ async function runWithWorker(
   });
 }
 
+async function decodeToImageBitmap(blob: Blob): Promise<ImageBitmap> {
+  if (typeof createImageBitmap !== "function") {
+    throw new Error("image.decodeFailed");
+  }
+
+  try {
+    return await createImageBitmap(blob);
+  } catch {
+    // Fall through to HTMLImageElement decode.
+  }
+
+  if (typeof Image === "undefined" || typeof document === "undefined") {
+    throw new Error("image.decodeFailed");
+  }
+
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("image.decodeFailed"));
+      img.src = url;
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+
+  try {
+    return await createImageBitmap(img);
+  } catch {
+    // Fall through to canvas rendering.
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("image.canvasContext");
+  }
+
+  ctx.drawImage(img, 0, 0);
+  return createImageBitmap(canvas);
+}
+
+async function runWithWorkerBitmap(
+  blob: Blob,
+  options: ProcessingOptions,
+  sourceName?: string,
+): Promise<ProcessResult> {
+  const worker = createWorker();
+  if (!worker) {
+    return processImageBlob(blob, options, sourceName);
+  }
+
+  const id = generateRequestId();
+
+  const [bitmap, parsedMetadata] = await Promise.all([
+    decodeToImageBitmap(blob),
+    extractImageMetadata(blob),
+  ]);
+
+  const request: ProcessRequest = {
+    type: "processBitmap",
+    id,
+    bitmap,
+    sourceMimeType: blob.type || "image/png",
+    metadata: parsedMetadata?.summary,
+    exifEmbedding: parsedMetadata?.exif,
+    sourceName,
+    options,
+  };
+
+  return new Promise<ProcessResult>((resolve, reject) => {
+    pending.set(id, { resolve, reject, sourceBlob: blob, sourceName });
+    worker.postMessage(request, [bitmap]);
+  });
+}
+
 export async function processImageViaWorker(
   blob: Blob,
   options: ProcessingOptions,
@@ -188,10 +270,19 @@ export async function processImageViaWorker(
   try {
     return await runWithWorker(blob, options, sourceName);
   } catch (error) {
-    console.warn(
-      "[PastePreset] Worker processing failed, falling back to main thread:",
-      error,
-    );
+    if (error instanceof Error && error.message === "image.decodeFailed") {
+      try {
+        return await runWithWorkerBitmap(blob, options, sourceName);
+      } catch (retryError) {
+        console.warn(
+          "[PastePreset] Worker bitmap fallback failed, falling back to main thread:",
+          retryError,
+        );
+        return processImageBlob(blob, options, sourceName);
+      }
+    }
+
+    console.warn("[PastePreset] Worker processing failed:", error);
     return processImageBlob(blob, options, sourceName);
   }
 }

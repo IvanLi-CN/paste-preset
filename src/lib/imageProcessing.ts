@@ -107,13 +107,22 @@ async function decodeImage(blob: Blob): Promise<DecodeResult> {
   const mimeType = blob.type || "image/png";
 
   if ("createImageBitmap" in window) {
-    const bitmap = await createImageBitmap(blob);
-    return {
-      bitmap,
-      width: bitmap.width,
-      height: bitmap.height,
-      mimeType,
-    };
+    try {
+      const bitmap = await createImageBitmap(blob);
+      return {
+        bitmap,
+        width: bitmap.width,
+        height: bitmap.height,
+        mimeType,
+      };
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn(
+          "[PastePreset] createImageBitmap decode failed, falling back to HTMLImageElement:",
+          error,
+        );
+      }
+    }
   }
 
   const img = new Image();

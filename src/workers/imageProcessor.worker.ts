@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import piexif from "piexifjs";
 import { isHeicMimeType, normalizeImageBlobForCanvas } from "../lib/heic.ts";
+import type { ExifEmbeddingData } from "../lib/imageProcessingCommon.ts";
 import {
   buildExifFromEmbedding,
   computeTargetSize,
@@ -27,16 +28,28 @@ const ctx: DedicatedWorkerGlobalScope =
 
 ctx.onmessage = async (event: MessageEvent<ProcessRequest>) => {
   const message = event.data;
-  if (!message || message.type !== "process") {
+  if (
+    !message ||
+    (message.type !== "process" && message.type !== "processBitmap")
+  ) {
     return;
   }
 
   try {
-    const response = await processImageBlobOffscreen(
-      message.buffer,
-      message.mimeType,
-      message.options,
-    );
+    const response =
+      message.type === "process"
+        ? await processImageBlobOffscreen(
+            message.buffer,
+            message.mimeType,
+            message.options,
+          )
+        : await processImageBitmapOffscreen(
+            message.bitmap,
+            message.sourceMimeType,
+            message.options,
+            message.metadata,
+            message.exifEmbedding,
+          );
 
     const success: ProcessSuccess = {
       type: "success",
@@ -335,4 +348,102 @@ async function processImageBlobOffscreen(
       ? normalized.blob.type
       : undefined,
   };
+}
+
+async function processImageBitmapOffscreen(
+  bitmap: ImageBitmap,
+  sourceMimeType: string,
+  options: ProcessingOptions,
+  metadata: ImageMetadataSummary | undefined,
+  exifEmbedding: ExifEmbeddingData | undefined,
+): Promise<OffscreenProcessResult> {
+  try {
+    const sourceWidth = bitmap.width;
+    const sourceHeight = bitmap.height;
+
+    const target = computeTargetSize(sourceWidth, sourceHeight, options);
+
+    if (
+      target.width <= 0 ||
+      target.height <= 0 ||
+      target.width > MAX_TARGET_SIDE ||
+      target.height > MAX_TARGET_SIDE ||
+      target.width * target.height > MAX_TARGET_PIXELS
+    ) {
+      throw new Error("image.tooLarge");
+    }
+
+    const mime = getOutputMimeType(sourceMimeType, options.outputFormat);
+
+    const canvas = drawToOffscreenCanvas(
+      bitmap,
+      sourceWidth,
+      sourceHeight,
+      target.width,
+      target.height,
+      options.resizeMode,
+    );
+
+    const quality =
+      mime === "image/jpeg" || mime === "image/webp"
+        ? (options.quality ?? 0.8)
+        : undefined;
+
+    const exifString = buildExifFromEmbedding(exifEmbedding);
+    let didEmbedMetadata = false;
+
+    let resultBlob: Blob;
+    if (mime === "image/jpeg" && !options.stripMetadata) {
+      const exported = await canvasToBlob(canvas, mime, quality);
+      const dataUrl = await blobToDataUrl(exported);
+      const finalDataUrl =
+        exifString != null ? piexif.insert(exifString, dataUrl) : dataUrl;
+      resultBlob = dataUrlToBlob(finalDataUrl, mime);
+      didEmbedMetadata = exifString != null;
+    } else {
+      resultBlob = await canvasToBlob(canvas, mime, quality).then(
+        async (exportedBlob) => {
+          if (
+            !options.stripMetadata &&
+            (mime === "image/png" || mime === "image/webp") &&
+            exifString
+          ) {
+            try {
+              const patched = await embedExifIntoImageBlob(
+                exportedBlob,
+                mime,
+                exifString,
+              );
+              if (patched) {
+                didEmbedMetadata = true;
+                return patched;
+              }
+            } catch (error) {
+              console.error(
+                "[PastePreset] Failed to embed metadata in worker:",
+                error,
+              );
+            }
+          }
+          return exportedBlob;
+        },
+      );
+    }
+
+    const resultBuffer = await resultBlob.arrayBuffer();
+    const metadataStripped = !didEmbedMetadata;
+
+    return {
+      resultBuffer,
+      resultMimeType: resultBlob.type || mime,
+      width: target.width,
+      height: target.height,
+      sourceWidth,
+      sourceHeight,
+      metadata: metadata ?? undefined,
+      metadataStripped,
+    };
+  } finally {
+    bitmap.close();
+  }
 }
