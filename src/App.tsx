@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LanguageSelector } from "./components/LanguageSelector.tsx";
 import { PasteArea } from "./components/PasteArea.tsx";
@@ -401,7 +401,11 @@ function App() {
                       className="btn btn-primary btn-sm gap-2"
                       onClick={() => setIsSettingsOpen((previous) => !previous)}
                     >
-                      <Icon icon="mdi:tune" className="h-4 w-4" />
+                      <Icon
+                        icon="mdi:tune"
+                        data-icon="mdi:tune"
+                        className="h-4 w-4"
+                      />
                       {t("settings.title")}
                     </button>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-base-content/70">
@@ -474,7 +478,11 @@ function App() {
                         aria-label={t("settings.drawer.closeAria")}
                         onClick={() => setIsSettingsOpen(false)}
                       >
-                        <Icon icon="mdi:close" className="h-4 w-4" />
+                        <Icon
+                          icon="mdi:close"
+                          data-icon="mdi:close"
+                          className="h-4 w-4"
+                        />
                       </button>
                     </div>
                     <SettingsPanel currentImage={settingsAspectSource} />
@@ -497,7 +505,11 @@ function App() {
               rel="noreferrer"
               className="inline-flex items-center gap-1 hover:text-base-content"
             >
-              <Icon icon="mdi:github" className="h-4 w-4" />
+              <Icon
+                icon="mdi:github"
+                data-icon="mdi:github"
+                className="h-4 w-4"
+              />
               <span className="hidden sm:inline">GitHub</span>
             </a>
           </div>

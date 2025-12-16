@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { useTranslation } from "../i18n";
 import type { ImageTask } from "../lib/types.ts";
 import { buildDownloadFileName } from "./ImageCard.tsx";
@@ -91,6 +91,7 @@ export function TaskRow(props: TaskRowProps) {
           ) : (
             <Icon
               icon="mdi:image-outline"
+              data-icon="mdi:image-outline"
               className="w-6 h-6 text-base-content/30"
             />
           )}
@@ -140,7 +141,11 @@ export function TaskRow(props: TaskRowProps) {
                 data-testid="task-copy"
                 title={t("preview.actions.copyLabel")}
               >
-                <Icon icon="mdi:content-copy" className="w-5 h-5" />
+                <Icon
+                  icon="mdi:content-copy"
+                  data-icon="mdi:content-copy"
+                  className="w-5 h-5"
+                />
               </button>
               <a
                 href={result.url}
@@ -151,7 +156,11 @@ export function TaskRow(props: TaskRowProps) {
                 data-testid="task-download"
                 title={t("preview.actions.downloadLabel")}
               >
-                <Icon icon="mdi:download" className="w-5 h-5" />
+                <Icon
+                  icon="mdi:download"
+                  data-icon="mdi:download"
+                  className="w-5 h-5"
+                />
               </a>
             </>
           )}
@@ -161,6 +170,7 @@ export function TaskRow(props: TaskRowProps) {
           >
             <Icon
               icon={isExpanded ? "mdi:chevron-up" : "mdi:chevron-down"}
+              data-icon={isExpanded ? "mdi:chevron-up" : "mdi:chevron-down"}
               className="w-5 h-5"
             />
           </button>
