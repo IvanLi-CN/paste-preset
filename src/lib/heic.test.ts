@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { getEffectiveMimeType, normalizeImageBlobForCanvas } from "./heic.ts";
 
 type GlobalWithHeicOverride = typeof globalThis & {
@@ -25,6 +25,11 @@ function makeIsoBmffFtypHeader(majorBrand: string): Uint8Array<ArrayBuffer> {
 afterEach(() => {
   const globalWithOverride = globalThis as GlobalWithHeicOverride;
   delete globalWithOverride.__heic2anyOverride;
+  // Restore any native decode stubs installed by tests.
+  const globalWithDecode = globalThis as unknown as {
+    createImageBitmap?: typeof createImageBitmap;
+  };
+  delete globalWithDecode.createImageBitmap;
 });
 
 describe("getEffectiveMimeType", () => {
@@ -58,6 +63,48 @@ describe("normalizeImageBlobForCanvas", () => {
     expect(normalized.wasConverted).toBe(true);
     expect(normalized.originalMimeType).toBe("image/heic");
     expect(normalized.blob.type).toBe("image/png");
+  });
+
+  it("falls back to JPEG when PNG conversion throws", async () => {
+    const globalWithOverride = globalThis as GlobalWithHeicOverride;
+    const calls: string[] = [];
+    globalWithOverride.__heic2anyOverride = async ({ toType }) => {
+      calls.push(toType);
+      if (toType === "image/png") {
+        throw new Error("png fail");
+      }
+      return new Blob([new Uint8Array([1, 2, 3])], { type: toType });
+    };
+
+    const blob = new Blob([makeIsoBmffFtypHeader("heic")], { type: "" });
+    const normalized = await normalizeImageBlobForCanvas(blob);
+
+    expect(normalized.wasConverted).toBe(true);
+    expect(normalized.blob.type).toBe("image/jpeg");
+    expect(calls).toEqual(["image/png", "image/jpeg"]);
+  });
+
+  it("prefers native decode when available and skips heic2any", async () => {
+    // Stub native decode to succeed so the converter is never called.
+    const globalWithDecode = globalThis as unknown as {
+      createImageBitmap?: typeof createImageBitmap;
+    };
+    globalWithDecode.createImageBitmap = vi
+      .fn()
+      .mockResolvedValue({ width: 8, height: 6 } as unknown as ImageBitmap);
+
+    const globalWithOverride = globalThis as GlobalWithHeicOverride;
+    const converterSpy = vi.fn(async ({ toType }) => {
+      return new Blob([new Uint8Array([9, 9, 9])], { type: toType });
+    });
+    globalWithOverride.__heic2anyOverride = converterSpy;
+
+    const blob = new Blob([makeIsoBmffFtypHeader("heic")], { type: "" });
+    const normalized = await normalizeImageBlobForCanvas(blob);
+
+    expect(normalized.wasConverted).toBe(false);
+    expect(normalized.decoded).toBeTruthy();
+    expect(converterSpy).not.toHaveBeenCalled();
   });
 
   it("surfaces heic.convertFailed when conversion throws for type-missing HEIC", async () => {

@@ -27,8 +27,8 @@ type GlobalWithHeicOverride = typeof globalThis & {
 export interface NormalizedImageBlob {
   /**
    * Blob that is safe to decode with browser canvas APIs.
-   * For HEIC/HEIF inputs this is a converted JPEG; otherwise
-   * it is the original blob.
+   * For HEIC/HEIF inputs this may be converted to a canvas-friendly
+   * PNG/JPEG; otherwise it is the original blob.
    */
   blob: Blob;
   /**
@@ -41,6 +41,16 @@ export interface NormalizedImageBlob {
    * Whether a HEIC/HEIF conversion actually took place.
    */
   wasConverted: boolean;
+  /**
+   * When available, a native-decoded image that can be reused by the
+   * processing pipeline to avoid decoding the same HEIC twice.
+   *
+   * This is only populated for HEIC/HEIF inputs when native decoding
+   * succeeds (e.g. Safari/WebKit environments).
+   */
+  decoded?: ImageBitmap | HTMLImageElement;
+  decodedWidth?: number;
+  decodedHeight?: number;
 }
 
 export function isHeicMimeType(mimeType: string): boolean {
@@ -258,8 +268,59 @@ export function preloadHeicConverter(): Promise<void> {
   return heicPreloadPromise;
 }
 
+type NativeDecodeResult = {
+  bitmap: ImageBitmap | HTMLImageElement;
+  width: number;
+  height: number;
+};
+
+async function tryNativeDecode(blob: Blob): Promise<NativeDecodeResult | null> {
+  // Guard against worker/non-DOM environments. In those contexts we do not
+  // attempt decoding here; the caller can fall back to conversion instead.
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bitmap = await createImageBitmap(blob);
+      return { bitmap, width: bitmap.width, height: bitmap.height };
+    } catch {
+      // Fall through to HTMLImageElement decoding below.
+    }
+  }
+
+  if (typeof Image === "undefined" || typeof document === "undefined") {
+    return null;
+  }
+  if (typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+    return null;
+  }
+
+  const img = new Image();
+  const url = URL.createObjectURL(blob);
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("image.decodeFailed"));
+      img.src = url;
+    });
+  } catch {
+    return null;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+
+  return {
+    bitmap: img,
+    width: img.naturalWidth,
+    height: img.naturalHeight,
+  };
+}
+
 /**
- * Convert HEIC/HEIF blobs to a canvas-friendly format (JPEG),
+ * Convert HEIC/HEIF blobs to a canvas-friendly format (PNG/JPEG),
  * leaving other formats untouched.
  */
 export async function normalizeImageBlobForCanvas(
@@ -281,6 +342,21 @@ export async function normalizeImageBlobForCanvas(
       blob,
       originalMimeType: mimeType,
       wasConverted: false,
+    };
+  }
+
+  // Prefer native HEIC decode when available (Safari/WebKit). If decoding
+  // succeeds we can skip `heic2any` entirely and reuse the decoded bitmap
+  // downstream to avoid decoding twice.
+  const nativeDecoded = await tryNativeDecode(blob);
+  if (nativeDecoded) {
+    return {
+      blob,
+      originalMimeType: mimeType,
+      wasConverted: false,
+      decoded: nativeDecoded.bitmap,
+      decodedWidth: nativeDecoded.width,
+      decodedHeight: nativeDecoded.height,
     };
   }
 
@@ -322,7 +398,16 @@ export async function normalizeImageBlobForCanvas(
       toType: "image/png",
     });
   } catch (_error) {
-    throw new Error("heic.convertFailed");
+    // Best-effort reliability improvement: retry once with JPEG when PNG
+    // conversion fails in some environments.
+    try {
+      result = await heic2any({
+        blob,
+        toType: "image/jpeg",
+      });
+    } catch {
+      throw new Error("heic.convertFailed");
+    }
   }
 
   const convertedBlob = Array.isArray(result) ? result[0] : result;
