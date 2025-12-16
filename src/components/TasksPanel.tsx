@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "../i18n";
 import type { ImageTask } from "../lib/types.ts";
@@ -96,7 +96,11 @@ export function TasksPanel(props: TasksPanelProps) {
           onClick={onClearAll}
           title="Clear all tasks"
         >
-          <Icon icon="mdi:delete-sweep" className="h-4 w-4" />
+          <Icon
+            icon="mdi:delete-sweep"
+            data-icon="mdi:delete-sweep"
+            className="h-4 w-4"
+          />
           <span className="hidden sm:inline">Clear all</span>
         </button>
         <button
@@ -110,7 +114,13 @@ export function TasksPanel(props: TasksPanelProps) {
               : "Download all results"
           }
         >
-          {!isBuildingZip && <Icon icon="mdi:folder-zip" className="h-4 w-4" />}
+          {!isBuildingZip && (
+            <Icon
+              icon="mdi:folder-zip"
+              data-icon="mdi:folder-zip"
+              className="h-4 w-4"
+            />
+          )}
           {isBuildingZip ? "Preparing..." : "Download all"}
         </button>
       </div>

@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { useState } from "react";
 import { type LocaleCode, type TranslationKey, useI18n } from "../i18n";
 
@@ -67,7 +67,11 @@ export function LanguageSelector() {
         aria-expanded={isOpen}
         onClick={handleToggle}
       >
-        <Icon icon={currentLanguage.icon} className="h-5 w-5 rounded-full" />
+        <Icon
+          icon={currentLanguage.icon}
+          data-icon={currentLanguage.icon}
+          className="h-5 w-5 rounded-full"
+        />
         <span className="hidden text-xs font-medium sm:inline">
           {t(currentLanguage.labelKey)}
         </span>
@@ -88,7 +92,11 @@ export function LanguageSelector() {
                 role="menuitem"
                 onClick={() => handleSelect(language.code)}
               >
-                <Icon icon={language.icon} className="h-4 w-4 rounded-full" />
+                <Icon
+                  icon={language.icon}
+                  data-icon={language.icon}
+                  className="h-4 w-4 rounded-full"
+                />
                 <span className="text-sm">{t(language.labelKey)}</span>
               </button>
             </li>

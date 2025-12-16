@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { useTranslation } from "../i18n";
 import type { ImageInfo } from "../lib/types.ts";
 import { buildDownloadFileName, ImageCard } from "./ImageCard.tsx";
@@ -57,7 +57,7 @@ export function TaskDetails(props: TaskDetailsProps) {
                   onClick={() => onCopyResult(result.blob, result.mimeType)}
                   aria-label={t("preview.actions.copyAria")}
                 >
-                  <Icon icon="mdi:content-copy" />
+                  <Icon icon="mdi:content-copy" data-icon="mdi:content-copy" />
                   {t("preview.actions.copyLabel")}
                 </button>
                 <a
@@ -66,7 +66,7 @@ export function TaskDetails(props: TaskDetailsProps) {
                   className="btn btn-sm btn-outline"
                   aria-label={t("preview.actions.downloadAria")}
                 >
-                  <Icon icon="mdi:download" />
+                  <Icon icon="mdi:download" data-icon="mdi:download" />
                   {t("preview.actions.downloadLabel")}
                 </a>
               </div>

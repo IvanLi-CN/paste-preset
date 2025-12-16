@@ -172,18 +172,36 @@ export async function processImageBlob(
   sourceName?: string,
 ): Promise<ProcessResult> {
   const [normalized, parsedMetadata] = await Promise.all([
-    normalizeImageBlobForCanvas(blob),
+    normalizeImageBlobForCanvas(blob, sourceName),
     extractImageMetadata(blob),
   ]);
 
   const metadata = parsedMetadata?.summary;
   const exifEmbedding = parsedMetadata?.exif;
 
-  const {
-    bitmap,
-    width: sourceWidth,
-    height: sourceHeight,
-  } = await decodeImage(normalized.blob);
+  const decodedBitmap = normalized.decoded;
+  const decodedWidth = normalized.decodedWidth;
+  const decodedHeight = normalized.decodedHeight;
+
+  let bitmap: ImageBitmap | HTMLImageElement;
+  let sourceWidth: number;
+  let sourceHeight: number;
+
+  if (
+    decodedBitmap &&
+    typeof decodedWidth === "number" &&
+    typeof decodedHeight === "number"
+  ) {
+    bitmap = decodedBitmap;
+    sourceWidth = decodedWidth;
+    sourceHeight = decodedHeight;
+  } else {
+    ({
+      bitmap,
+      width: sourceWidth,
+      height: sourceHeight,
+    } = await decodeImage(normalized.blob));
+  }
 
   const target = computeTargetSize(sourceWidth, sourceHeight, options);
 
