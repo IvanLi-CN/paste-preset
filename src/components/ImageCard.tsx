@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { useTranslation } from "../i18n";
 import type { ImageInfo } from "../lib/types.ts";
+import { FullscreenImagePreview } from "./FullscreenImagePreview.tsx";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) {
@@ -22,6 +24,7 @@ export interface ImageCardProps {
 export function ImageCard(props: ImageCardProps) {
   const { title, image, highlighted } = props;
   const { t } = useTranslation();
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const cardClassName = [
     "card bg-base-100 shadow-sm animate-fade-in-up",
     highlighted
@@ -34,13 +37,21 @@ export function ImageCard(props: ImageCardProps) {
     <div className={cardClassName}>
       <div className="card-body gap-3">
         <h3 className="card-title text-sm">{title}</h3>
-        <div className="flex items-center justify-center rounded-md bg-base-200 p-2">
+        <button
+          type="button"
+          className="flex cursor-pointer items-center justify-center rounded-md bg-base-200 p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100"
+          aria-label={title}
+          onClick={(event) => {
+            event.currentTarget.focus();
+            setIsPreviewOpen(true);
+          }}
+        >
           <img
             src={image.url}
             alt={image.sourceName ?? title}
             className="max-h-64 max-w-full object-contain"
           />
-        </div>
+        </button>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-base-content/80">
           <div>
             <dt className="font-medium">{t("preview.card.dimensions")}</dt>
@@ -154,6 +165,12 @@ export function ImageCard(props: ImageCardProps) {
           </p>
         </div>
       </div>
+      <FullscreenImagePreview
+        open={isPreviewOpen}
+        image={image}
+        title={title}
+        onClose={() => setIsPreviewOpen(false)}
+      />
     </div>
   );
 }
