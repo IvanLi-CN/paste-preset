@@ -172,7 +172,7 @@ export async function processImageBlob(
   sourceName?: string,
 ): Promise<ProcessResult> {
   const [normalized, parsedMetadata] = await Promise.all([
-    normalizeImageBlobForCanvas(blob),
+    normalizeImageBlobForCanvas(blob, sourceName),
     extractImageMetadata(blob),
   ]);
 

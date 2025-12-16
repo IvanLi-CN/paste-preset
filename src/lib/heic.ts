@@ -1,6 +1,16 @@
 import type { OutputFormat } from "./types.ts";
 
 const HEIC_MIME_PREFIXES = ["image/heic", "image/heif"];
+const HEIC_BRAND_ALLOWLIST = new Set([
+  "heic",
+  "heix",
+  "hevc",
+  "hevx",
+  "mif1",
+  "msf1",
+]);
+
+type HeicDetectedMimeType = "image/heic" | "image/heif";
 
 type GlobalWithHeicOverride = typeof globalThis & {
   __heic2anyOverride?:
@@ -34,7 +44,167 @@ export interface NormalizedImageBlob {
 }
 
 export function isHeicMimeType(mimeType: string): boolean {
-  return HEIC_MIME_PREFIXES.some((prefix) => mimeType.startsWith(prefix));
+  const normalized = mimeType.trim().toLowerCase();
+  return HEIC_MIME_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+}
+
+function isAmbiguousMimeType(mimeType: string): boolean {
+  const normalized = mimeType.trim().toLowerCase();
+  return normalized === "" || normalized === "application/octet-stream";
+}
+
+function inferHeicMimeTypeFromName(
+  name: string | undefined,
+): HeicDetectedMimeType | null {
+  if (!name) {
+    return null;
+  }
+
+  const lower = name.trim().toLowerCase();
+  if (lower.endsWith(".heic")) {
+    return "image/heic";
+  }
+  if (lower.endsWith(".heif")) {
+    return "image/heif";
+  }
+  return null;
+}
+
+function decodeAscii(bytes: Uint8Array, start: number, end: number): string {
+  return String.fromCharCode(...bytes.slice(start, end));
+}
+
+async function readBlobAsArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
+  if (typeof blob.arrayBuffer === "function") {
+    try {
+      return await blob.arrayBuffer();
+    } catch {
+      // Fall back to FileReader/Response-based decoding below.
+    }
+  }
+
+  if (typeof FileReaderSync !== "undefined") {
+    try {
+      return new FileReaderSync().readAsArrayBuffer(blob);
+    } catch {
+      // Fall back to async FileReader below.
+    }
+  }
+
+  if (typeof FileReader !== "undefined") {
+    return new Promise<ArrayBuffer>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as ArrayBuffer);
+      reader.onerror = () => reject(new Error("Blob.arrayBuffer unavailable"));
+      reader.readAsArrayBuffer(blob);
+    });
+  }
+
+  if (typeof Response !== "undefined") {
+    try {
+      return await new Response(blob).arrayBuffer();
+    } catch {
+      // Ignore and throw a clearer error below.
+    }
+  }
+
+  throw new Error("Blob.arrayBuffer unavailable");
+}
+
+function sniffIsoBmffMajorBrand(bytes: Uint8Array): string | null {
+  if (bytes.length < 12) {
+    return null;
+  }
+
+  // ISO-BMFF starts with a box header: size (4 bytes) + type (4 bytes).
+  // We only accept `ftyp` at the expected offset to keep sniffing fast.
+  if (decodeAscii(bytes, 4, 8) !== "ftyp") {
+    return null;
+  }
+
+  return decodeAscii(bytes, 8, 12);
+}
+
+async function detectHeicMimeType(
+  blob: Blob,
+  sourceName?: string,
+  headerBytes?: Uint8Array,
+): Promise<HeicDetectedMimeType | null> {
+  const declared = blob.type;
+
+  if (declared && isHeicMimeType(declared)) {
+    return declared.trim().toLowerCase().startsWith("image/heif")
+      ? "image/heif"
+      : "image/heic";
+  }
+
+  const effectiveName =
+    sourceName ??
+    (typeof File !== "undefined" && blob instanceof File
+      ? blob.name
+      : undefined);
+
+  if (isAmbiguousMimeType(declared || "")) {
+    const byName = inferHeicMimeTypeFromName(effectiveName);
+    if (byName) {
+      return byName;
+    }
+
+    try {
+      const bytes =
+        headerBytes ??
+        new Uint8Array(await readBlobAsArrayBuffer(blob.slice(0, 32)));
+      const brand = sniffIsoBmffMajorBrand(bytes);
+      if (!brand) {
+        return null;
+      }
+
+      const normalizedBrand = brand.toLowerCase();
+      if (!HEIC_BRAND_ALLOWLIST.has(normalizedBrand)) {
+        return null;
+      }
+
+      if (normalizedBrand === "mif1" || normalizedBrand === "msf1") {
+        return "image/heif";
+      }
+
+      return "image/heic";
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Determine a stable MIME type to use for routing/worker handoff.
+ *
+ * - Preserves a non-ambiguous `Blob.type`
+ * - Detects HEIC/HEIF via name and ISO-BMFF `ftyp` brands when type is missing/ambiguous
+ * - Falls back to `application/octet-stream` when unknown
+ */
+export async function getEffectiveMimeType(
+  blob: Blob,
+  sourceName?: string,
+  headerBytes?: Uint8Array,
+): Promise<string> {
+  const declared = blob.type?.trim();
+
+  if (declared && !isAmbiguousMimeType(declared)) {
+    return declared;
+  }
+
+  const detectedHeic = await detectHeicMimeType(blob, sourceName, headerBytes);
+  if (detectedHeic) {
+    return detectedHeic;
+  }
+
+  if (declared && isAmbiguousMimeType(declared)) {
+    return declared;
+  }
+
+  return "application/octet-stream";
 }
 
 let heicPreloadPromise: Promise<void> | null = null;
@@ -94,9 +264,10 @@ export function preloadHeicConverter(): Promise<void> {
  */
 export async function normalizeImageBlobForCanvas(
   blob: Blob,
+  sourceName?: string,
   _preferredOutputFormat: OutputFormat = "image/jpeg",
 ): Promise<NormalizedImageBlob> {
-  const mimeType = blob.type || "application/octet-stream";
+  const mimeType = await getEffectiveMimeType(blob, sourceName);
 
   // Optional test-only override hook:
   // Playwright E2E tests can inject `window.__heic2anyOverride` before the

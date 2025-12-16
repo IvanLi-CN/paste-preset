@@ -1,4 +1,4 @@
-import { isHeicMimeType } from "./heic.ts";
+import { getEffectiveMimeType, isHeicMimeType } from "./heic.ts";
 import type { ProcessResult } from "./imageProcessing.ts";
 import { createImageInfo, processImageBlob } from "./imageProcessing.ts";
 import { extractImageMetadata } from "./imageProcessingCommon.ts";
@@ -23,12 +23,23 @@ function supportsOffscreenProcessing(): boolean {
   );
 }
 
-function shouldUseWorker(blob: Blob): boolean {
+function isLikelyHeicName(sourceName?: string): boolean {
+  if (!sourceName) {
+    return false;
+  }
+  const lower = sourceName.toLowerCase();
+  return lower.endsWith(".heic") || lower.endsWith(".heif");
+}
+
+function shouldUseWorker(blob: Blob, sourceName?: string): boolean {
   if (!supportsOffscreenProcessing()) {
     return false;
   }
   // heic2any relies on DOM APIs, so HEIC inputs stay on the main thread.
   if (isHeicMimeType(blob.type || "")) {
+    return false;
+  }
+  if (!blob.type && isLikelyHeicName(sourceName)) {
     return false;
   }
   return true;
@@ -161,12 +172,18 @@ async function runWithWorker(
 
   const id = generateRequestId();
   const buffer = await blob.arrayBuffer();
+  const headerBytes = new Uint8Array(
+    buffer,
+    0,
+    Math.min(buffer.byteLength, 32),
+  );
+  const mimeType = await getEffectiveMimeType(blob, sourceName, headerBytes);
 
   const request: ProcessRequest = {
     type: "process",
     id,
     buffer,
-    mimeType: blob.type || "image/png",
+    mimeType,
     sourceName,
     options,
   };
@@ -245,7 +262,7 @@ async function runWithWorkerBitmap(
     type: "processBitmap",
     id,
     bitmap,
-    sourceMimeType: blob.type || "image/png",
+    sourceMimeType: await getEffectiveMimeType(blob, sourceName),
     metadata: parsedMetadata?.summary,
     exifEmbedding: parsedMetadata?.exif,
     sourceName,
@@ -263,7 +280,7 @@ export async function processImageViaWorker(
   options: ProcessingOptions,
   sourceName?: string,
 ): Promise<ProcessResult> {
-  if (!shouldUseWorker(blob)) {
+  if (!shouldUseWorker(blob, sourceName)) {
     return processImageBlob(blob, options, sourceName);
   }
 
