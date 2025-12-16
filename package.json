@@ -8,6 +8,7 @@
     "build": "node scripts/write-version.mjs && tsc -b && vite build && node scripts/build-sw.mjs",
     "test": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:pwa": "playwright test -c playwright.pwa.config.ts",
     "test:e2e:ui": "playwright test --ui",
     "lint": "biome lint .",
     "format": "biome format --write .",
