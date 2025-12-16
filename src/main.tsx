@@ -7,6 +7,7 @@ import { UserPresetsProvider } from "./hooks/useUserPresets.tsx";
 import { UserSettingsProvider } from "./hooks/useUserSettings.tsx";
 import { I18nProvider } from "./i18n";
 import { getInitialUserPresetsState } from "./lib/userPresets.ts";
+import { registerServiceWorker } from "./pwa/registerServiceWorker.ts";
 
 const LIGHT_THEME = "winter";
 const DARK_THEME = "dim";
@@ -60,3 +61,5 @@ createRoot(rootElement).render(
     </I18nProvider>
   </StrictMode>,
 );
+
+void registerServiceWorker();
