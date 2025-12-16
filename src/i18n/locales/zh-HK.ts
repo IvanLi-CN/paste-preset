@@ -116,6 +116,16 @@ export const zhHK: TranslationMessages = {
   "preview.actions.downloadLabel": "下載",
   "preview.actions.downloadAria": "下載結果圖片",
 
+  // Fullscreen viewer
+  "preview.viewer.closeAria": "關閉全螢幕圖片預覽",
+  "preview.viewer.zoomIn": "放大",
+  "preview.viewer.zoomOut": "縮小",
+  "preview.viewer.fit": "適合螢幕",
+  "preview.viewer.actualSize": "實際大小（1:1）",
+  "preview.viewer.loading": "正在載入圖片…",
+  "preview.viewer.error": "圖片載入失敗。",
+  "preview.viewer.retry": "重試",
+
   "preview.card.dimensions": "解像度",
   "preview.card.format": "格式",
   "preview.card.size": "檔案大小",

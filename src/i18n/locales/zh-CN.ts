@@ -116,6 +116,16 @@ export const zhCN: TranslationMessages = {
   "preview.actions.downloadLabel": "下载",
   "preview.actions.downloadAria": "下载结果图片",
 
+  // Fullscreen viewer
+  "preview.viewer.closeAria": "关闭全屏图片预览",
+  "preview.viewer.zoomIn": "放大",
+  "preview.viewer.zoomOut": "缩小",
+  "preview.viewer.fit": "适应屏幕",
+  "preview.viewer.actualSize": "实际大小（1:1）",
+  "preview.viewer.loading": "正在加载图片…",
+  "preview.viewer.error": "图片加载失败。",
+  "preview.viewer.retry": "重试",
+
   "preview.card.dimensions": "分辨率",
   "preview.card.format": "格式",
   "preview.card.size": "文件大小",
