@@ -2,6 +2,7 @@
   "name": "PastePreset",
   "short_name": "PastePreset",
   "description": "PastePreset is a clipboard-centric web app for resizing and converting images entirely in your browser. Configure presets, paste or drop an image, then copy the result back to your clipboard or download it.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -29,6 +30,22 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/pwa/screenshots/desktop-wide.jpg",
+      "sizes": "1280x720",
+      "type": "image/jpeg",
+      "label": "Desktop preview",
+      "form_factor": "wide"
+    },
+    {
+      "src": "/pwa/screenshots/mobile-narrow.jpg",
+      "sizes": "390x844",
+      "type": "image/jpeg",
+      "label": "Mobile preview",
+      "form_factor": "narrow"
     }
   ]
 }
