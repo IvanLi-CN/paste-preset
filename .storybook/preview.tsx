@@ -1,4 +1,5 @@
 import type { Preview } from "@storybook/react";
+import { FullscreenImagePreviewProvider } from "../src/components/FullscreenImagePreviewProvider.tsx";
 import { UserPresetsProvider } from "../src/hooks/useUserPresets.tsx";
 import { UserSettingsProvider } from "../src/hooks/useUserSettings.tsx";
 import { I18nProvider } from "../src/i18n";
@@ -34,9 +35,11 @@ const preview: Preview = {
       <I18nProvider>
         <UserPresetsProvider>
           <UserSettingsProvider>
-            <div className="min-h-screen bg-base-200 p-4">
-              <Story />
-            </div>
+            <FullscreenImagePreviewProvider>
+              <div className="min-h-screen bg-base-200 p-4">
+                <Story />
+              </div>
+            </FullscreenImagePreviewProvider>
           </UserSettingsProvider>
         </UserPresetsProvider>
       </I18nProvider>

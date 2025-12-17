@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import "./ui/iconify.ts";
 import App from "./App.tsx";
+import { FullscreenImagePreviewProvider } from "./components/FullscreenImagePreviewProvider.tsx";
 import { UserPresetsProvider } from "./hooks/useUserPresets.tsx";
 import { UserSettingsProvider } from "./hooks/useUserSettings.tsx";
 import { I18nProvider } from "./i18n";
@@ -55,7 +56,9 @@ createRoot(rootElement).render(
     <I18nProvider>
       <UserPresetsProvider>
         <UserSettingsProvider>
-          <App />
+          <FullscreenImagePreviewProvider>
+            <App />
+          </FullscreenImagePreviewProvider>
         </UserSettingsProvider>
       </UserPresetsProvider>
     </I18nProvider>

@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { act } from "react-dom/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { FullscreenImagePreviewProvider } from "./components/FullscreenImagePreviewProvider.tsx";
 import { I18nProvider } from "./i18n";
 import type { ImageInfo, ImageTask } from "./lib/types";
 
@@ -82,7 +83,9 @@ function renderApp() {
   act(() => {
     root.render(
       <I18nProvider>
-        <App />
+        <FullscreenImagePreviewProvider>
+          <App />
+        </FullscreenImagePreviewProvider>
       </I18nProvider>,
     );
   });

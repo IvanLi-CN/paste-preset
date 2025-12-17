@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useElementSize } from "../hooks/useElementSize.ts";
 import { useTranslation } from "../i18n";
 import {
@@ -328,15 +329,19 @@ export function FullscreenImagePreview(props: FullscreenImagePreviewProps) {
     return null;
   }
 
+  if (typeof document === "undefined") {
+    return null;
+  }
+
   const cursorClassName = canPan
     ? isDragging
       ? "cursor-grabbing"
       : "cursor-grab"
     : "cursor-default";
 
-  return (
-    <dialog className="modal" open>
-      <div className="modal-box flex h-[calc(100vh-2rem)] max-h-none w-[calc(100vw-2rem)] max-w-none flex-col p-0">
+  return createPortal(
+    <dialog className="modal p-0" open>
+      <div className="modal-box flex h-[100dvh] max-h-none w-[100dvw] max-w-none flex-col rounded-none p-0">
         <div className="flex items-center justify-between gap-3 border-b border-base-300 bg-base-100 px-4 py-3">
           <div className="min-w-0">
             <h2 className="truncate text-sm font-semibold">{title}</h2>
@@ -395,6 +400,18 @@ export function FullscreenImagePreview(props: FullscreenImagePreviewProps) {
             .filter(Boolean)
             .join(" ")}
           aria-label={title}
+          onClick={(event) => {
+            if (event.target !== event.currentTarget) {
+              return;
+            }
+            handleClose();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              handleClose();
+            }
+          }}
           onDoubleClick={handleDoubleClick}
           onWheel={handleWheel}
           onPointerDown={handlePointerDown}
@@ -471,6 +488,7 @@ export function FullscreenImagePreview(props: FullscreenImagePreviewProps) {
           close
         </button>
       </form>
-    </dialog>
+    </dialog>,
+    document.body,
   );
 }

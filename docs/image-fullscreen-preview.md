@@ -69,11 +69,17 @@ This feature is **single-image only** (no gallery navigation), and the preview a
 
 ### 5.1 Component structure
 
-- `ImageCard` becomes the interaction entry point and owns the “open/close” state for the preview.
+- `ImageCard` is the interaction entry point (click-to-open), but the viewer is rendered as a **global singleton**.
 - Introduce a dedicated viewer component:
-  - `src/components/FullscreenImagePreview.tsx` (name TBD)
+  - `src/components/FullscreenImagePreview.tsx`
   - Props: `{ open, image, title, onClose }`
-- UI implementation uses the existing DaisyUI modal pattern (`<dialog className="modal" open> ... <form className="modal-backdrop"> ...`), but the “box” content is styled to be fullscreen-friendly.
+- Add a global provider + hook so any component can open the singleton viewer:
+  - `src/components/FullscreenImagePreviewProvider.tsx`
+  - `useFullscreenImagePreview().openImagePreview({ image, title })`
+- Render the viewer via a React Portal into `document.body` so it is not constrained by
+  transformed/animated ancestors (e.g. card entrance animations), and can reliably cover
+  the full viewport.
+- UI implementation uses the DaisyUI modal pattern (`<dialog className="modal" open> ...`) with fullscreen-friendly layout.
 
 ### 5.2 Viewer layout
 
@@ -119,9 +125,8 @@ Notes:
 
 ### 5.5 Interaction handling
 
-- **Backdrop click:** closes the viewer.
+- **Background/backdrop click:** closes the viewer.
 - **Esc:** closes the viewer.
-- **Wheel zoom (desktop):** scales up/down, clamped to `[fitScale, 8]`.
 - **Wheel zoom (desktop):** scales up/down, clamped to `[minScale, 8]`.
 - **Pinch zoom (mobile):** scales up/down, clamped to `[minScale, 8]` (when supported).
 - **Pan:** enabled when `scale > fitScale`; drag updates `offset`.
@@ -174,6 +179,19 @@ Add new localized strings for:
 - **Loading/error**
   - Slow image decode shows a loading state.
   - Invalid image URL shows an error state with an exit path.
+
+## 7.1 Testing Plan (Automated)
+
+- **Unit tests (Vitest)**
+  - Pure math/contract tests for scale computation and mode toggling.
+  - Integration test for open/close + focus restore.
+- **Storybook**
+  - Interaction test for “open → Esc close → focus restore”.
+- **E2E (Playwright)**
+  - Open preview from the app UI and assert:
+    - The viewer covers the viewport (not constrained by card/layout).
+    - `Esc` closes and restores focus.
+    - Clicking the viewer background closes.
 
 ## 8. Open Questions
 

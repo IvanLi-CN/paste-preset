@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
 import type { ImageInfo, ImageTask } from "../lib/types.ts";
+import { FullscreenImagePreviewProvider } from "./FullscreenImagePreviewProvider.tsx";
 import { TasksPanel } from "./TasksPanel.tsx";
 
 // Mock I18n
@@ -58,13 +59,15 @@ function renderTasksPanel({
   ) => {
     act(() => {
       root.render(
-        <TasksPanel
-          tasks={override.tasks ?? tasks}
-          onCopyResult={override.onCopyResult ?? baseProps.onCopyResult}
-          onDownloadAll={override.onDownloadAll ?? baseProps.onDownloadAll}
-          onClearAll={override.onClearAll ?? baseProps.onClearAll}
-          isBuildingZip={override.isBuildingZip ?? baseProps.isBuildingZip}
-        />,
+        <FullscreenImagePreviewProvider>
+          <TasksPanel
+            tasks={override.tasks ?? tasks}
+            onCopyResult={override.onCopyResult ?? baseProps.onCopyResult}
+            onDownloadAll={override.onDownloadAll ?? baseProps.onDownloadAll}
+            onClearAll={override.onClearAll ?? baseProps.onClearAll}
+            isBuildingZip={override.isBuildingZip ?? baseProps.isBuildingZip}
+          />
+        </FullscreenImagePreviewProvider>,
       );
     });
   };
