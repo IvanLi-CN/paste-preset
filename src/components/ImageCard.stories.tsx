@@ -1,4 +1,6 @@
+import { expect } from "@storybook/jest";
 import type { Meta, StoryObj } from "@storybook/react";
+import { userEvent, waitFor, within } from "@storybook/testing-library";
 import type { ImageInfo } from "../lib/types.ts";
 import { ImageCard } from "./ImageCard";
 
@@ -71,5 +73,30 @@ export const WithMetadata: Story = {
         location: { latitude: 51.5074, longitude: -0.1278 },
       },
     }),
+  },
+};
+
+export const OpensFullscreenPreview: Story = {
+  args: {
+    title: "Source image",
+    image: sampleImage(),
+  },
+  parameters: {
+    layout: "fullscreen",
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByRole("button", { name: args.title });
+
+    await userEvent.click(trigger);
+    await waitFor(() =>
+      expect(document.querySelector("dialog.modal")).not.toBeNull(),
+    );
+
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(document.querySelector("dialog.modal")).toBeNull(),
+    );
+    await waitFor(() => expect(trigger).toHaveFocus());
   },
 };

@@ -120,6 +120,16 @@ export const en = {
   "preview.actions.downloadLabel": "Download",
   "preview.actions.downloadAria": "Download result image",
 
+  // Fullscreen viewer
+  "preview.viewer.closeAria": "Close fullscreen image preview",
+  "preview.viewer.zoomIn": "Zoom in",
+  "preview.viewer.zoomOut": "Zoom out",
+  "preview.viewer.fit": "Fit to screen",
+  "preview.viewer.actualSize": "Actual size (1:1)",
+  "preview.viewer.loading": "Loading image…",
+  "preview.viewer.error": "Unable to load image.",
+  "preview.viewer.retry": "Retry",
+
   "preview.card.dimensions": "Dimensions",
   "preview.card.format": "Format",
   "preview.card.size": "Size",
