@@ -1,7 +1,6 @@
-import { useState } from "react";
 import { useTranslation } from "../i18n";
 import type { ImageInfo } from "../lib/types.ts";
-import { FullscreenImagePreview } from "./FullscreenImagePreview.tsx";
+import { useFullscreenImagePreview } from "./FullscreenImagePreviewProvider.tsx";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) {
@@ -24,7 +23,7 @@ export interface ImageCardProps {
 export function ImageCard(props: ImageCardProps) {
   const { title, image, highlighted } = props;
   const { t } = useTranslation();
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const { openImagePreview } = useFullscreenImagePreview();
   const cardClassName = [
     "card bg-base-100 shadow-sm animate-fade-in-up",
     highlighted
@@ -43,7 +42,7 @@ export function ImageCard(props: ImageCardProps) {
           aria-label={title}
           onClick={(event) => {
             event.currentTarget.focus();
-            setIsPreviewOpen(true);
+            openImagePreview({ image, title });
           }}
         >
           <img
@@ -165,12 +164,6 @@ export function ImageCard(props: ImageCardProps) {
           </p>
         </div>
       </div>
-      <FullscreenImagePreview
-        open={isPreviewOpen}
-        image={image}
-        title={title}
-        onClose={() => setIsPreviewOpen(false)}
-      />
     </div>
   );
 }

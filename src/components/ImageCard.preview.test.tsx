@@ -3,6 +3,7 @@ import { act } from "react-dom/test-utils";
 import { describe, expect, it } from "vitest";
 import { I18nProvider } from "../i18n";
 import type { ImageInfo } from "../lib/types.ts";
+import { FullscreenImagePreviewProvider } from "./FullscreenImagePreviewProvider.tsx";
 import { ImageCard } from "./ImageCard";
 
 globalThis.ResizeObserver = class ResizeObserver {
@@ -25,7 +26,9 @@ function renderImageCard({
   act(() => {
     root.render(
       <I18nProvider>
-        <ImageCard title={title} image={image} />
+        <FullscreenImagePreviewProvider>
+          <ImageCard title={title} image={image} />
+        </FullscreenImagePreviewProvider>
       </I18nProvider>,
     );
   });
