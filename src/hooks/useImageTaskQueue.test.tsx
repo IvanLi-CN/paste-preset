@@ -15,9 +15,11 @@ import {
 } from "./useImageTaskQueue.ts";
 
 const processImageViaWorkerMock = vi.hoisted(() => vi.fn());
+const resetImageWorkerMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../lib/imageWorkerClient.ts", () => ({
   processImageViaWorker: processImageViaWorkerMock,
+  resetImageWorker: resetImageWorkerMock,
 }));
 
 const baseOptions: ProcessingOptions = {
@@ -118,6 +120,7 @@ describe("useImageTaskQueue", () => {
     ref = createRef<UseImageTaskQueueResult | null>();
     ({ root, container } = renderHookWithProvider(ref));
     processImageViaWorkerMock.mockReset();
+    resetImageWorkerMock.mockReset();
     if (!globalThis.URL.revokeObjectURL) {
       globalThis.URL.revokeObjectURL = vi.fn();
     }
@@ -128,6 +131,16 @@ describe("useImageTaskQueue", () => {
       root.unmount();
     });
     container.remove();
+    delete (
+      globalThis as typeof globalThis & {
+        __processingTimeoutMsForTest?: number;
+      }
+    ).__processingTimeoutMsForTest;
+    delete (
+      globalThis as typeof globalThis & {
+        __sourceReadTimeoutMsForTest?: number;
+      }
+    ).__sourceReadTimeoutMsForTest;
   });
 
   it("enqueues files and processes them sequentially", async () => {
@@ -236,5 +249,48 @@ describe("useImageTaskQueue", () => {
 
     expect(ref.current?.tasks ?? []).toHaveLength(0);
     expect(revokeSpy).toHaveBeenCalledTimes(4);
+  });
+
+  it("marks a task as error on timeout and continues", async () => {
+    const first = createFile("first.png");
+    const second = createFile("second.png");
+
+    processImageViaWorkerMock
+      .mockImplementationOnce(async () => new Promise(() => {}))
+      .mockImplementationOnce(async (file: File) =>
+        createProcessResult(file.name),
+      );
+
+    (
+      globalThis as typeof globalThis & {
+        __processingTimeoutMsForTest?: number;
+      }
+    ).__processingTimeoutMsForTest = 20;
+
+    await act(async () => {
+      ref.current?.enqueueFiles([first, second]);
+    });
+
+    await waitForCondition(
+      () => processImageViaWorkerMock.mock.calls.length === 1,
+      500,
+    );
+
+    await waitForCondition(
+      () => ref.current?.tasks[0]?.status === "error",
+      500,
+    );
+
+    await waitForCondition(
+      () => processImageViaWorkerMock.mock.calls.length === 2,
+      500,
+    );
+
+    await waitForCondition(() => ref.current?.tasks[1]?.status === "done", 500);
+
+    const tasks = ref.current?.tasks ?? [];
+    expect(tasks.map((t) => t.status)).toEqual(["error", "done"]);
+    expect(tasks[0]?.errorMessage?.toLowerCase()).toContain("timed out");
+    expect(resetImageWorkerMock).toHaveBeenCalledTimes(1);
   });
 });

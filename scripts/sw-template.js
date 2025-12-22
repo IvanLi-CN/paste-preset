@@ -1,15 +1,16 @@
 // Service worker template.
 // The build step injects a precache manifest into the `__WB_MANIFEST` placeholder.
 //
-// Update policy: "next launch"
-// - No forced activation or mid-session takeover.
-// - A newly installed SW will only activate after all clients are closed.
+// Update policy: "immediate"
+// - New SW activates as soon as it's installed.
+// - Clients reload once on controller change to avoid mixed asset versions.
 //
 // Offline L2:
 // - Precache app shell + build assets (incl. HEIC chunks, worker assets, version.json).
 // - SPA navigation fallback to cached `index.html` when offline.
 
-const CACHE_NAME = "paste-preset-precache-v1";
+const CACHE_NAME_PREFIX = "paste-preset-precache-";
+const CACHE_NAME = `${CACHE_NAME_PREFIX}v2`;
 
 /** @type {Array<{url: string, revision?: string}>} */
 const manifest = self.__WB_MANIFEST;
@@ -50,6 +51,8 @@ self.addEventListener("install", (event) => {
         return new Request(cacheKey, { cache: "reload" });
       });
       await cache.addAll(requests);
+      // Take over ASAP so users don't stay pinned to an older cached app shell.
+      await self.skipWaiting();
     })(),
   );
 });
@@ -57,6 +60,16 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
+      // Drop older precache buckets to prevent serving stale/buggy assets.
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames.map(async (name) => {
+          if (name.startsWith(CACHE_NAME_PREFIX) && name !== CACHE_NAME) {
+            await caches.delete(name);
+          }
+        }),
+      );
+
       const cache = await openPrecache();
       const keys = await cache.keys();
 
@@ -67,8 +80,19 @@ self.addEventListener("activate", (event) => {
           }
         }),
       );
+
+      await self.clients.claim();
     })(),
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (!event.data || typeof event.data !== "object") {
+    return;
+  }
+  if (event.data.type === "SKIP_WAITING") {
+    void self.skipWaiting();
+  }
 });
 
 self.addEventListener("fetch", (event) => {
@@ -90,6 +114,16 @@ self.addEventListener("fetch", (event) => {
 
     event.respondWith(
       (async () => {
+        // Online-first to avoid users being pinned to an old cached app shell.
+        try {
+          const network = await fetch(request);
+          if (network?.ok) {
+            return network;
+          }
+        } catch {
+          // Fall back to cache below.
+        }
+
         const cache = await openPrecache();
         const indexUrl = new URL(
           "index.html",

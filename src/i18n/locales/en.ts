@@ -160,8 +160,12 @@ export const en = {
     "Failed to convert HEIC/HEIF image. Please convert it to JPEG or PNG and try again.",
   "error.heic.unexpectedResult": "Unexpected HEIC conversion result.",
   "error.processing.invalidDataUrl": "Invalid image data.",
+  "error.processing.sourceReadTimeout":
+    "Reading the image timed out. If the file is stored in cloud storage or a connected device, make sure it is downloaded locally and try again.",
   "error.processing.canvasContext": "Unable to prepare image for processing.",
   "error.processing.decodeFailed": "Failed to load image.",
+  "error.processing.timeout":
+    "Image processing timed out. Please try again (downloading the file locally may help).",
   "error.processing.tooLarge":
     "The requested output size is too large to process safely. Please choose smaller dimensions or a lower-resolution preset and try again.",
   "error.processing.exportFailed": "Failed to export image.",

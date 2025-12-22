@@ -239,6 +239,10 @@ function App() {
 
   useEffect(() => {
     const handleWindowPaste = (event: ClipboardEvent) => {
+      if (event.defaultPrevented) {
+        return;
+      }
+
       const clipboardData = event.clipboardData;
       if (!clipboardData) {
         return;

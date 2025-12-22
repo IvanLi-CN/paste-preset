@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "../i18n";
-import { processImageViaWorker } from "../lib/imageWorkerClient.ts";
+import {
+  processImageViaWorker,
+  resetImageWorker,
+} from "../lib/imageWorkerClient.ts";
 import { translateProcessingError } from "../lib/processingErrors.ts";
 import type { ImageInfo, ImageTask, ProcessingOptions } from "../lib/types.ts";
 
@@ -9,6 +12,9 @@ export interface UseImageTaskQueueResult {
   enqueueFiles: (files: File[]) => void;
   clearAll: () => void;
 }
+
+const DEFAULT_SOURCE_READ_TIMEOUT_MS = 30_000;
+const DEFAULT_PROCESSING_TIMEOUT_MS = 120_000;
 
 export function useImageTaskQueue(
   options: ProcessingOptions,
@@ -96,6 +102,8 @@ export function useImageTaskQueue(
     const run = async () => {
       const globalWithTestHook = globalThis as typeof globalThis & {
         __processingDelayMsForTest?: number | null;
+        __processingTimeoutMsForTest?: number | null;
+        __sourceReadTimeoutMsForTest?: number | null;
       };
 
       const delayMs = globalWithTestHook.__processingDelayMsForTest;
@@ -105,11 +113,43 @@ export function useImageTaskQueue(
         });
       }
 
+      const sourceReadTimeoutMs =
+        typeof globalWithTestHook.__sourceReadTimeoutMsForTest === "number" &&
+        globalWithTestHook.__sourceReadTimeoutMsForTest > 0
+          ? globalWithTestHook.__sourceReadTimeoutMsForTest
+          : DEFAULT_SOURCE_READ_TIMEOUT_MS;
+
+      const processingTimeoutMs =
+        typeof globalWithTestHook.__processingTimeoutMsForTest === "number" &&
+        globalWithTestHook.__processingTimeoutMsForTest > 0
+          ? globalWithTestHook.__processingTimeoutMsForTest
+          : DEFAULT_PROCESSING_TIMEOUT_MS;
+
       try {
-        const { source, result } = await processImageViaWorker(
+        await probeFileReadable(file, sourceReadTimeoutMs);
+
+        let didTimeout = false;
+        const processingPromise = processImageViaWorker(
           file,
           options,
           file.name,
+        ).then((value) => {
+          if (didTimeout) {
+            // If processing finishes after we've already timed out, revoke any
+            // created object URLs immediately to avoid leaking blob URLs.
+            revokeImageInfo(value.source);
+            revokeImageInfo(value.result);
+          }
+          return value;
+        });
+
+        const { source, result } = await withTimeout(
+          processingPromise,
+          processingTimeoutMs,
+          new Error("image.processingTimeout"),
+          () => {
+            didTimeout = true;
+          },
         );
 
         const cancelled =
@@ -134,6 +174,14 @@ export function useImageTaskQueue(
         if (generationRef.current !== currentGeneration) {
           return;
         }
+
+        if (
+          error instanceof Error &&
+          error.message === "image.processingTimeout"
+        ) {
+          resetImageWorker(error);
+        }
+
         const message =
           error instanceof Error
             ? translateProcessingError(error, t)
@@ -174,6 +222,45 @@ export function getLastCompletedTask(
 function revokeImageInfo(info: ImageInfo | undefined) {
   if (info) {
     URL.revokeObjectURL(info.url);
+  }
+}
+
+async function probeFileReadable(file: File, timeoutMs: number): Promise<void> {
+  try {
+    const probe = file.slice(0, 1);
+    if (typeof probe.arrayBuffer !== "function") {
+      return;
+    }
+    await withTimeout(
+      probe.arrayBuffer(),
+      timeoutMs,
+      new Error("image.sourceReadTimeout"),
+    );
+  } catch {
+    throw new Error("image.sourceReadTimeout");
+  }
+}
+
+async function withTimeout<T>(
+  task: Promise<T>,
+  timeoutMs: number,
+  error: Error,
+  onTimeout?: () => void,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      onTimeout?.();
+      reject(error);
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([task, timeout]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
   }
 }
 
