@@ -13,7 +13,7 @@ export interface UseImageTaskQueueResult {
   clearAll: () => void;
 }
 
-const DEFAULT_SOURCE_READ_TIMEOUT_MS = 5_000;
+const DEFAULT_SOURCE_READ_TIMEOUT_MS = 30_000;
 const DEFAULT_PROCESSING_TIMEOUT_MS = 120_000;
 
 export function useImageTaskQueue(
@@ -128,10 +128,28 @@ export function useImageTaskQueue(
       try {
         await probeFileReadable(file, sourceReadTimeoutMs);
 
+        let didTimeout = false;
+        const processingPromise = processImageViaWorker(
+          file,
+          options,
+          file.name,
+        ).then((value) => {
+          if (didTimeout) {
+            // If processing finishes after we've already timed out, revoke any
+            // created object URLs immediately to avoid leaking blob URLs.
+            revokeImageInfo(value.source);
+            revokeImageInfo(value.result);
+          }
+          return value;
+        });
+
         const { source, result } = await withTimeout(
-          processImageViaWorker(file, options, file.name),
+          processingPromise,
           processingTimeoutMs,
           new Error("image.processingTimeout"),
+          () => {
+            didTimeout = true;
+          },
         );
 
         const cancelled =
@@ -227,10 +245,14 @@ async function withTimeout<T>(
   task: Promise<T>,
   timeoutMs: number,
   error: Error,
+  onTimeout?: () => void,
 ): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(error), timeoutMs);
+    timer = setTimeout(() => {
+      onTimeout?.();
+      reject(error);
+    }, timeoutMs);
   });
 
   try {
