@@ -155,8 +155,12 @@ export const zhCN: TranslationMessages = {
     "HEIC/HEIF 图片转换失败。请将图片转换为 JPEG 或 PNG 后再试。",
   "error.heic.unexpectedResult": "HEIC 转换结果异常。",
   "error.processing.invalidDataUrl": "图片数据无效。",
+  "error.processing.sourceReadTimeout":
+    "读取图片文件超时。该文件可能位于云端/外部设备，尚未完整下载到本机。请先将文件保存到本地后重试。",
   "error.processing.canvasContext": "无法准备图片进行处理。",
   "error.processing.decodeFailed": "图片加载失败。",
+  "error.processing.timeout":
+    "图片处理超时。请稍后重试（将文件先保存到本地可能会有所帮助）。",
   "error.processing.tooLarge":
     "请求的输出尺寸过大，无法安全处理。请减小宽高或选择更低分辨率的预设后重试。",
   "error.processing.exportFailed": "导出图片失败。",

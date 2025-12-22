@@ -303,3 +303,15 @@ export async function processImageViaWorker(
     return processImageBlob(blob, options, sourceName);
   }
 }
+
+export function resetImageWorker(reason?: Error): void {
+  if (workerInstance) {
+    try {
+      workerInstance.terminate();
+    } finally {
+      workerInstance = null;
+    }
+  }
+
+  flushPending(reason ?? new Error("image.exportFailed"));
+}

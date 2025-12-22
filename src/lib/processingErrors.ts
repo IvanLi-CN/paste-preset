@@ -15,10 +15,14 @@ export function translateProcessingError(
       return t("error.heic.unexpectedResult");
     case "image.invalidDataUrl":
       return t("error.processing.invalidDataUrl");
+    case "image.sourceReadTimeout":
+      return t("error.processing.sourceReadTimeout");
     case "image.canvasContext":
       return t("error.processing.canvasContext");
     case "image.decodeFailed":
       return t("error.processing.decodeFailed");
+    case "image.processingTimeout":
+      return t("error.processing.timeout");
     case "image.tooLarge":
       return t("error.processing.tooLarge");
     case "image.exportFailed":
