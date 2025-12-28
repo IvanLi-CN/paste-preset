@@ -38,6 +38,8 @@ describe("buildResultsZip", () => {
     fileName?: string,
   ): ImageTask => ({
     id,
+    batchId: `batch-${id}`,
+    batchCreatedAt: Date.now(),
     status,
     createdAt: Date.now(),
     desiredGeneration: 0,
@@ -72,6 +74,8 @@ describe("buildResultsZip", () => {
     const tasks: ImageTask[] = [
       {
         id: "1",
+        batchId: "batch-1",
+        batchCreatedAt: 123,
         status: "done",
         createdAt: 123,
         desiredGeneration: 0,

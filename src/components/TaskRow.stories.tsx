@@ -25,6 +25,8 @@ const sampleImage = (overrides: Partial<ImageInfo> = {}): ImageInfo => {
 
 const taskBase: Omit<ImageTask, "status"> = {
   id: "task-1",
+  batchId: "batch-1",
+  batchCreatedAt: Date.now(),
   fileName: "sample.png",
   createdAt: Date.now(),
   source: sampleImage({ sourceName: "source.png" }),

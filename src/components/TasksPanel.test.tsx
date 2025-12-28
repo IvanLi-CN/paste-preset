@@ -14,6 +14,8 @@ vi.mock("../i18n", () => ({
 
 const mockTask = (overrides: Partial<ImageTask>): ImageTask => ({
   id: "task-1",
+  batchId: overrides.batchId ?? "batch-1",
+  batchCreatedAt: overrides.batchCreatedAt ?? 1000,
   fileName: "test.png",
   status: "queued",
   createdAt: 1000,
@@ -34,15 +36,15 @@ const mockImageInfo = (overrides: Partial<ImageInfo> = {}): ImageInfo => ({
 function renderTasksPanel({
   tasks = [],
   onCopyResult = vi.fn(),
-  onDownloadAll = vi.fn(),
   onClearAll = vi.fn(),
-  isBuildingZip = false,
+  onExpandedIdsChange,
+  onActiveTaskIdChange,
 }: {
   tasks?: ImageTask[];
   onCopyResult?: (taskId: string, blob: Blob, mimeType: string) => void;
-  onDownloadAll?: () => void;
   onClearAll?: () => void;
-  isBuildingZip?: boolean;
+  onExpandedIdsChange?: (expandedIds: ReadonlySet<string>) => void;
+  onActiveTaskIdChange?: (taskId: string | null) => void;
 } = {}) {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -50,9 +52,9 @@ function renderTasksPanel({
 
   const baseProps = {
     onCopyResult,
-    onDownloadAll,
     onClearAll,
-    isBuildingZip,
+    onExpandedIdsChange,
+    onActiveTaskIdChange,
   };
 
   const render = (
@@ -64,9 +66,13 @@ function renderTasksPanel({
           <TasksPanel
             tasks={override.tasks ?? tasks}
             onCopyResult={override.onCopyResult ?? baseProps.onCopyResult}
-            onDownloadAll={override.onDownloadAll ?? baseProps.onDownloadAll}
             onClearAll={override.onClearAll ?? baseProps.onClearAll}
-            isBuildingZip={override.isBuildingZip ?? baseProps.isBuildingZip}
+            onExpandedIdsChange={
+              override.onExpandedIdsChange ?? baseProps.onExpandedIdsChange
+            }
+            onActiveTaskIdChange={
+              override.onActiveTaskIdChange ?? baseProps.onActiveTaskIdChange
+            }
           />
         </FullscreenImagePreviewProvider>,
       );
@@ -111,9 +117,6 @@ describe("TasksPanel", () => {
     expect(
       container.querySelector('button[title="Clear all tasks"]'),
     ).toBeTruthy();
-    expect(
-      container.querySelector('button[title="Download all results"]'),
-    ).toBeTruthy();
 
     const titles = container.querySelectorAll(".collapse-title");
     expect(titles).toHaveLength(3);
@@ -125,6 +128,31 @@ describe("TasksPanel", () => {
     cleanup();
   });
 
+  it("groups tasks by batch with newest batch first", () => {
+    const tasks = [
+      mockTask({ id: "n1", fileName: "new-1.png", batchId: "batch-new" }),
+      mockTask({ id: "n2", fileName: "new-2.png", batchId: "batch-new" }),
+      mockTask({ id: "o1", fileName: "old-1.png", batchId: "batch-old" }),
+    ];
+    const { container, cleanup } = renderTasksPanel({ tasks });
+
+    const separators = Array.from(
+      container.querySelectorAll('[data-testid="task-batch-separator"]'),
+    );
+    expect(separators).toHaveLength(2);
+    expect(separators[0]?.getAttribute("data-batch-id")).toBe("batch-new");
+    expect(separators[1]?.getAttribute("data-batch-id")).toBe("batch-old");
+
+    const titles = Array.from(
+      container.querySelectorAll(".collapse-title"),
+    ).map((el) => el.textContent ?? "");
+    expect(titles.join("|")).toContain("new-1.png");
+    expect(titles.join("|")).toContain("new-2.png");
+    expect(titles.join("|")).toContain("old-1.png");
+
+    cleanup();
+  });
+
   it("handles single expansion logic", () => {
     const tasks = [mockTask({ id: "1" }), mockTask({ id: "2" })];
     const { container, cleanup } = renderTasksPanel({ tasks });
@@ -132,11 +160,7 @@ describe("TasksPanel", () => {
     const titles = container.querySelectorAll(".collapse-title");
     const collapses = container.querySelectorAll(".collapse");
 
-    // Expand first
-    act(() => {
-      titles[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
+    // First task auto-expands when a new batch is inserted.
     expect(collapses[0].classList.contains("collapse-open")).toBe(true);
     expect(
       collapses[1].classList.contains("collapse-close") ||
@@ -166,10 +190,6 @@ describe("TasksPanel", () => {
     const titles = container.querySelectorAll(".collapse-title");
     const collapses = container.querySelectorAll(".collapse");
 
-    // Expand first
-    act(() => {
-      titles[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
     expect(collapses[0].classList.contains("collapse-open")).toBe(true);
 
     // Shift+Click second -> First stays expanded, Second expands
@@ -181,6 +201,51 @@ describe("TasksPanel", () => {
 
     expect(collapses[0].classList.contains("collapse-open")).toBe(true);
     expect(collapses[1].classList.contains("collapse-open")).toBe(true);
+
+    cleanup();
+  });
+
+  it("collapses previous expansions and auto-expands first task when a new batch arrives", () => {
+    const onActiveTaskIdChange = vi.fn();
+
+    const initialTasks = [
+      mockTask({ id: "old-1", fileName: "old-1.png", batchId: "batch-old" }),
+      mockTask({ id: "old-2", fileName: "old-2.png", batchId: "batch-old" }),
+    ];
+
+    const { container, cleanup, rerender } = renderTasksPanel({
+      tasks: initialTasks,
+      onActiveTaskIdChange,
+    });
+
+    const titles = container.querySelectorAll(".collapse-title");
+    const collapses = container.querySelectorAll(".collapse");
+
+    expect(collapses[0]?.classList.contains("collapse-open")).toBe(true);
+
+    act(() => {
+      titles[1]?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, shiftKey: true }),
+      );
+    });
+
+    expect(
+      Array.from(container.querySelectorAll(".collapse-open")),
+    ).toHaveLength(2);
+    expect(onActiveTaskIdChange).toHaveBeenLastCalledWith("old-2");
+
+    const nextTasks = [
+      mockTask({ id: "new-1", fileName: "new-1.png", batchId: "batch-new" }),
+      mockTask({ id: "new-2", fileName: "new-2.png", batchId: "batch-new" }),
+      ...initialTasks,
+    ];
+
+    rerender({ tasks: nextTasks });
+
+    const open = Array.from(container.querySelectorAll(".collapse-open"));
+    expect(open).toHaveLength(1);
+    expect(container.textContent).toContain("new-1.png");
+    expect(onActiveTaskIdChange).toHaveBeenLastCalledWith("new-1");
 
     cleanup();
   });
@@ -215,30 +280,6 @@ describe("TasksPanel", () => {
       "image/png",
     );
 
-    cleanup();
-  });
-
-  it("calls onDownloadAll when clicking Download all button", () => {
-    const onDownload = vi.fn();
-    // Must have done tasks to enable the button
-    const tasks = [
-      mockTask({ id: "1", status: "done", result: mockImageInfo() }),
-    ];
-    const { container, cleanup } = renderTasksPanel({
-      tasks,
-      onDownloadAll: onDownload,
-    });
-
-    const downloadBtn = container.querySelector(
-      'button[title="Download all results"]',
-    );
-    expect(downloadBtn).toBeTruthy();
-    expect((downloadBtn as HTMLButtonElement).disabled).toBe(false);
-
-    act(() => {
-      downloadBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    expect(onDownload).toHaveBeenCalled();
     cleanup();
   });
 

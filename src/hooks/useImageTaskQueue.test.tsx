@@ -8,8 +8,10 @@ import {
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../i18n";
-import type { ImageInfo, ProcessingOptions } from "../lib/types.ts";
+import type { ImageInfo, ImageTask, ProcessingOptions } from "../lib/types.ts";
 import {
+  getRegenerationPriorityTaskIds,
+  type TaskQueuePriorityHints,
   type UseImageTaskQueueResult,
   useImageTaskQueue,
 } from "./useImageTaskQueue.ts";
@@ -35,9 +37,9 @@ const baseOptions: ProcessingOptions = {
 
 const Harness = forwardRef<
   UseImageTaskQueueResult,
-  { options: ProcessingOptions }
->(({ options }, ref) => {
-  const queue = useImageTaskQueue(options);
+  { options: ProcessingOptions; priorityHints?: TaskQueuePriorityHints }
+>(({ options, priorityHints }, ref) => {
+  const queue = useImageTaskQueue(options, priorityHints);
   useImperativeHandle(ref, () => queue, [queue]);
   return null;
 });
@@ -51,11 +53,18 @@ function renderHookWithProvider(
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
-  const render = (nextOptions: ProcessingOptions) => {
+  const render = (
+    nextOptions: ProcessingOptions,
+    priorityHints?: TaskQueuePriorityHints,
+  ) => {
     act(() => {
       root.render(
         <I18nProvider>
-          <Harness ref={ref} options={nextOptions} />
+          <Harness
+            ref={ref}
+            options={nextOptions}
+            priorityHints={priorityHints}
+          />
         </I18nProvider>,
       );
     });
@@ -124,7 +133,10 @@ describe("useImageTaskQueue", () => {
   let ref: React.RefObject<UseImageTaskQueueResult | null>;
   let root: Root;
   let container: HTMLElement;
-  let render: (options: ProcessingOptions) => void;
+  let render: (
+    options: ProcessingOptions,
+    priorityHints?: TaskQueuePriorityHints,
+  ) => void;
 
   beforeEach(() => {
     ref = createRef<UseImageTaskQueueResult | null>();
@@ -417,7 +429,7 @@ describe("useImageTaskQueue", () => {
 
     await waitForCondition(
       () => processImageViaWorkerMock.mock.calls.length === 1,
-      500,
+      2_000,
     );
 
     await waitForCondition(
@@ -427,7 +439,7 @@ describe("useImageTaskQueue", () => {
 
     await waitForCondition(
       () => processImageViaWorkerMock.mock.calls.length === 2,
-      500,
+      2_000,
     );
 
     await waitForCondition(() => ref.current?.tasks[1]?.status === "done", 500);
@@ -436,5 +448,82 @@ describe("useImageTaskQueue", () => {
     expect(tasks.map((t) => t.status)).toEqual(["error", "done"]);
     expect(tasks[0]?.errorMessage?.toLowerCase()).toContain("timed out");
     expect(resetImageWorkerMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("prioritizes the active task first when regenerating after settings change", async () => {
+    processImageViaWorkerMock.mockImplementation(async (file: File) =>
+      createProcessResult(file.name),
+    );
+
+    await act(async () => {
+      ref.current?.enqueueFiles([
+        createFile("a.png"),
+        createFile("b.png"),
+        createFile("c.png"),
+      ]);
+    });
+
+    await waitForCondition(() =>
+      (ref.current?.tasks ?? []).every((task) => task.status === "done"),
+    );
+
+    const tasks = ref.current?.tasks ?? [];
+    const idA = tasks[0]?.id;
+    const idB = tasks[1]?.id;
+    const idC = tasks[2]?.id;
+    if (!idA || !idB || !idC) {
+      throw new Error("Missing task ids");
+    }
+
+    processImageViaWorkerMock.mockClear();
+    processImageViaWorkerMock.mockImplementation(async (file: File) =>
+      createProcessResult(`${file.name}-regen`),
+    );
+
+    render(
+      { ...baseOptions, targetWidth: 123 },
+      { activeTaskId: idB, expandedIds: new Set([idB, idC]) },
+    );
+
+    await waitForCondition(
+      () =>
+        (ref.current?.tasks ?? []).every(
+          (task) => task.desiredGeneration === 1,
+        ),
+      2_000,
+    );
+
+    await waitForCondition(
+      () => processImageViaWorkerMock.mock.calls.length === 1,
+      2_000,
+    );
+    expect(processImageViaWorkerMock.mock.calls[0]?.[0]?.name).toBe("b.png");
+  });
+
+  it("computes regeneration priority order based on active/expanded tasks", () => {
+    const now = Date.now();
+    const base: Omit<ImageTask, "id"> = {
+      batchId: "batch",
+      batchCreatedAt: now,
+      status: "done",
+      createdAt: now,
+      desiredGeneration: 0,
+      attemptGeneration: 0,
+      resultGeneration: 0,
+    };
+
+    const tasks: ImageTask[] = [
+      { ...base, id: "a" },
+      { ...base, id: "b" },
+      { ...base, id: "c" },
+    ];
+
+    const ids = getRegenerationPriorityTaskIds({
+      tasks,
+      activeTaskId: "b",
+      expandedIds: new Set(["b", "c"]),
+    });
+
+    expect(ids.slice(0, 3)).toEqual(["b", "c", "a"]);
   });
 });

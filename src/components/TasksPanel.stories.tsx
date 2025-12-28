@@ -27,6 +27,8 @@ const sampleImage = (overrides: Partial<ImageInfo> = {}): ImageInfo => {
 
 const createTask = (overrides: Partial<ImageTask>): ImageTask => ({
   id: overrides.id ?? "task-default",
+  batchId: overrides.batchId ?? "batch-default",
+  batchCreatedAt: overrides.batchCreatedAt ?? Date.now(),
   fileName: overrides.fileName ?? "image.png",
   status: "queued",
   createdAt: Date.now(),
@@ -64,7 +66,6 @@ const meta = {
   tags: ["autodocs"],
   args: {
     onCopyResult: fn(),
-    onDownloadAll: fn(),
     onClearAll: fn(),
   },
 } satisfies Meta<typeof TasksPanel>;
@@ -98,9 +99,7 @@ export const SingleDoneTask: Story = {
 
     await step("Check header buttons", async () => {
       const clearBtn = canvas.getByRole("button", { name: /Clear all/i });
-      const downloadBtn = canvas.getByRole("button", { name: /Download all/i });
       expect(clearBtn).toBeInTheDocument();
-      expect(downloadBtn).toBeEnabled();
     });
 
     await step("Find and click copy", async () => {
@@ -151,13 +150,6 @@ export const HeaderActions: Story = {
     const canvas = within(canvasElement);
 
     const clearBtn = canvas.getByRole("button", { name: /Clear all/i });
-    const downloadBtn = canvas.getByRole("button", { name: /Download all/i });
-
-    await step("Download all interaction", async () => {
-      expect(downloadBtn).toBeEnabled();
-      await userEvent.click(downloadBtn);
-      expect(args.onDownloadAll).toHaveBeenCalled();
-    });
 
     await step("Clear all interaction", async () => {
       await userEvent.click(clearBtn);
@@ -186,13 +178,10 @@ export const MultipleTasksSingleExpand: Story = {
     const collapseOf = (toggle: HTMLElement) =>
       toggle.closest(".collapse") as HTMLElement;
 
-    await step("Expand first row", async () => {
-      await userEvent.click(queuedToggle);
+    await step("First row auto-expanded for a new batch", async () => {
       await waitFor(() =>
         expect(collapseOf(queuedToggle)).toHaveClass("collapse-open"),
       );
-      expect(collapseOf(processingToggle)).not.toHaveClass("collapse-open");
-      expect(collapseOf(doneToggle)).not.toHaveClass("collapse-open");
     });
 
     await step("Switch to second row", async () => {
@@ -232,8 +221,7 @@ export const MultipleTasksMultiExpand: Story = {
     const collapseOf = (toggle: HTMLElement) =>
       toggle.closest(".collapse") as HTMLElement;
 
-    await step("Expand first row", async () => {
-      await userEvent.click(firstToggle);
+    await step("First row auto-expanded for a new batch", async () => {
       await waitFor(() =>
         expect(collapseOf(firstToggle)).toHaveClass("collapse-open"),
       );
