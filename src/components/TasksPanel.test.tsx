@@ -192,6 +192,7 @@ describe("TasksPanel", () => {
         id: "1",
         status: "done",
         result: mockImageInfo(),
+        resultGeneration: 0,
       }),
     ];
     const { container, cleanup } = renderTasksPanel({
