@@ -8,13 +8,29 @@ interface TaskDetailsProps {
   result: ImageInfo | null;
   originalFileName?: string;
   onCopyResult: (blob: Blob, mimeType: string) => void;
+  canExportResult?: boolean;
+  exportDisabledReason?: string | null;
+  isCopyingResult?: boolean;
+  resultOverlayLabel?: string | null;
 }
 
 export function TaskDetails(props: TaskDetailsProps) {
-  const { source, result, originalFileName, onCopyResult } = props;
+  const {
+    source,
+    result,
+    originalFileName,
+    onCopyResult,
+    canExportResult,
+    exportDisabledReason,
+    isCopyingResult,
+    resultOverlayLabel,
+  } = props;
   const { t } = useTranslation();
 
   if (!source && !result) return null;
+
+  const canExport = canExportResult ?? Boolean(result);
+  const isCopying = isCopyingResult ?? false;
 
   return (
     <div className="grid gap-4 md:grid-cols-2 mt-4 p-4 bg-base-200/50 rounded-lg animate-fade-in-up">
@@ -25,6 +41,11 @@ export function TaskDetails(props: TaskDetailsProps) {
             title={t("preview.result.title")}
             image={result}
             highlighted
+            overlay={
+              resultOverlayLabel
+                ? { label: resultOverlayLabel, tone: "warning" }
+                : undefined
+            }
           />
           <div className="card bg-base-100 shadow-sm animate-fade-in-up">
             <div className="card-body flex flex-row flex-wrap items-center justify-between gap-2">
@@ -51,25 +72,87 @@ export function TaskDetails(props: TaskDetailsProps) {
                 </div>
               </div>
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary"
-                  onClick={() => onCopyResult(result.blob, result.mimeType)}
-                  aria-label={t("preview.actions.copyAria")}
-                >
-                  <Icon icon="mdi:content-copy" data-icon="mdi:content-copy" />
-                  {t("preview.actions.copyLabel")}
-                </button>
-                <a
-                  href={result.url}
-                  download={buildDownloadFileName(result, originalFileName)}
-                  className="btn btn-sm btn-outline"
-                  aria-label={t("preview.actions.downloadAria")}
-                >
-                  <Icon icon="mdi:download" data-icon="mdi:download" />
-                  {t("preview.actions.downloadLabel")}
-                </a>
+                {!canExport && exportDisabledReason ? (
+                  <span
+                    className="tooltip tooltip-bottom"
+                    data-tip={exportDisabledReason}
+                  >
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-primary"
+                      onClick={() => onCopyResult(result.blob, result.mimeType)}
+                      aria-label={t("preview.actions.copyAria")}
+                      disabled
+                    >
+                      <Icon
+                        icon="mdi:content-copy"
+                        data-icon="mdi:content-copy"
+                      />
+                      {t("preview.actions.copyLabel")}
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={() => onCopyResult(result.blob, result.mimeType)}
+                    aria-label={t("preview.actions.copyAria")}
+                    disabled={!canExport || isCopying}
+                  >
+                    {isCopying ? (
+                      <span className="loading loading-spinner loading-sm" />
+                    ) : (
+                      <Icon
+                        icon="mdi:content-copy"
+                        data-icon="mdi:content-copy"
+                      />
+                    )}
+                    {t("preview.actions.copyLabel")}
+                  </button>
+                )}
+
+                {!canExport && exportDisabledReason ? (
+                  <span
+                    className="tooltip tooltip-bottom"
+                    data-tip={exportDisabledReason}
+                  >
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline"
+                      aria-label={t("preview.actions.downloadAria")}
+                      disabled
+                    >
+                      <Icon icon="mdi:download" data-icon="mdi:download" />
+                      {t("preview.actions.downloadLabel")}
+                    </button>
+                  </span>
+                ) : (
+                  <a
+                    href={result.url}
+                    download={buildDownloadFileName(result, originalFileName)}
+                    className={`btn btn-sm btn-outline ${
+                      canExport ? "" : "btn-disabled"
+                    }`}
+                    aria-label={t("preview.actions.downloadAria")}
+                    onClick={(event) => {
+                      if (!canExport) {
+                        event.preventDefault();
+                      }
+                    }}
+                    aria-disabled={!canExport}
+                    tabIndex={canExport ? 0 : -1}
+                  >
+                    <Icon icon="mdi:download" data-icon="mdi:download" />
+                    {t("preview.actions.downloadLabel")}
+                  </a>
+                )}
               </div>
+
+              {!canExport && exportDisabledReason && (
+                <div className="w-full text-xs text-base-content/60">
+                  {exportDisabledReason}
+                </div>
+              )}
             </div>
           </div>
         </div>

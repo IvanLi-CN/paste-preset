@@ -116,6 +116,19 @@ export const zhTW: TranslationMessages = {
   "preview.actions.downloadLabel": "下載",
   "preview.actions.downloadAria": "下載結果圖片",
 
+  "export.gate.noResult": "尚無結果。",
+  "export.gate.queued": "排隊中…",
+  "export.gate.processing": "處理中…",
+  "export.gate.waiting": "等待重新生成…",
+  "export.gate.regenerating": "重新生成中…",
+  "export.gate.failed": "目前設定下重新生成失敗。",
+  "export.gate.stale": "結果已過期，請等待重新生成。",
+  "export.gate.unavailable": "暫時無法匯出。",
+
+  "preview.result.overlay.waiting": "等待中…",
+  "preview.result.overlay.regenerating": "重新生成中…",
+  "preview.result.overlay.failed": "重新生成失敗",
+
   // Fullscreen viewer
   "preview.viewer.closeAria": "關閉全螢幕圖片預覽",
   "preview.viewer.zoomIn": "放大",

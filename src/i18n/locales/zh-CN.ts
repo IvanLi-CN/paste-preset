@@ -116,6 +116,19 @@ export const zhCN: TranslationMessages = {
   "preview.actions.downloadLabel": "下载",
   "preview.actions.downloadAria": "下载结果图片",
 
+  "export.gate.noResult": "暂无结果。",
+  "export.gate.queued": "正在排队…",
+  "export.gate.processing": "处理中…",
+  "export.gate.waiting": "等待重新生成…",
+  "export.gate.regenerating": "正在重新生成…",
+  "export.gate.failed": "当前设置下重新生成失败。",
+  "export.gate.stale": "结果已过期，请等待重新生成。",
+  "export.gate.unavailable": "暂不可导出。",
+
+  "preview.result.overlay.waiting": "等待中…",
+  "preview.result.overlay.regenerating": "重新生成中…",
+  "preview.result.overlay.failed": "重新生成失败",
+
   // Fullscreen viewer
   "preview.viewer.closeAria": "关闭全屏图片预览",
   "preview.viewer.zoomIn": "放大",

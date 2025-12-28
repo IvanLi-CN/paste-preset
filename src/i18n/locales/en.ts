@@ -120,6 +120,19 @@ export const en = {
   "preview.actions.downloadLabel": "Download",
   "preview.actions.downloadAria": "Download result image",
 
+  "export.gate.noResult": "No result available yet.",
+  "export.gate.queued": "Waiting in queue…",
+  "export.gate.processing": "Processing…",
+  "export.gate.waiting": "Waiting for regeneration…",
+  "export.gate.regenerating": "Regenerating…",
+  "export.gate.failed": "Regeneration failed for current settings.",
+  "export.gate.stale": "Result is out of date. Please wait for regeneration.",
+  "export.gate.unavailable": "Export is currently unavailable.",
+
+  "preview.result.overlay.waiting": "Waiting…",
+  "preview.result.overlay.regenerating": "Regenerating…",
+  "preview.result.overlay.failed": "Regeneration failed",
+
   // Fullscreen viewer
   "preview.viewer.closeAria": "Close fullscreen image preview",
   "preview.viewer.zoomIn": "Zoom in",
