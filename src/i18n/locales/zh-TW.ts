@@ -26,6 +26,8 @@ export const zhTW: TranslationMessages = {
   "clipboard.error.prepareFailed": "準備圖片以複製到剪貼簿時失敗。",
   "clipboard.error.convertFailed": "轉換圖片以複製到剪貼簿時失敗。",
   "clipboard.error.generic": "複製圖片失敗",
+  "shortcut.copy.noUpToDateResult":
+    "目前任務尚未有符合目前設定的結果。請展開已完成的項目，或等待處理完成。",
 
   "status.processing": "處理中…",
   "status.queued": "佇列中",

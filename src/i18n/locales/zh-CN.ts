@@ -26,6 +26,8 @@ export const zhCN: TranslationMessages = {
   "clipboard.error.prepareFailed": "准备图片以复制到剪贴板时失败。",
   "clipboard.error.convertFailed": "转换图片以复制到剪贴板时失败。",
   "clipboard.error.generic": "复制图片失败",
+  "shortcut.copy.noUpToDateResult":
+    "当前任务还没有符合当前设置的结果。请展开已完成的任务，或等待处理完成。",
 
   "status.processing": "处理中…",
   "status.queued": "排队中",

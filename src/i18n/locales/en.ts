@@ -25,6 +25,8 @@ export const en = {
   "clipboard.error.prepareFailed": "Failed to prepare image for clipboard.",
   "clipboard.error.convertFailed": "Failed to convert image for clipboard.",
   "clipboard.error.generic": "Failed to copy image",
+  "shortcut.copy.noUpToDateResult":
+    "Active task has no up-to-date result yet. Expand a completed task or wait for processing.",
 
   "status.processing": "Processing image…",
   "status.queued": "Queued",

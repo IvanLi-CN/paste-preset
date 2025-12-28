@@ -14,7 +14,6 @@ import {
 } from "./hooks/useImageTaskQueue.ts";
 import { useUserPresets } from "./hooks/useUserPresets.tsx";
 import { useUserSettings } from "./hooks/useUserSettings.tsx";
-import type { TranslationKey } from "./i18n";
 import { useTranslation } from "./i18n";
 import { preloadHeicConverter } from "./lib/heic.ts";
 import { PRESETS } from "./lib/presets.ts";
@@ -316,10 +315,7 @@ function App() {
         task?.resultGeneration === task?.desiredGeneration;
 
       if (!task || !hasUpToDateResult || !task.result) {
-        const message =
-          "Active task has no up-to-date result yet. Expand a completed task or wait for processing.";
-
-        setShortcutCopyError(message);
+        setShortcutCopyError(t("shortcut.copy.noUpToDateResult"));
         if (shortcutCopyErrorTimeoutRef.current !== null) {
           window.clearTimeout(shortcutCopyErrorTimeoutRef.current);
         }
@@ -337,7 +333,7 @@ function App() {
     return () => {
       window.removeEventListener("keydown", handleWindowKeyDown);
     };
-  }, [activeTaskId, handleCopyResult, tasks]);
+  }, [activeTaskId, handleCopyResult, t, tasks]);
 
   useEffect(() => {
     const handleResize = () => {
