@@ -17,6 +17,7 @@ const mockTask = (overrides: Partial<ImageTask>): ImageTask => ({
   fileName: "test.png",
   status: "queued",
   createdAt: 1000,
+  desiredGeneration: 0,
   ...overrides,
 });
 

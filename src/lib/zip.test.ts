@@ -40,6 +40,7 @@ describe("buildResultsZip", () => {
     id,
     status,
     createdAt: Date.now(),
+    desiredGeneration: 0,
     fileName,
     result:
       status === "done" && resultMimeType
@@ -52,6 +53,7 @@ describe("buildResultsZip", () => {
             fileSize: 123,
           }
         : undefined,
+    ...(status === "done" ? { attemptGeneration: 0, resultGeneration: 0 } : {}),
   });
 
   it("should return null if there are no done tasks", async () => {
@@ -72,6 +74,9 @@ describe("buildResultsZip", () => {
         id: "1",
         status: "done",
         createdAt: 123,
+        desiredGeneration: 0,
+        attemptGeneration: 0,
+        resultGeneration: 0,
       },
     ];
     const result = await buildResultsZip(tasks);

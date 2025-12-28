@@ -86,4 +86,18 @@ export interface ImageTask {
   errorMessage?: string;
   createdAt: number;
   completedAt?: number;
+  /**
+   * The generation this task is expected to match (normative: docs/reprocess-on-settings-change.md).
+   */
+  desiredGeneration: number;
+  /**
+   * The generation this task most recently attempted to process for (success or failure).
+   * This is used to prevent automatic retries within the same generation.
+   */
+  attemptGeneration?: number;
+  /**
+   * The generation that produced the currently stored result (if any).
+   * When this differs from the current generation, the visible result is stale.
+   */
+  resultGeneration?: number;
 }

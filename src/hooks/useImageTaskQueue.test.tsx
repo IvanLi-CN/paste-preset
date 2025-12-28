@@ -33,8 +33,11 @@ const baseOptions: ProcessingOptions = {
   stripMetadata: false,
 };
 
-const Harness = forwardRef<UseImageTaskQueueResult>((_, ref) => {
-  const queue = useImageTaskQueue(baseOptions);
+const Harness = forwardRef<
+  UseImageTaskQueueResult,
+  { options: ProcessingOptions }
+>(({ options }, ref) => {
+  const queue = useImageTaskQueue(options);
   useImperativeHandle(ref, () => queue, [queue]);
   return null;
 });
@@ -43,18 +46,24 @@ Harness.displayName = "Harness";
 
 function renderHookWithProvider(
   ref: RefObject<UseImageTaskQueueResult | null>,
+  options: ProcessingOptions,
 ) {
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
-  act(() => {
-    root.render(
-      <I18nProvider>
-        <Harness ref={ref} />
-      </I18nProvider>,
-    );
-  });
-  return { root, container } as const;
+  const render = (nextOptions: ProcessingOptions) => {
+    act(() => {
+      root.render(
+        <I18nProvider>
+          <Harness ref={ref} options={nextOptions} />
+        </I18nProvider>,
+      );
+    });
+  };
+
+  render(options);
+
+  return { root, container, render } as const;
 }
 
 function createProcessResult(name: string): {
@@ -115,10 +124,11 @@ describe("useImageTaskQueue", () => {
   let ref: React.RefObject<UseImageTaskQueueResult | null>;
   let root: Root;
   let container: HTMLElement;
+  let render: (options: ProcessingOptions) => void;
 
   beforeEach(() => {
     ref = createRef<UseImageTaskQueueResult | null>();
-    ({ root, container } = renderHookWithProvider(ref));
+    ({ root, container, render } = renderHookWithProvider(ref, baseOptions));
     processImageViaWorkerMock.mockReset();
     resetImageWorkerMock.mockReset();
     if (!globalThis.URL.revokeObjectURL) {
@@ -141,6 +151,33 @@ describe("useImageTaskQueue", () => {
         __sourceReadTimeoutMsForTest?: number;
       }
     ).__sourceReadTimeoutMsForTest;
+  });
+
+  it("inserts newest batch at the top while preserving file order", async () => {
+    processImageViaWorkerMock.mockImplementation(
+      async () => new Promise(() => {}),
+    );
+
+    await act(async () => {
+      ref.current?.enqueueFiles([createFile("a.png"), createFile("b.png")]);
+    });
+
+    await act(async () => {
+      ref.current?.enqueueFiles([
+        createFile("c.png"),
+        createFile("d.png"),
+        createFile("e.png"),
+      ]);
+    });
+
+    const tasks = ref.current?.tasks ?? [];
+    expect(tasks.map((t) => t.fileName)).toEqual([
+      "c.png",
+      "d.png",
+      "e.png",
+      "a.png",
+      "b.png",
+    ]);
   });
 
   it("enqueues files and processes them sequentially", async () => {
@@ -190,6 +227,41 @@ describe("useImageTaskQueue", () => {
     expect(tasks[1]?.status).toBe("done");
   });
 
+  it("reprocesses all tasks when output-affecting options change", async () => {
+    const file = createFile("x.png");
+
+    processImageViaWorkerMock
+      .mockImplementationOnce(async (f: File) => createProcessResult(f.name))
+      .mockImplementationOnce(async (f: File) =>
+        createProcessResult(`${f.name}-second`),
+      );
+
+    await act(async () => {
+      ref.current?.enqueueFiles([file]);
+    });
+
+    await waitForCondition(() => ref.current?.tasks[0]?.status === "done");
+    expect(processImageViaWorkerMock).toHaveBeenCalledTimes(1);
+    expect(ref.current?.tasks[0]?.resultGeneration).toBe(0);
+    expect(ref.current?.tasks[0]?.attemptGeneration).toBe(0);
+
+    render({ ...baseOptions, targetWidth: 123 });
+
+    await waitForCondition(
+      () => ref.current?.tasks[0]?.desiredGeneration === 1,
+    );
+    await waitForCondition(
+      () => processImageViaWorkerMock.mock.calls.length === 2,
+    );
+    await waitForCondition(() => ref.current?.tasks[0]?.resultGeneration === 1);
+
+    const task = ref.current?.tasks[0];
+    expect(task?.status).toBe("done");
+    expect(task?.attemptGeneration).toBe(1);
+    expect(task?.resultGeneration).toBe(1);
+    expect(task?.result?.url).toBe("blob:x.png-second-result");
+  });
+
   it("continues after a failed task", async () => {
     const files = [
       createFile("a.png"),
@@ -226,6 +298,78 @@ describe("useImageTaskQueue", () => {
     expect(tasks.map((t) => t.status)).toEqual(["done", "error", "done"]);
     expect(tasks[1]?.errorMessage).toMatch(/too large/i);
     expect(processImageViaWorkerMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not retry a failure within the same generation", async () => {
+    const file = createFile("fail.png");
+
+    processImageViaWorkerMock.mockImplementationOnce(async () => {
+      throw new Error("image.tooLarge");
+    });
+
+    await act(async () => {
+      ref.current?.enqueueFiles([file]);
+    });
+
+    await waitForCondition(() => ref.current?.tasks[0]?.status === "error");
+    expect(processImageViaWorkerMock).toHaveBeenCalledTimes(1);
+
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(processImageViaWorkerMock).toHaveBeenCalledTimes(1);
+    expect(ref.current?.tasks[0]?.attemptGeneration).toBe(0);
+
+    // A settings change (new generation) permits retry.
+    processImageViaWorkerMock.mockImplementationOnce(async (f: File) =>
+      createProcessResult(`${f.name}-recovered`),
+    );
+    render({ ...baseOptions, outputFormat: "image/png" });
+
+    await waitForCondition(
+      () => processImageViaWorkerMock.mock.calls.length === 2,
+    );
+    await waitForCondition(() => ref.current?.tasks[0]?.status === "done");
+    expect(ref.current?.tasks[0]?.attemptGeneration).toBe(1);
+    expect(ref.current?.tasks[0]?.resultGeneration).toBe(1);
+  });
+
+  it("discards late-arriving results from an old generation", async () => {
+    const revokeSpy = vi.spyOn(globalThis.URL, "revokeObjectURL");
+
+    const deferred = createDeferred<{ source: ImageInfo; result: ImageInfo }>();
+
+    processImageViaWorkerMock
+      .mockImplementationOnce(async () => deferred.promise)
+      .mockImplementationOnce(async () => createProcessResult("new"));
+
+    await act(async () => {
+      ref.current?.enqueueFiles([createFile("late.png")]);
+    });
+
+    await waitForCondition(
+      () => processImageViaWorkerMock.mock.calls.length === 1,
+    );
+
+    render({ ...baseOptions, stripMetadata: true });
+
+    await waitForCondition(
+      () => ref.current?.tasks[0]?.desiredGeneration === 1,
+    );
+
+    await act(async () => {
+      deferred.resolve(createProcessResult("old"));
+    });
+
+    await waitForCondition(
+      () => processImageViaWorkerMock.mock.calls.length === 2,
+    );
+    await waitForCondition(() => ref.current?.tasks[0]?.status === "done");
+
+    const task = ref.current?.tasks[0];
+    expect(task?.resultGeneration).toBe(1);
+    expect(task?.result?.url).toBe("blob:new-result");
+    // We revoke both URLs from the discarded old generation output.
+    expect(revokeSpy).toHaveBeenCalledWith("blob:old");
+    expect(revokeSpy).toHaveBeenCalledWith("blob:old-result");
   });
 
   it("clearAll empties tasks and revokes URLs", async () => {

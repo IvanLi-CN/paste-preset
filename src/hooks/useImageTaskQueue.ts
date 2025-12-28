@@ -25,6 +25,7 @@ export function useImageTaskQueue(
   const fileMapRef = useRef<Map<string, File>>(new Map());
   const activeProcessingIdRef = useRef<string | null>(null);
   const generationRef = useRef(0);
+  const lastOptionsKeyRef = useRef<string | null>(null);
 
   const updateTask = useCallback(
     (id: string, updater: (task: ImageTask) => ImageTask): void => {
@@ -35,6 +36,26 @@ export function useImageTaskQueue(
     [],
   );
 
+  const bumpGeneration = useCallback(() => {
+    generationRef.current += 1;
+    const nextGeneration = generationRef.current;
+
+    setTasks((previous) =>
+      previous.map((task) => {
+        const shouldResetState =
+          task.status === "processing" || task.status === "error";
+
+        return {
+          ...task,
+          desiredGeneration: nextGeneration,
+          status: shouldResetState ? "queued" : task.status,
+          errorMessage: shouldResetState ? undefined : task.errorMessage,
+          completedAt: shouldResetState ? undefined : task.completedAt,
+        };
+      }),
+    );
+  }, []);
+
   const enqueueFiles = useCallback((files: File[]) => {
     if (!files.length) {
       return;
@@ -42,6 +63,7 @@ export function useImageTaskQueue(
 
     setTasks((previous) => {
       const now = Date.now();
+      const desiredGeneration = generationRef.current;
       const newTasks: ImageTask[] = files.map((file) => {
         const id = createId();
         fileMapRef.current.set(id, file);
@@ -50,9 +72,11 @@ export function useImageTaskQueue(
           fileName: file.name,
           status: "queued",
           createdAt: now,
+          desiredGeneration,
         } satisfies ImageTask;
       });
-      return [...previous, ...newTasks];
+      // Newest batch first; preserve in-batch file order.
+      return [...newTasks, ...previous];
     });
   }, []);
 
@@ -72,12 +96,32 @@ export function useImageTaskQueue(
   }, []);
 
   useEffect(() => {
+    const key = optionsKey(options);
+    if (lastOptionsKeyRef.current === null) {
+      lastOptionsKeyRef.current = key;
+      return;
+    }
+    if (lastOptionsKeyRef.current === key) {
+      return;
+    }
+    lastOptionsKeyRef.current = key;
+    bumpGeneration();
+  }, [bumpGeneration, options]);
+
+  useEffect(() => {
     const hasProcessing = tasks.some((task) => task.status === "processing");
     if (hasProcessing || activeProcessingIdRef.current) {
       return;
     }
 
-    const next = tasks.find((task) => task.status === "queued");
+    const currentGeneration = generationRef.current;
+
+    const next = tasks.find(
+      (task) =>
+        task.status !== "processing" &&
+        task.desiredGeneration === currentGeneration &&
+        task.attemptGeneration !== currentGeneration,
+    );
     if (!next) {
       return;
     }
@@ -85,17 +129,18 @@ export function useImageTaskQueue(
     const { id } = next;
     const file = fileMapRef.current.get(id);
     if (!file) {
+      const currentGeneration = generationRef.current;
       updateTask(id, (task) => ({
         ...task,
         status: "error",
         errorMessage: t("status.error.unknown"),
         completedAt: Date.now(),
+        attemptGeneration: currentGeneration,
       }));
       return;
     }
 
     activeProcessingIdRef.current = id;
-    const currentGeneration = generationRef.current;
 
     updateTask(id, (task) => ({ ...task, status: "processing" }));
 
@@ -164,12 +209,19 @@ export function useImageTaskQueue(
         updateTask(id, (task) => ({
           ...task,
           status: "done",
-          source,
-          result,
+          source: (() => {
+            revokeImageInfo(task.source);
+            return source;
+          })(),
+          result: (() => {
+            revokeImageInfo(task.result);
+            return result;
+          })(),
           errorMessage: undefined,
           completedAt: Date.now(),
+          attemptGeneration: currentGeneration,
+          resultGeneration: currentGeneration,
         }));
-        fileMapRef.current.delete(id);
       } catch (error) {
         if (generationRef.current !== currentGeneration) {
           return;
@@ -191,12 +243,16 @@ export function useImageTaskQueue(
           status: "error",
           errorMessage: message,
           completedAt: Date.now(),
+          attemptGeneration: currentGeneration,
         }));
-        fileMapRef.current.delete(id);
       } finally {
-        if (generationRef.current === currentGeneration) {
+        if (activeProcessingIdRef.current === id) {
           activeProcessingIdRef.current = null;
         }
+        // If we discarded a result due to generation changes, there may have
+        // been no state update to re-trigger scheduling. Force a harmless
+        // rerender so the queue can pick up any pending work.
+        setTasks((previous) => [...previous]);
       }
     };
 
@@ -223,6 +279,19 @@ function revokeImageInfo(info: ImageInfo | undefined) {
   if (info) {
     URL.revokeObjectURL(info.url);
   }
+}
+
+function optionsKey(options: ProcessingOptions): string {
+  return [
+    options.presetId ?? "",
+    options.targetWidth ?? "",
+    options.targetHeight ?? "",
+    options.lockAspectRatio ? "1" : "0",
+    options.resizeMode,
+    options.outputFormat,
+    options.quality ?? "",
+    options.stripMetadata ? "1" : "0",
+  ].join("|");
 }
 
 async function probeFileReadable(file: File, timeoutMs: number): Promise<void> {

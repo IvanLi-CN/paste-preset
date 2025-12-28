@@ -28,6 +28,7 @@ const taskBase: Omit<ImageTask, "status"> = {
   fileName: "sample.png",
   createdAt: Date.now(),
   source: sampleImage({ sourceName: "source.png" }),
+  desiredGeneration: 0,
 };
 
 const meta = {
@@ -78,6 +79,8 @@ export const DoneWithResult: Story = {
         metadataStripped: true,
         sourceName: "processed.png",
       }),
+      attemptGeneration: 0,
+      resultGeneration: 0,
     },
   },
 };

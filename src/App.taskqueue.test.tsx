@@ -143,6 +143,9 @@ describe("App integrates task queue", () => {
       completedAt: 1,
       source: sampleImage,
       result: { ...sampleImage, url: "blob:result" },
+      desiredGeneration: 0,
+      attemptGeneration: 0,
+      resultGeneration: 0,
     });
 
     act(() => {
@@ -164,6 +167,8 @@ describe("App integrates task queue", () => {
         createdAt: 0,
         completedAt: 3,
         errorMessage: "boom",
+        desiredGeneration: 0,
+        attemptGeneration: 0,
       },
     ];
 

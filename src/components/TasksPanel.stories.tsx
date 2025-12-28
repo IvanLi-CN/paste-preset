@@ -30,6 +30,7 @@ const createTask = (overrides: Partial<ImageTask>): ImageTask => ({
   fileName: overrides.fileName ?? "image.png",
   status: "queued",
   createdAt: Date.now(),
+  desiredGeneration: 0,
   ...overrides,
 });
 
@@ -39,6 +40,8 @@ const doneTask = createTask({
   status: "done",
   result: sampleImage({ width: 800, height: 600, metadataStripped: true }),
   source: sampleImage({ width: 1200, height: 900 }),
+  attemptGeneration: 0,
+  resultGeneration: 0,
 });
 
 const multiTasks = [
