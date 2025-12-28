@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useUserPresets } from "../hooks/useUserPresets.tsx";
 import { useUserSettings } from "../hooks/useUserSettings.tsx";
 import { useTranslation } from "../i18n";
@@ -10,12 +10,23 @@ interface SettingsPanelProps {
   currentImage?: ImageInfo | null;
 }
 
+const NUMERIC_INPUT_DEBOUNCE_MS = 400;
+
 export function SettingsPanel(props: SettingsPanelProps) {
   const { currentImage } = props;
   const { t } = useTranslation();
   const { settings, updateSettings, resetSettings } = useUserSettings();
   const options = settings;
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [targetWidthInput, setTargetWidthInput] = useState(
+    options.targetWidth?.toString() ?? "",
+  );
+  const [targetHeightInput, setTargetHeightInput] = useState(
+    options.targetHeight?.toString() ?? "",
+  );
+  const numericDebounceTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
   const {
     resetPresets,
     mode: presetsMode,
@@ -61,6 +72,23 @@ export function SettingsPanel(props: SettingsPanelProps) {
     return null;
   })();
 
+  useEffect(() => {
+    setTargetWidthInput(options.targetWidth?.toString() ?? "");
+  }, [options.targetWidth]);
+
+  useEffect(() => {
+    setTargetHeightInput(options.targetHeight?.toString() ?? "");
+  }, [options.targetHeight]);
+
+  useEffect(
+    () => () => {
+      if (numericDebounceTimeoutRef.current) {
+        clearTimeout(numericDebounceTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
   const handlePresetSelect = (presetId: string) => {
     const presetRecord = presets.find((preset) => preset.id === presetId);
     if (!presetRecord) {
@@ -95,6 +123,23 @@ export function SettingsPanel(props: SettingsPanelProps) {
     const parsed = Number.parseInt(value, 10);
     const nextValue = Number.isNaN(parsed) ? null : parsed;
 
+    if (key === "targetWidth") {
+      setTargetWidthInput(value);
+    } else {
+      setTargetHeightInput(value);
+    }
+
+    if (numericDebounceTimeoutRef.current) {
+      clearTimeout(numericDebounceTimeoutRef.current);
+    }
+
+    const schedule = (partial: Partial<UserSettings>) => {
+      numericDebounceTimeoutRef.current = setTimeout(() => {
+        updateSettings(partial);
+        numericDebounceTimeoutRef.current = null;
+      }, NUMERIC_INPUT_DEBOUNCE_MS);
+    };
+
     // When aspect ratio lock is enabled and we know an aspect ratio from
     // the current image, keep width/height in sync as the user edits one
     // dimension. When there is no image yet, fall back to independent
@@ -107,7 +152,8 @@ export function SettingsPanel(props: SettingsPanelProps) {
     ) {
       if (key === "targetWidth") {
         const derivedHeight = Math.round(nextValue / aspectRatio);
-        updateSettings({
+        setTargetHeightInput(String(derivedHeight));
+        schedule({
           targetWidth: nextValue,
           targetHeight: derivedHeight,
         });
@@ -116,7 +162,8 @@ export function SettingsPanel(props: SettingsPanelProps) {
 
       if (key === "targetHeight") {
         const derivedWidth = Math.round(nextValue * aspectRatio);
-        updateSettings({
+        setTargetWidthInput(String(derivedWidth));
+        schedule({
           targetWidth: derivedWidth,
           targetHeight: nextValue,
         });
@@ -124,7 +171,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
       }
     }
 
-    updateSettings({
+    schedule({
       [key]: nextValue,
     });
   };
@@ -282,7 +329,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                     min={1}
                     placeholder={t("settings.resolution.placeholderAuto")}
                     className="input input-sm input-bordered"
-                    value={options.targetWidth ?? ""}
+                    value={targetWidthInput}
                     onChange={(event) =>
                       handleNumericChange("targetWidth", event.target.value)
                     }
@@ -299,7 +346,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                     min={1}
                     placeholder={t("settings.resolution.placeholderAuto")}
                     className="input input-sm input-bordered"
-                    value={options.targetHeight ?? ""}
+                    value={targetHeightInput}
                     onChange={(event) =>
                       handleNumericChange("targetHeight", event.target.value)
                     }
