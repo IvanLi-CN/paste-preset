@@ -13,11 +13,17 @@ export interface UseImageTaskQueueResult {
   clearAll: () => void;
 }
 
+export interface TaskQueuePriorityHints {
+  activeTaskId: string | null;
+  expandedIds: ReadonlySet<string>;
+}
+
 const DEFAULT_SOURCE_READ_TIMEOUT_MS = 30_000;
 const DEFAULT_PROCESSING_TIMEOUT_MS = 120_000;
 
 export function useImageTaskQueue(
   options: ProcessingOptions,
+  priorityHints?: TaskQueuePriorityHints,
 ): UseImageTaskQueueResult {
   const { t } = useTranslation();
   const [tasks, setTasks] = useState<ImageTask[]>([]);
@@ -63,12 +69,15 @@ export function useImageTaskQueue(
 
     setTasks((previous) => {
       const now = Date.now();
+      const batchId = createId();
       const desiredGeneration = generationRef.current;
       const newTasks: ImageTask[] = files.map((file) => {
         const id = createId();
         fileMapRef.current.set(id, file);
         return {
           id,
+          batchId,
+          batchCreatedAt: now,
           fileName: file.name,
           status: "queued",
           createdAt: now,
@@ -116,12 +125,12 @@ export function useImageTaskQueue(
 
     const currentGeneration = generationRef.current;
 
-    const next = tasks.find(
-      (task) =>
-        task.status !== "processing" &&
-        task.desiredGeneration === currentGeneration &&
-        task.attemptGeneration !== currentGeneration,
-    );
+    const next = selectNextTaskForProcessing({
+      tasks,
+      currentGeneration,
+      activeTaskId: priorityHints?.activeTaskId ?? null,
+      expandedIds: priorityHints?.expandedIds ?? new Set<string>(),
+    });
     if (!next) {
       return;
     }
@@ -257,7 +266,14 @@ export function useImageTaskQueue(
     };
 
     void run();
-  }, [options, t, tasks, updateTask]);
+  }, [
+    options,
+    priorityHints?.activeTaskId,
+    priorityHints?.expandedIds,
+    t,
+    tasks,
+    updateTask,
+  ]);
 
   const result = useMemo<UseImageTaskQueueResult>(
     () => ({ tasks, enqueueFiles, clearAll }),
@@ -273,6 +289,86 @@ export function getLastCompletedTask(
   return [...tasks]
     .filter((task) => task.status === "done")
     .sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))[0];
+}
+
+export function getRegenerationPriorityTaskIds(params: {
+  tasks: readonly ImageTask[];
+  activeTaskId: string | null;
+  expandedIds: ReadonlySet<string>;
+}): string[] {
+  const { tasks, activeTaskId, expandedIds } = params;
+
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+
+  const push = (id: string) => {
+    if (seen.has(id)) {
+      return;
+    }
+    seen.add(id);
+    ordered.push(id);
+  };
+
+  if (activeTaskId) {
+    push(activeTaskId);
+  }
+
+  // Expanded tasks should follow list order.
+  for (const task of tasks) {
+    if (expandedIds.has(task.id)) {
+      push(task.id);
+    }
+  }
+
+  // Remaining tasks in list order.
+  for (const task of tasks) {
+    push(task.id);
+  }
+
+  return ordered;
+}
+
+function selectNextTaskForProcessing(params: {
+  tasks: readonly ImageTask[];
+  currentGeneration: number;
+  activeTaskId: string | null;
+  expandedIds: ReadonlySet<string>;
+}): ImageTask | undefined {
+  const { tasks, currentGeneration, activeTaskId, expandedIds } = params;
+
+  const taskById = new Map<string, ImageTask>();
+  for (const task of tasks) {
+    taskById.set(task.id, task);
+  }
+
+  const orderedIds = getRegenerationPriorityTaskIds({
+    tasks,
+    activeTaskId,
+    expandedIds,
+  });
+
+  for (const id of orderedIds) {
+    const task = taskById.get(id);
+    if (!task) {
+      continue;
+    }
+
+    if (task.status === "processing") {
+      continue;
+    }
+
+    if (task.desiredGeneration !== currentGeneration) {
+      continue;
+    }
+
+    if (task.attemptGeneration === currentGeneration) {
+      continue;
+    }
+
+    return task;
+  }
+
+  return undefined;
 }
 
 function revokeImageInfo(info: ImageInfo | undefined) {

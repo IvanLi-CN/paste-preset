@@ -79,6 +79,15 @@ export type TaskStatus = "queued" | "processing" | "done" | "error";
 
 export interface ImageTask {
   id: string;
+  /**
+   * A “wave” identifier for tasks created from a single input action (paste/drop/file picker).
+   * Normative behavior: docs/reprocess-on-settings-change.md (Section 5).
+   */
+  batchId: string;
+  /**
+   * Timestamp (ms) for when the batch was created. Used for grouping UI.
+   */
+  batchCreatedAt: number;
   fileName?: string;
   source?: ImageInfo;
   result?: ImageInfo;

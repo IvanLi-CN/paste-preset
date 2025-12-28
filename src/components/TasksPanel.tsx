@@ -1,5 +1,5 @@
 import { Icon } from "@iconify/react/offline";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "../i18n";
 import type { ImageTask } from "../lib/types.ts";
 import { TaskRow } from "./TaskRow.tsx";
@@ -7,76 +7,121 @@ import { TaskRow } from "./TaskRow.tsx";
 interface TasksPanelProps {
   tasks: ImageTask[];
   onCopyResult: (taskId: string, blob: Blob, mimeType: string) => void;
-  onDownloadAll: () => void;
   onClearAll: () => void;
-  isBuildingZip?: boolean;
+  onExpandedIdsChange?: (expandedIds: ReadonlySet<string>) => void;
+  onActiveTaskIdChange?: (taskId: string | null) => void;
 }
 
 export function TasksPanel(props: TasksPanelProps) {
-  const {
-    tasks,
-    onCopyResult,
-    onDownloadAll,
-    onClearAll,
-    isBuildingZip = false,
-  } = props;
+  const { tasks, onCopyResult, onClearAll } = props;
   const { t } = useTranslation();
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
-    if (tasks.length === 1) {
-      return new Set([tasks[0].id]);
-    }
-    return new Set();
-  });
-  const previousTaskCountRef = useRef<number>(0);
-
-  // Automatically expand the single task when transitioning from 0 -> 1 task.
-  useEffect(() => {
-    const previousCount = previousTaskCountRef.current;
-
-    if (previousCount === 0 && tasks.length === 1) {
-      const onlyTask = tasks[0];
-      if (onlyTask) {
-        setExpandedIds((prev) => {
-          if (prev.has(onlyTask.id)) {
-            return prev;
-          }
-          const next = new Set(prev);
-          next.add(onlyTask.id);
-          return next;
-        });
-      }
-    }
-
-    previousTaskCountRef.current = tasks.length;
-  }, [tasks]);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const previousTopBatchIdRef = useRef<string | null>(null);
 
   // If no tasks, we could show empty state, or let App handle it.
   // Requirement says: "当 tasks 为空时，TasksPanel 应向用户显示一个友好的空态提示"
   const hasTasks = tasks.length > 0;
-  const hasDoneTasks = tasks.some((task) => task.status === "done");
+
+  const batchGroups = useMemo(() => {
+    const groups: {
+      batchId: string;
+      batchCreatedAt: number;
+      tasks: ImageTask[];
+    }[] = [];
+    for (const task of tasks) {
+      const last = groups.at(-1);
+      if (last && last.batchId === task.batchId) {
+        last.tasks.push(task);
+        continue;
+      }
+      groups.push({
+        batchId: task.batchId,
+        batchCreatedAt: task.batchCreatedAt,
+        tasks: [task],
+      });
+    }
+    return groups;
+  }, [tasks]);
+
+  useEffect(() => {
+    props.onExpandedIdsChange?.(expandedIds);
+  }, [expandedIds, props.onExpandedIdsChange]);
+
+  useEffect(() => {
+    props.onActiveTaskIdChange?.(activeTaskId);
+  }, [activeTaskId, props.onActiveTaskIdChange]);
+
+  const autoExpandBatchFirstTask = useCallback((firstTask: ImageTask) => {
+    setExpandedIds(new Set<string>([firstTask.id]));
+    setActiveTaskId(firstTask.id);
+  }, []);
+
+  // New batch behavior: collapse previous expansions and auto-expand first of the new batch.
+  useEffect(() => {
+    if (!hasTasks) {
+      setExpandedIds(new Set<string>());
+      setActiveTaskId(null);
+      previousTopBatchIdRef.current = null;
+      return;
+    }
+
+    const top = tasks[0];
+    if (!top) {
+      return;
+    }
+
+    const previousTopBatchId = previousTopBatchIdRef.current;
+    const nextTopBatchId = top.batchId;
+
+    if (previousTopBatchId !== nextTopBatchId) {
+      autoExpandBatchFirstTask(top);
+    }
+
+    previousTopBatchIdRef.current = nextTopBatchId;
+  }, [autoExpandBatchFirstTask, hasTasks, tasks]);
 
   const handleToggleExpand = (task: ImageTask, event: React.MouseEvent) => {
     const isMultiSelect = event.altKey || event.shiftKey;
     const isExpanded = expandedIds.has(task.id);
 
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (isMultiSelect) {
-        if (isExpanded) {
-          next.delete(task.id);
-        } else {
-          next.add(task.id);
-        }
+    const nextExpanded = new Set(expandedIds);
+    let nextActive = activeTaskId;
+
+    if (isMultiSelect) {
+      if (isExpanded) {
+        nextExpanded.delete(task.id);
       } else {
-        if (isExpanded) {
-          next.delete(task.id);
-        } else {
-          // Single expand mode: collapse others
-          return new Set([task.id]);
+        nextExpanded.add(task.id);
+        nextActive = task.id;
+      }
+    } else {
+      if (isExpanded) {
+        nextExpanded.delete(task.id);
+      } else {
+        nextExpanded.clear();
+        nextExpanded.add(task.id);
+        nextActive = task.id;
+      }
+    }
+
+    if (isExpanded && task.id === activeTaskId) {
+      // If the active task is collapsed, pick the first remaining expanded task in list order.
+      nextActive = null;
+      for (const item of tasks) {
+        if (nextExpanded.has(item.id)) {
+          nextActive = item.id;
+          break;
         }
       }
-      return next;
-    });
+    }
+
+    if (nextExpanded.size === 0) {
+      nextActive = null;
+    }
+
+    setExpandedIds(nextExpanded);
+    setActiveTaskId(nextActive);
   };
 
   if (!hasTasks) {
@@ -103,37 +148,32 @@ export function TasksPanel(props: TasksPanelProps) {
           />
           <span className="hidden sm:inline">Clear all</span>
         </button>
-        <button
-          type="button"
-          className={`btn btn-primary btn-sm gap-2 ${isBuildingZip ? "loading" : ""}`}
-          onClick={onDownloadAll}
-          disabled={!hasDoneTasks || isBuildingZip}
-          title={
-            !hasDoneTasks
-              ? "No completed tasks to download"
-              : "Download all results"
-          }
-        >
-          {!isBuildingZip && (
-            <Icon
-              icon="mdi:folder-zip"
-              data-icon="mdi:folder-zip"
-              className="h-4 w-4"
-            />
-          )}
-          {isBuildingZip ? "Preparing..." : "Download all"}
-        </button>
       </div>
 
       <div className="flex flex-col gap-2">
-        {tasks.map((task) => (
-          <TaskRow
-            key={task.id}
-            task={task}
-            isExpanded={expandedIds.has(task.id)}
-            onToggleExpand={(e) => handleToggleExpand(task, e)}
-            onCopyResult={onCopyResult}
-          />
+        {batchGroups.map((group, groupIndex) => (
+          <div key={group.batchId} data-testid="task-batch-group">
+            {groupIndex > 0 && <div className="divider my-2" />}
+            <div
+              className="flex items-center justify-between px-1 text-xs text-base-content/60"
+              data-testid="task-batch-separator"
+              data-batch-id={group.batchId}
+            >
+              <span>Batch</span>
+              <span>{group.tasks.length}</span>
+            </div>
+            <div className="flex flex-col gap-2">
+              {group.tasks.map((task) => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  isExpanded={expandedIds.has(task.id)}
+                  onToggleExpand={(e) => handleToggleExpand(task, e)}
+                  onCopyResult={onCopyResult}
+                />
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </section>
