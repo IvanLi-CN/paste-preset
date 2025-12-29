@@ -1,7 +1,11 @@
 import { Icon } from "@iconify/react/offline";
 import { useTranslation } from "../i18n";
 import type { ImageInfo } from "../lib/types.ts";
-import { buildDownloadFileName, ImageCard } from "./ImageCard.tsx";
+import {
+  buildDownloadFileName,
+  ImageCard,
+  type ImageCardProps,
+} from "./ImageCard.tsx";
 
 interface TaskDetailsProps {
   source: ImageInfo | null;
@@ -11,7 +15,7 @@ interface TaskDetailsProps {
   canExportResult?: boolean;
   exportDisabledReason?: string | null;
   isCopyingResult?: boolean;
-  resultOverlayLabel?: string | null;
+  resultOverlay?: ImageCardProps["overlay"] | null;
 }
 
 export function TaskDetails(props: TaskDetailsProps) {
@@ -23,7 +27,7 @@ export function TaskDetails(props: TaskDetailsProps) {
     canExportResult,
     exportDisabledReason,
     isCopyingResult,
-    resultOverlayLabel,
+    resultOverlay,
   } = props;
   const { t } = useTranslation();
 
@@ -41,11 +45,7 @@ export function TaskDetails(props: TaskDetailsProps) {
             title={t("preview.result.title")}
             image={result}
             highlighted
-            overlay={
-              resultOverlayLabel
-                ? { label: resultOverlayLabel, tone: "warning" }
-                : undefined
-            }
+            overlay={resultOverlay ?? undefined}
           />
           <div className="card bg-base-100 shadow-sm animate-fade-in-up">
             <div className="card-body flex flex-row flex-wrap items-center justify-between gap-2">

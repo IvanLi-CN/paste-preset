@@ -53,12 +53,12 @@ export function TaskRow(props: TaskRowProps) {
     }
   })();
 
-  const resultOverlayLabel = isResultStale
+  const resultOverlay = isResultStale
     ? task.status === "processing"
-      ? t("preview.result.overlay.regenerating")
+      ? { label: t("preview.result.overlay.regenerating"), tone: "info" }
       : task.status === "error"
-        ? t("preview.result.overlay.failed")
-        : t("preview.result.overlay.waiting")
+        ? { label: t("preview.result.overlay.failed"), tone: "error" }
+        : { label: t("preview.result.overlay.waiting") }
     : null;
 
   const copyResult = async () => {
@@ -300,7 +300,7 @@ export function TaskRow(props: TaskRowProps) {
             canExportResult={canExport}
             exportDisabledReason={canExport ? null : exportDisabledReason}
             isCopyingResult={isCopying}
-            resultOverlayLabel={resultOverlayLabel}
+            resultOverlay={resultOverlay}
           />
         )}
       </div>

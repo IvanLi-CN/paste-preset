@@ -20,7 +20,7 @@ export interface ImageCardProps {
   highlighted?: boolean;
   overlay?: {
     label: string;
-    tone?: "warning" | "error";
+    tone?: "info" | "error";
   };
 }
 
@@ -60,17 +60,15 @@ export function ImageCard(props: ImageCardProps) {
               data-testid="image-overlay"
             >
               <div
-                className="absolute inset-0 rounded-md bg-base-100/35 backdrop-blur-[1px] animate-pulse"
+                className="absolute inset-0 rounded-md bg-base-100/55 backdrop-blur-[2px] animate-pulse"
                 aria-hidden
               />
               <div
                 className={[
-                  "relative z-10 rounded-md border border-base-300 bg-base-100/80 px-2 py-1 text-xs font-medium",
+                  "relative z-10 rounded-full border bg-base-100/90 px-3 py-1 text-xs font-semibold text-base-content shadow-sm",
                   overlay.tone === "error"
-                    ? "text-error"
-                    : overlay.tone === "warning"
-                      ? "text-warning"
-                      : "",
+                    ? "border-error/40 text-error"
+                    : "border-base-300",
                 ]
                   .filter(Boolean)
                   .join(" ")}
