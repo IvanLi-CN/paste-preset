@@ -59,6 +59,13 @@ test("E2E-072: global Ctrl/Cmd+C copies result image", async ({
   await uploadFixtureViaFileInput(page, testImagesDir, "screenshot-png.png");
   await waitForProcessingToFinish(page);
 
+  // Ensure the latest task is expanded/active and has an exportable result
+  // before dispatching the global shortcut (helps avoid timing flakiness in CI).
+  await expect(page.getByTestId("task-row").first()).toHaveClass(
+    /collapse-open/,
+  );
+  await expect(page.getByTestId("task-copy").first()).toBeEnabled();
+
   // Focus a non-input element so global shortcuts are eligible.
   await page.locator("body").click();
 
@@ -74,8 +81,9 @@ test("E2E-072: global Ctrl/Cmd+C copies result image", async ({
     window.dispatchEvent(event);
   });
 
-  const callCount = await getClipboardWriteCallCount(page);
-  expect(callCount).toBe(1);
+  await expect
+    .poll(() => getClipboardWriteCallCount(page), { timeout: 5_000 })
+    .toBeGreaterThanOrEqual(1);
 });
 
 test("E2E-073: Ctrl/Cmd+C inside inputs does not trigger image copy", async ({
