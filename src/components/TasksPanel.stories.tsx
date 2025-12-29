@@ -67,6 +67,8 @@ const meta = {
   args: {
     onCopyResult: fn(),
     onClearAll: fn(),
+    onExpandedIdsChange: fn(),
+    onActiveTaskIdChange: fn(),
   },
 } satisfies Meta<typeof TasksPanel>;
 
