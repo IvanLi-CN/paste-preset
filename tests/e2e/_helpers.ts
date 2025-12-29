@@ -173,7 +173,7 @@ export function getTaskDownloadLink(taskRow: Locator): Locator {
 
 export async function waitForLatestTaskStatus(page: Page, statusText: string) {
   const tasks = getTaskRows(page);
-  const latest = tasks.last();
+  const latest = tasks.first();
   await latest.waitFor({ state: "visible", timeout: 15_000 });
   await expect(latest.getByText(statusText, { exact: false })).toBeVisible({
     timeout: 15_000,

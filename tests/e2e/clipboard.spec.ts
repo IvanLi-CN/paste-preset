@@ -65,15 +65,13 @@ test("E2E-072: global Ctrl/Cmd+C copies result image", async ({
   // Dispatch a global Ctrl/Cmd+C keydown so the window-level shortcut handler
   // runs regardless of which element is currently focused.
   await page.evaluate(() => {
-    const target = document.body;
-
     const event = new KeyboardEvent("keydown", {
       key: "c",
       ctrlKey: true,
       metaKey: false,
       bubbles: true,
     });
-    target.dispatchEvent(event);
+    window.dispatchEvent(event);
   });
 
   const callCount = await getClipboardWriteCallCount(page);

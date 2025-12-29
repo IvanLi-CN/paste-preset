@@ -194,15 +194,15 @@ test("E2E-015 selecting a new image replaces the previous one", async ({
   const tasks = getTaskRows(page);
   await expect(tasks).toHaveCount(2);
 
-  const firstTask = tasks.first();
-  const latestTask = tasks.last();
+  const latestTask = tasks.first();
+  const firstTask = tasks.last();
 
   // Old task remains with PNG result.
   await expandTaskRow(firstTask);
   await expect(firstTask.getByText("Done")).toBeVisible();
   await expect(firstTask.getByText("image/png").first()).toBeVisible();
 
-  // Latest task reflects the new JPEG image and sits at the end of the list.
+  // Latest task reflects the new JPEG image and sits at the top of the list.
   await expandTaskRow(latestTask);
   await expect(latestTask.getByText("image/jpeg").first()).toBeVisible();
   const latestDimensions = await getImageCardDimensionsText(
