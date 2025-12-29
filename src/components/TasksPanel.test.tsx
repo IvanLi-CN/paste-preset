@@ -107,8 +107,9 @@ describe("TasksPanel", () => {
       mockTask({
         id: "3",
         status: "done",
-        // biome-ignore lint/suspicious/noExplicitAny: Mocking for test
-        result: { width: 100, height: 100 } as any,
+        result: mockImageInfo(),
+        attemptGeneration: 0,
+        resultGeneration: 0,
       }),
     ];
     const { container, cleanup } = renderTasksPanel({ tasks });

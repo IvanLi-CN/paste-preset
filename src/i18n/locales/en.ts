@@ -30,6 +30,7 @@ export const en = {
 
   "status.processing": "Processing image…",
   "status.queued": "Queued",
+  "status.regenerateQueued": "Pending regeneration",
   "status.done": "Done",
   "status.error": "Error",
   "status.error.unknown": "Unknown processing error",

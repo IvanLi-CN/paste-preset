@@ -85,6 +85,29 @@ export function TaskRow(props: TaskRowProps) {
   };
 
   const getStatusBadge = () => {
+    if (isResultStale) {
+      switch (task.status) {
+        case "processing":
+          return (
+            <span className="badge badge-sm badge-info">
+              {t("export.gate.regenerating")}
+            </span>
+          );
+        case "error":
+          return (
+            <span className="badge badge-sm badge-error">
+              {t("preview.result.overlay.failed")}
+            </span>
+          );
+        default:
+          return (
+            <span className="badge badge-sm badge-warning">
+              {t("status.regenerateQueued")}
+            </span>
+          );
+      }
+    }
+
     switch (task.status) {
       case "queued":
         return (

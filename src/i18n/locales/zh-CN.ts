@@ -31,6 +31,7 @@ export const zhCN: TranslationMessages = {
 
   "status.processing": "处理中…",
   "status.queued": "排队中",
+  "status.regenerateQueued": "待重新生成",
   "status.done": "已完成",
   "status.error": "错误",
   "status.error.unknown": "未知处理错误",
