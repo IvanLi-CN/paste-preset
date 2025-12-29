@@ -1,9 +1,7 @@
-import piexif from "piexifjs";
 import { normalizeImageBlobForCanvas } from "./heic.ts";
 import {
   buildExifFromEmbedding,
   computeTargetSize,
-  dataUrlToBlob,
   embedExifIntoImageBlob,
   extractImageMetadata,
   getOutputMimeType,
@@ -249,55 +247,44 @@ export async function processImageBlob(
         ? (options.quality ?? 0.8)
         : undefined;
 
-    if (mime === "image/jpeg" && !options.stripMetadata) {
-      const dataUrl = canvas.toDataURL(
-        mime,
-        typeof quality === "number" ? quality : undefined,
-      );
-      const finalDataUrl =
-        exifString != null ? piexif.insert(exifString, dataUrl) : dataUrl;
-      resultBlob = dataUrlToBlob(finalDataUrl, mime);
-      didEmbedMetadata = exifString != null;
-    } else {
-      resultBlob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(
-          (b) => {
-            if (!b) {
-              reject(new Error("image.exportFailed"));
-              return;
-            }
-            resolve(b);
-          },
-          mime,
-          quality,
-        );
-      }).then(async (exportedBlob) => {
-        if (
-          !options.stripMetadata &&
-          (mime === "image/png" || mime === "image/webp") &&
-          exifString
-        ) {
-          try {
-            const patched = await embedExifIntoImageBlob(
-              exportedBlob,
-              mime,
-              exifString,
-            );
-            if (patched) {
-              didEmbedMetadata = true;
-              return patched;
-            }
-          } catch (error) {
-            // Metadata embedding is best-effort only; failures must not break export.
-            console.error(
-              "[PastePreset] Failed to embed metadata into result image:",
-              error,
-            );
+    resultBlob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => {
+          if (!b) {
+            reject(new Error("image.exportFailed"));
+            return;
           }
+          resolve(b);
+        },
+        mime,
+        quality,
+      );
+    }).then(async (exportedBlob) => {
+      if (
+        !options.stripMetadata &&
+        exifString &&
+        (mime === "image/jpeg" || mime === "image/png" || mime === "image/webp")
+      ) {
+        try {
+          const patched = await embedExifIntoImageBlob(
+            exportedBlob,
+            mime,
+            exifString,
+          );
+          if (patched) {
+            didEmbedMetadata = true;
+            return patched;
+          }
+        } catch (error) {
+          // Metadata embedding is best-effort only; failures must not break export.
+          console.error(
+            "[PastePreset] Failed to embed metadata into result image:",
+            error,
+          );
         }
-        return exportedBlob;
-      });
-    }
+      }
+      return exportedBlob;
+    });
   }
 
   // If we can pass the original blob through untouched, we consider metadata

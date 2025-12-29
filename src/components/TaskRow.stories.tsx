@@ -25,9 +25,12 @@ const sampleImage = (overrides: Partial<ImageInfo> = {}): ImageInfo => {
 
 const taskBase: Omit<ImageTask, "status"> = {
   id: "task-1",
+  batchId: "batch-1",
+  batchCreatedAt: Date.now(),
   fileName: "sample.png",
   createdAt: Date.now(),
   source: sampleImage({ sourceName: "source.png" }),
+  desiredGeneration: 0,
 };
 
 const meta = {
@@ -78,6 +81,8 @@ export const DoneWithResult: Story = {
         metadataStripped: true,
         sourceName: "processed.png",
       }),
+      attemptGeneration: 0,
+      resultGeneration: 0,
     },
   },
 };

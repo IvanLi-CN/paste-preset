@@ -388,6 +388,10 @@ function readUint32BE(buffer: Uint8Array, offset: number): number {
   );
 }
 
+function readUint16BE(buffer: Uint8Array, offset: number): number {
+  return ((buffer[offset] << 8) | buffer[offset + 1]) >>> 0;
+}
+
 function writeUint32BE(
   buffer: Uint8Array,
   offset: number,
@@ -627,6 +631,50 @@ function insertExifIntoWebp(
   return result;
 }
 
+function insertExifIntoJpeg(
+  jpegBytes: Uint8Array,
+  exifBytes: Uint8Array,
+): Uint8Array | null {
+  if (jpegBytes.length < 4) {
+    return null;
+  }
+
+  // JPEG SOI marker.
+  if (jpegBytes[0] !== 0xff || jpegBytes[1] !== 0xd8) {
+    return null;
+  }
+
+  // Prefer inserting after a JFIF APP0 segment when present to match common
+  // encoder ordering. If parsing fails, fall back to inserting right after SOI.
+  let insertOffset = 2;
+  if (jpegBytes.length >= 6 && jpegBytes[2] === 0xff && jpegBytes[3] === 0xe0) {
+    const segmentLength = readUint16BE(jpegBytes, 4);
+    const end = 2 + 2 + segmentLength;
+    if (segmentLength >= 2 && end <= jpegBytes.length) {
+      insertOffset = end;
+    }
+  }
+
+  const payloadLength = exifBytes.length;
+  const lengthField = payloadLength + 2;
+  if (lengthField > 0xffff) {
+    return null;
+  }
+
+  const segment = new Uint8Array(4 + payloadLength);
+  segment[0] = 0xff;
+  segment[1] = 0xe1;
+  segment[2] = (lengthField >>> 8) & 0xff;
+  segment[3] = lengthField & 0xff;
+  segment.set(exifBytes, 4);
+
+  const result = new Uint8Array(jpegBytes.length + segment.length);
+  result.set(jpegBytes.subarray(0, insertOffset), 0);
+  result.set(segment, insertOffset);
+  result.set(jpegBytes.subarray(insertOffset), insertOffset + segment.length);
+  return result;
+}
+
 export async function embedExifIntoImageBlob(
   blob: Blob,
   mimeType: string,
@@ -634,6 +682,17 @@ export async function embedExifIntoImageBlob(
 ): Promise<Blob | null> {
   if (!exifString) {
     return null;
+  }
+
+  if (mimeType === "image/jpeg") {
+    const exifBytes = stringToUint8Array(exifString);
+    const buffer = await blob.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    const patched = insertExifIntoJpeg(bytes, exifBytes);
+    if (!patched) {
+      return null;
+    }
+    return new Blob([patched.buffer as ArrayBuffer], { type: mimeType });
   }
 
   if (mimeType !== "image/png" && mimeType !== "image/webp") {

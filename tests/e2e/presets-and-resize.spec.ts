@@ -102,7 +102,7 @@ test("E2E-022 switching preset reprocesses existing image", async ({
   const tasks = getTaskRows(page);
   await expect(tasks).toHaveCount(2);
 
-  const latestTask = tasks.last();
+  const latestTask = tasks.first();
   await expandTaskRow(latestTask);
 
   const sourceDimensions = await getImageCardDimensionsText(
@@ -175,10 +175,11 @@ test("E2E-030 lock aspect ratio updates height when width changes", async ({
   await expect(heightInput).toHaveValue("750");
 
   // Enqueue a new task with the updated dimensions.
+  await page.waitForTimeout(450);
   await uploadFixtureViaFileInput(page, testImagesDir, "screenshot-png.png");
   await waitForProcessingToFinish(page);
 
-  const latestTask = getTaskRows(page).last();
+  const latestTask = getTaskRows(page).first();
   await expandTaskRow(latestTask);
   const resultDimensions = await getImageCardDimensionsText(
     page,
@@ -209,11 +210,12 @@ test("E2E-031 unlocked aspect ratio keeps independent width and height", async (
 
   await widthInput.fill("1000");
   await heightInput.fill("300");
+  await page.waitForTimeout(450);
 
   await uploadFixtureViaFileInput(page, testImagesDir, "screenshot-png.png");
   await waitForProcessingToFinish(page);
 
-  const latestTask = getTaskRows(page).last();
+  const latestTask = getTaskRows(page).first();
   await expandTaskRow(latestTask);
   const resultDimensions = await getImageCardDimensionsText(
     page,
@@ -250,11 +252,12 @@ test("E2E-040 Fit mode keeps result within target box", async ({
 
   await widthInput.fill("800");
   await heightInput.fill("600");
+  await page.waitForTimeout(450);
 
   await uploadFixtureViaFileInput(page, testImagesDir, "photo-large-jpeg.jpg");
   await waitForProcessingToFinish(page);
 
-  const taskRow = getTaskRows(page).last();
+  const taskRow = getTaskRows(page).first();
   await expandTaskRow(taskRow);
 
   const resultDimensions = await getImageCardDimensionsText(
@@ -280,12 +283,13 @@ test("E2E-041 Fill mode outputs exact target dimensions", async ({
 
   await widthInput.fill("800");
   await heightInput.fill("600");
+  await page.waitForTimeout(450);
 
   await page.getByRole("radio", { name: "Fill (crop)" }).check();
   await uploadFixtureViaFileInput(page, testImagesDir, "photo-large-jpeg.jpg");
   await waitForProcessingToFinish(page);
 
-  const taskRow = getTaskRows(page).last();
+  const taskRow = getTaskRows(page).first();
   await expandTaskRow(taskRow);
 
   const resultDimensions = await getImageCardDimensionsText(
@@ -311,12 +315,13 @@ test("E2E-042 Stretch mode outputs exact target dimensions", async ({
 
   await widthInput.fill("800");
   await heightInput.fill("600");
+  await page.waitForTimeout(450);
 
   await page.getByRole("radio", { name: "Stretch" }).check();
   await uploadFixtureViaFileInput(page, testImagesDir, "photo-large-jpeg.jpg");
   await waitForProcessingToFinish(page);
 
-  const taskRow = getTaskRows(page).last();
+  const taskRow = getTaskRows(page).first();
   await expandTaskRow(taskRow);
 
   const resultDimensions = await getImageCardDimensionsText(

@@ -1,7 +1,8 @@
 import { Icon } from "@iconify/react/offline";
+import { useState } from "react";
 import { useTranslation } from "../i18n";
 import type { ImageTask } from "../lib/types.ts";
-import { buildDownloadFileName } from "./ImageCard.tsx";
+import { buildDownloadFileName, type ImageCardProps } from "./ImageCard.tsx";
 import { TaskDetails } from "./TaskDetails.tsx";
 
 interface TaskRowProps {
@@ -16,12 +17,75 @@ export function TaskRow(props: TaskRowProps) {
   const { t } = useTranslation();
 
   const result = task.result;
+  const [isCopying, setIsCopying] = useState(false);
 
-  const handleCopy = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (result) {
-      onCopyResult(task.id, result.blob, result.mimeType);
+  const hasCurrentResult =
+    Boolean(result) &&
+    typeof task.resultGeneration === "number" &&
+    task.resultGeneration === task.desiredGeneration;
+  const canExport = task.status === "done" && hasCurrentResult;
+  const isResultStale = Boolean(result) && !hasCurrentResult;
+
+  const exportDisabledReason = (() => {
+    if (!result) return t("export.gate.noResult");
+    if (isResultStale) {
+      switch (task.status) {
+        case "processing":
+          return t("export.gate.regenerating");
+        case "queued":
+          return t("export.gate.waiting");
+        case "error":
+          return t("export.gate.failed");
+        default:
+          return t("export.gate.stale");
+      }
     }
+
+    switch (task.status) {
+      case "processing":
+        return t("export.gate.processing");
+      case "queued":
+        return t("export.gate.queued");
+      case "error":
+        return t("export.gate.failed");
+      default:
+        return t("export.gate.unavailable");
+    }
+  })();
+
+  const resultOverlay = isResultStale
+    ? task.status === "processing"
+      ? ({
+          label: t("preview.result.overlay.regenerating"),
+          tone: "info",
+        } satisfies ImageCardProps["overlay"])
+      : task.status === "error"
+        ? ({
+            label: t("preview.result.overlay.failed"),
+            tone: "error",
+          } satisfies ImageCardProps["overlay"])
+        : ({
+            label: t("preview.result.overlay.waiting"),
+          } satisfies ImageCardProps["overlay"])
+    : null;
+
+  const copyResult = async () => {
+    if (!result) return;
+    if (!canExport) return;
+
+    setIsCopying(true);
+    try {
+      await Promise.resolve(
+        onCopyResult(task.id, result.blob, result.mimeType) as unknown,
+      );
+    } finally {
+      setIsCopying(false);
+    }
+  };
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await copyResult();
   };
 
   const handleDownloadClick = (e: React.MouseEvent) => {
@@ -29,6 +93,29 @@ export function TaskRow(props: TaskRowProps) {
   };
 
   const getStatusBadge = () => {
+    if (isResultStale) {
+      switch (task.status) {
+        case "processing":
+          return (
+            <span className="badge badge-sm badge-info">
+              {t("export.gate.regenerating")}
+            </span>
+          );
+        case "error":
+          return (
+            <span className="badge badge-sm badge-error">
+              {t("preview.result.overlay.failed")}
+            </span>
+          );
+        default:
+          return (
+            <span className="badge badge-sm badge-warning">
+              {t("status.regenerateQueued")}
+            </span>
+          );
+      }
+    }
+
     switch (task.status) {
       case "queued":
         return (
@@ -131,37 +218,89 @@ export function TaskRow(props: TaskRowProps) {
           className="flex items-center gap-1 z-10"
           onClick={(e) => e.stopPropagation()}
         >
-          {task.status === "done" && result && (
+          {result && (
             <>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm btn-square"
-                onClick={handleCopy}
-                aria-label={t("preview.actions.copyAria")}
-                data-testid="task-copy"
-                title={t("preview.actions.copyLabel")}
-              >
-                <Icon
-                  icon="mdi:content-copy"
-                  data-icon="mdi:content-copy"
-                  className="w-5 h-5"
-                />
-              </button>
-              <a
-                href={result.url}
-                download={buildDownloadFileName(result, task.fileName)}
-                className="btn btn-ghost btn-sm btn-square"
-                onClick={handleDownloadClick}
-                aria-label={t("preview.actions.downloadAria")}
-                data-testid="task-download"
-                title={t("preview.actions.downloadLabel")}
-              >
-                <Icon
-                  icon="mdi:download"
-                  data-icon="mdi:download"
-                  className="w-5 h-5"
-                />
-              </a>
+              {!canExport ? (
+                <span
+                  className="tooltip tooltip-bottom"
+                  data-tip={exportDisabledReason}
+                >
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm btn-square"
+                    onClick={handleCopy}
+                    aria-label={t("preview.actions.copyAria")}
+                    data-testid="task-copy"
+                    title={t("preview.actions.copyLabel")}
+                    disabled
+                  >
+                    <Icon
+                      icon="mdi:content-copy"
+                      data-icon="mdi:content-copy"
+                      className="w-5 h-5"
+                    />
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm btn-square"
+                  onClick={handleCopy}
+                  aria-label={t("preview.actions.copyAria")}
+                  data-testid="task-copy"
+                  title={t("preview.actions.copyLabel")}
+                  disabled={isCopying}
+                >
+                  {isCopying ? (
+                    <span className="loading loading-spinner loading-sm" />
+                  ) : (
+                    <Icon
+                      icon="mdi:content-copy"
+                      data-icon="mdi:content-copy"
+                      className="w-5 h-5"
+                    />
+                  )}
+                </button>
+              )}
+
+              {!canExport ? (
+                <span
+                  className="tooltip tooltip-bottom"
+                  data-tip={exportDisabledReason}
+                >
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm btn-square"
+                    onClick={handleDownloadClick}
+                    aria-label={t("preview.actions.downloadAria")}
+                    data-testid="task-download"
+                    title={t("preview.actions.downloadLabel")}
+                    disabled
+                  >
+                    <Icon
+                      icon="mdi:download"
+                      data-icon="mdi:download"
+                      className="w-5 h-5"
+                    />
+                  </button>
+                </span>
+              ) : (
+                <a
+                  href={result.url}
+                  download={buildDownloadFileName(result, task.fileName)}
+                  className="btn btn-ghost btn-sm btn-square"
+                  onClick={handleDownloadClick}
+                  aria-label={t("preview.actions.downloadAria")}
+                  data-testid="task-download"
+                  title={t("preview.actions.downloadLabel")}
+                >
+                  <Icon
+                    icon="mdi:download"
+                    data-icon="mdi:download"
+                    className="w-5 h-5"
+                  />
+                </a>
+              )}
             </>
           )}
           <button
@@ -188,7 +327,11 @@ export function TaskRow(props: TaskRowProps) {
             source={task.source ?? null}
             result={task.result ?? null}
             originalFileName={task.fileName}
-            onCopyResult={(blob, mime) => onCopyResult(task.id, blob, mime)}
+            onCopyResult={() => copyResult()}
+            canExportResult={canExport}
+            exportDisabledReason={canExport ? null : exportDisabledReason}
+            isCopyingResult={isCopying}
+            resultOverlay={resultOverlay}
           />
         )}
       </div>

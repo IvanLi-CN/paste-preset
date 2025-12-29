@@ -13,11 +13,17 @@ export interface UseImageTaskQueueResult {
   clearAll: () => void;
 }
 
+export interface TaskQueuePriorityHints {
+  activeTaskId: string | null;
+  expandedIds: ReadonlySet<string>;
+}
+
 const DEFAULT_SOURCE_READ_TIMEOUT_MS = 30_000;
 const DEFAULT_PROCESSING_TIMEOUT_MS = 120_000;
 
 export function useImageTaskQueue(
   options: ProcessingOptions,
+  priorityHints?: TaskQueuePriorityHints,
 ): UseImageTaskQueueResult {
   const { t } = useTranslation();
   const [tasks, setTasks] = useState<ImageTask[]>([]);
@@ -25,6 +31,7 @@ export function useImageTaskQueue(
   const fileMapRef = useRef<Map<string, File>>(new Map());
   const activeProcessingIdRef = useRef<string | null>(null);
   const generationRef = useRef(0);
+  const lastOptionsKeyRef = useRef<string | null>(null);
 
   const updateTask = useCallback(
     (id: string, updater: (task: ImageTask) => ImageTask): void => {
@@ -35,6 +42,26 @@ export function useImageTaskQueue(
     [],
   );
 
+  const bumpGeneration = useCallback(() => {
+    generationRef.current += 1;
+    const nextGeneration = generationRef.current;
+
+    setTasks((previous) =>
+      previous.map((task) => {
+        const shouldResetState =
+          task.status === "processing" || task.status === "error";
+
+        return {
+          ...task,
+          desiredGeneration: nextGeneration,
+          status: shouldResetState ? "queued" : task.status,
+          errorMessage: shouldResetState ? undefined : task.errorMessage,
+          completedAt: shouldResetState ? undefined : task.completedAt,
+        };
+      }),
+    );
+  }, []);
+
   const enqueueFiles = useCallback((files: File[]) => {
     if (!files.length) {
       return;
@@ -42,17 +69,23 @@ export function useImageTaskQueue(
 
     setTasks((previous) => {
       const now = Date.now();
+      const batchId = createId();
+      const desiredGeneration = generationRef.current;
       const newTasks: ImageTask[] = files.map((file) => {
         const id = createId();
         fileMapRef.current.set(id, file);
         return {
           id,
+          batchId,
+          batchCreatedAt: now,
           fileName: file.name,
           status: "queued",
           createdAt: now,
+          desiredGeneration,
         } satisfies ImageTask;
       });
-      return [...previous, ...newTasks];
+      // Newest batch first; preserve in-batch file order.
+      return [...newTasks, ...previous];
     });
   }, []);
 
@@ -72,12 +105,32 @@ export function useImageTaskQueue(
   }, []);
 
   useEffect(() => {
+    const key = optionsKey(options);
+    if (lastOptionsKeyRef.current === null) {
+      lastOptionsKeyRef.current = key;
+      return;
+    }
+    if (lastOptionsKeyRef.current === key) {
+      return;
+    }
+    lastOptionsKeyRef.current = key;
+    bumpGeneration();
+  }, [bumpGeneration, options]);
+
+  useEffect(() => {
     const hasProcessing = tasks.some((task) => task.status === "processing");
     if (hasProcessing || activeProcessingIdRef.current) {
       return;
     }
 
-    const next = tasks.find((task) => task.status === "queued");
+    const currentGeneration = generationRef.current;
+
+    const next = selectNextTaskForProcessing({
+      tasks,
+      currentGeneration,
+      activeTaskId: priorityHints?.activeTaskId ?? null,
+      expandedIds: priorityHints?.expandedIds ?? new Set<string>(),
+    });
     if (!next) {
       return;
     }
@@ -85,17 +138,18 @@ export function useImageTaskQueue(
     const { id } = next;
     const file = fileMapRef.current.get(id);
     if (!file) {
+      const currentGeneration = generationRef.current;
       updateTask(id, (task) => ({
         ...task,
         status: "error",
         errorMessage: t("status.error.unknown"),
         completedAt: Date.now(),
+        attemptGeneration: currentGeneration,
       }));
       return;
     }
 
     activeProcessingIdRef.current = id;
-    const currentGeneration = generationRef.current;
 
     updateTask(id, (task) => ({ ...task, status: "processing" }));
 
@@ -164,12 +218,19 @@ export function useImageTaskQueue(
         updateTask(id, (task) => ({
           ...task,
           status: "done",
-          source,
-          result,
+          source: (() => {
+            revokeImageInfo(task.source);
+            return source;
+          })(),
+          result: (() => {
+            revokeImageInfo(task.result);
+            return result;
+          })(),
           errorMessage: undefined,
           completedAt: Date.now(),
+          attemptGeneration: currentGeneration,
+          resultGeneration: currentGeneration,
         }));
-        fileMapRef.current.delete(id);
       } catch (error) {
         if (generationRef.current !== currentGeneration) {
           return;
@@ -191,17 +252,28 @@ export function useImageTaskQueue(
           status: "error",
           errorMessage: message,
           completedAt: Date.now(),
+          attemptGeneration: currentGeneration,
         }));
-        fileMapRef.current.delete(id);
       } finally {
-        if (generationRef.current === currentGeneration) {
+        if (activeProcessingIdRef.current === id) {
           activeProcessingIdRef.current = null;
         }
+        // If we discarded a result due to generation changes, there may have
+        // been no state update to re-trigger scheduling. Force a harmless
+        // rerender so the queue can pick up any pending work.
+        setTasks((previous) => [...previous]);
       }
     };
 
     void run();
-  }, [options, t, tasks, updateTask]);
+  }, [
+    options,
+    priorityHints?.activeTaskId,
+    priorityHints?.expandedIds,
+    t,
+    tasks,
+    updateTask,
+  ]);
 
   const result = useMemo<UseImageTaskQueueResult>(
     () => ({ tasks, enqueueFiles, clearAll }),
@@ -219,10 +291,103 @@ export function getLastCompletedTask(
     .sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))[0];
 }
 
+export function getRegenerationPriorityTaskIds(params: {
+  tasks: readonly ImageTask[];
+  activeTaskId: string | null;
+  expandedIds: ReadonlySet<string>;
+}): string[] {
+  const { tasks, activeTaskId, expandedIds } = params;
+
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+
+  const push = (id: string) => {
+    if (seen.has(id)) {
+      return;
+    }
+    seen.add(id);
+    ordered.push(id);
+  };
+
+  if (activeTaskId) {
+    push(activeTaskId);
+  }
+
+  // Expanded tasks should follow list order.
+  for (const task of tasks) {
+    if (expandedIds.has(task.id)) {
+      push(task.id);
+    }
+  }
+
+  // Remaining tasks in list order.
+  for (const task of tasks) {
+    push(task.id);
+  }
+
+  return ordered;
+}
+
+function selectNextTaskForProcessing(params: {
+  tasks: readonly ImageTask[];
+  currentGeneration: number;
+  activeTaskId: string | null;
+  expandedIds: ReadonlySet<string>;
+}): ImageTask | undefined {
+  const { tasks, currentGeneration, activeTaskId, expandedIds } = params;
+
+  const taskById = new Map<string, ImageTask>();
+  for (const task of tasks) {
+    taskById.set(task.id, task);
+  }
+
+  const orderedIds = getRegenerationPriorityTaskIds({
+    tasks,
+    activeTaskId,
+    expandedIds,
+  });
+
+  for (const id of orderedIds) {
+    const task = taskById.get(id);
+    if (!task) {
+      continue;
+    }
+
+    if (task.status === "processing") {
+      continue;
+    }
+
+    if (task.desiredGeneration !== currentGeneration) {
+      continue;
+    }
+
+    if (task.attemptGeneration === currentGeneration) {
+      continue;
+    }
+
+    return task;
+  }
+
+  return undefined;
+}
+
 function revokeImageInfo(info: ImageInfo | undefined) {
   if (info) {
     URL.revokeObjectURL(info.url);
   }
+}
+
+function optionsKey(options: ProcessingOptions): string {
+  return [
+    options.presetId ?? "",
+    options.targetWidth ?? "",
+    options.targetHeight ?? "",
+    options.lockAspectRatio ? "1" : "0",
+    options.resizeMode,
+    options.outputFormat,
+    options.quality ?? "",
+    options.stripMetadata ? "1" : "0",
+  ].join("|");
 }
 
 async function probeFileReadable(file: File, timeoutMs: number): Promise<void> {

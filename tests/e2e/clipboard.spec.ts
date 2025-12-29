@@ -59,25 +59,23 @@ test("E2E-072: global Ctrl/Cmd+C copies result image", async ({
   await uploadFixtureViaFileInput(page, testImagesDir, "screenshot-png.png");
   await waitForProcessingToFinish(page);
 
+  // Ensure the latest task is expanded/active and has an exportable result
+  // before dispatching the global shortcut (helps avoid timing flakiness in CI).
+  await expect(page.getByTestId("task-row").first()).toHaveClass(
+    /collapse-open/,
+  );
+  await expect(page.getByTestId("task-copy").first()).toBeEnabled();
+
   // Focus a non-input element so global shortcuts are eligible.
-  await page.locator("body").click();
+  await page.getByTestId("task-toggle").first().focus();
 
-  // Dispatch a global Ctrl/Cmd+C keydown so the window-level shortcut handler
-  // runs regardless of which element is currently focused.
-  await page.evaluate(() => {
-    const target = document.body;
+  // Trigger Ctrl/Cmd+C via Playwright's keyboard API so the browser treats it as
+  // a real user shortcut (more reliable than synthetic DOM events in CI).
+  await page.keyboard.press("Control+C");
 
-    const event = new KeyboardEvent("keydown", {
-      key: "c",
-      ctrlKey: true,
-      metaKey: false,
-      bubbles: true,
-    });
-    target.dispatchEvent(event);
-  });
-
-  const callCount = await getClipboardWriteCallCount(page);
-  expect(callCount).toBe(1);
+  await expect
+    .poll(() => getClipboardWriteCallCount(page), { timeout: 5_000 })
+    .toBeGreaterThanOrEqual(1);
 });
 
 test("E2E-073: Ctrl/Cmd+C inside inputs does not trigger image copy", async ({

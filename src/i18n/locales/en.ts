@@ -25,9 +25,12 @@ export const en = {
   "clipboard.error.prepareFailed": "Failed to prepare image for clipboard.",
   "clipboard.error.convertFailed": "Failed to convert image for clipboard.",
   "clipboard.error.generic": "Failed to copy image",
+  "shortcut.copy.noUpToDateResult":
+    "Active task has no up-to-date result yet. Expand a completed task or wait for processing.",
 
   "status.processing": "Processing image…",
   "status.queued": "Queued",
+  "status.regenerateQueued": "Pending regeneration",
   "status.done": "Done",
   "status.error": "Error",
   "status.error.unknown": "Unknown processing error",
@@ -119,6 +122,19 @@ export const en = {
   "preview.actions.copyAria": "Copy result image to clipboard",
   "preview.actions.downloadLabel": "Download",
   "preview.actions.downloadAria": "Download result image",
+
+  "export.gate.noResult": "No result available yet.",
+  "export.gate.queued": "Waiting in queue…",
+  "export.gate.processing": "Processing…",
+  "export.gate.waiting": "Waiting for regeneration…",
+  "export.gate.regenerating": "Regenerating…",
+  "export.gate.failed": "Regeneration failed for current settings.",
+  "export.gate.stale": "Result is out of date. Please wait for regeneration.",
+  "export.gate.unavailable": "Export is currently unavailable.",
+
+  "preview.result.overlay.waiting": "Waiting…",
+  "preview.result.overlay.regenerating": "Regenerating…",
+  "preview.result.overlay.failed": "Regeneration failed",
 
   // Fullscreen viewer
   "preview.viewer.closeAria": "Close fullscreen image preview",

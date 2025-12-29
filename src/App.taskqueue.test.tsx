@@ -6,6 +6,9 @@ import { FullscreenImagePreviewProvider } from "./components/FullscreenImagePrev
 import { I18nProvider } from "./i18n";
 import type { ImageInfo, ImageTask } from "./lib/types";
 
+const copyImageMock = vi.hoisted(() => vi.fn());
+const resetClipboardErrorMock = vi.hoisted(() => vi.fn());
+
 vi.mock("./hooks/useUserPresets.tsx", () => ({
   useUserPresets: () => ({ presets: [], activePresetId: null }),
 }));
@@ -43,8 +46,8 @@ vi.mock("./hooks/useClipboard.ts", () => ({
   useClipboard: () => ({
     isCopying: false,
     errorMessage: null,
-    copyImage: vi.fn(),
-    resetError: vi.fn(),
+    copyImage: copyImageMock,
+    resetError: resetClipboardErrorMock,
   }),
 }));
 
@@ -76,6 +79,16 @@ const sampleImage: ImageInfo = {
   metadataStripped: false,
 };
 
+const createTask = (overrides: Partial<ImageTask>): ImageTask => ({
+  id: "task",
+  batchId: "batch",
+  batchCreatedAt: 0,
+  status: "queued",
+  createdAt: 0,
+  desiredGeneration: 0,
+  ...overrides,
+});
+
 function renderApp() {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -99,6 +112,8 @@ describe("App integrates task queue", () => {
   beforeEach(() => {
     enqueueFilesMock.mockReset();
     clearAllMock.mockReset();
+    copyImageMock.mockReset();
+    resetClipboardErrorMock.mockReset();
     mockedTasks = [];
     ({ container, root } = renderApp());
   });
@@ -136,14 +151,17 @@ describe("App integrates task queue", () => {
   });
 
   it("shows latest completed task in preview", () => {
-    mockedTasks.push({
-      id: "1",
-      status: "done",
-      createdAt: 0,
-      completedAt: 1,
-      source: sampleImage,
-      result: { ...sampleImage, url: "blob:result" },
-    });
+    mockedTasks.push(
+      createTask({
+        id: "1",
+        status: "done",
+        completedAt: 1,
+        source: sampleImage,
+        result: { ...sampleImage, url: "blob:result" },
+        attemptGeneration: 0,
+        resultGeneration: 0,
+      }),
+    );
 
     act(() => {
       root.unmount();
@@ -158,13 +176,13 @@ describe("App integrates task queue", () => {
 
   it("surfaces latest error from tasks", () => {
     mockedTasks = [
-      {
+      createTask({
         id: "1",
         status: "error",
-        createdAt: 0,
         completedAt: 3,
         errorMessage: "boom",
-      },
+        attemptGeneration: 0,
+      }),
     ];
 
     act(() => {
@@ -174,5 +192,89 @@ describe("App integrates task queue", () => {
     ({ container, root } = renderApp());
 
     expect(container.textContent?.toLowerCase()).toContain("boom");
+  });
+
+  it("Ctrl/Cmd+C targets the active expanded task result", async () => {
+    const blob = new Blob(["ok"], { type: "image/png" });
+    mockedTasks = [
+      createTask({ id: "a", fileName: "a.png", batchId: "b1" }),
+      createTask({
+        id: "b",
+        fileName: "b.png",
+        batchId: "b1",
+        status: "done",
+        result: {
+          ...sampleImage,
+          blob,
+          url: "blob:b",
+          sourceName: "b.png",
+        },
+        resultGeneration: 0,
+        attemptGeneration: 0,
+      }),
+    ];
+
+    act(() => {
+      root.render(
+        <I18nProvider>
+          <FullscreenImagePreviewProvider>
+            <App />
+          </FullscreenImagePreviewProvider>
+        </I18nProvider>,
+      );
+    });
+
+    const toggles = Array.from(container.querySelectorAll('[role="button"]'));
+    const secondToggle = toggles.find((el) =>
+      (el.textContent ?? "").includes("b.png"),
+    );
+    expect(secondToggle).toBeTruthy();
+
+    act(() => {
+      secondToggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "c", ctrlKey: true }),
+      );
+    });
+
+    expect(copyImageMock).toHaveBeenCalledTimes(1);
+    expect(copyImageMock).toHaveBeenCalledWith(blob, "image/png");
+  });
+
+  it("Ctrl/Cmd+C refuses when active task has no up-to-date result", async () => {
+    mockedTasks = [
+      createTask({
+        id: "a",
+        fileName: "a.png",
+        batchId: "b1",
+        status: "done",
+        result: { ...sampleImage, url: "blob:a", sourceName: "a.png" },
+        desiredGeneration: 1,
+        resultGeneration: 0,
+        attemptGeneration: 0,
+      }),
+    ];
+
+    act(() => {
+      root.render(
+        <I18nProvider>
+          <FullscreenImagePreviewProvider>
+            <App />
+          </FullscreenImagePreviewProvider>
+        </I18nProvider>,
+      );
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "c", metaKey: true }),
+      );
+    });
+
+    expect(copyImageMock).toHaveBeenCalledTimes(0);
+    expect(container.textContent?.toLowerCase()).toContain("no up-to-date");
   });
 });

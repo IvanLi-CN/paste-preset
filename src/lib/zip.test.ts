@@ -38,8 +38,11 @@ describe("buildResultsZip", () => {
     fileName?: string,
   ): ImageTask => ({
     id,
+    batchId: `batch-${id}`,
+    batchCreatedAt: Date.now(),
     status,
     createdAt: Date.now(),
+    desiredGeneration: 0,
     fileName,
     result:
       status === "done" && resultMimeType
@@ -52,6 +55,7 @@ describe("buildResultsZip", () => {
             fileSize: 123,
           }
         : undefined,
+    ...(status === "done" ? { attemptGeneration: 0, resultGeneration: 0 } : {}),
   });
 
   it("should return null if there are no done tasks", async () => {
@@ -70,8 +74,13 @@ describe("buildResultsZip", () => {
     const tasks: ImageTask[] = [
       {
         id: "1",
+        batchId: "batch-1",
+        batchCreatedAt: 123,
         status: "done",
         createdAt: 123,
+        desiredGeneration: 0,
+        attemptGeneration: 0,
+        resultGeneration: 0,
       },
     ];
     const result = await buildResultsZip(tasks);

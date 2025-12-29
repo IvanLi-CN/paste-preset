@@ -1,5 +1,12 @@
 import { Icon } from "@iconify/react/offline";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { LanguageSelector } from "./components/LanguageSelector.tsx";
 import { PasteArea } from "./components/PasteArea.tsx";
 import { SettingsPanel } from "./components/SettingsPanel.tsx";
@@ -9,16 +16,15 @@ import { useAppVersion } from "./hooks/useAppVersion.ts";
 import { useClipboard } from "./hooks/useClipboard.ts";
 import {
   getLastCompletedTask,
+  type TaskQueuePriorityHints,
   useImageTaskQueue,
 } from "./hooks/useImageTaskQueue.ts";
 import { useUserPresets } from "./hooks/useUserPresets.tsx";
 import { useUserSettings } from "./hooks/useUserSettings.tsx";
-import type { TranslationKey } from "./i18n";
-import { useTranslation } from "./i18n";
+import { type TranslationKey, useTranslation } from "./i18n";
 import { preloadHeicConverter } from "./lib/heic.ts";
 import { PRESETS } from "./lib/presets.ts";
 import type { ImageInfo } from "./lib/types.ts";
-import { buildResultsZip } from "./lib/zip.ts";
 
 function App() {
   const { t } = useTranslation();
@@ -30,11 +36,46 @@ function App() {
     typeof window === "undefined" ? 0 : window.innerWidth,
   );
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
-  const [isBuildingZip, setIsBuildingZip] = useState(false);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+  const [shortcutCopyError, setShortcutCopyError] = useState<string | null>(
+    null,
+  );
+  const shortcutCopyErrorTimeoutRef = useRef<number | null>(null);
   const currentYear = new Date().getFullYear();
 
-  const { tasks, enqueueFiles, clearAll } =
-    useImageTaskQueue(processingOptions);
+  const handleExpandedIdsChange = useCallback((next: ReadonlySet<string>) => {
+    setExpandedIds((previous) => {
+      if (previous.size === next.size) {
+        let isSame = true;
+        for (const id of next) {
+          if (!previous.has(id)) {
+            isSame = false;
+            break;
+          }
+        }
+        if (isSame) {
+          return previous;
+        }
+      }
+      return new Set(next);
+    });
+  }, []);
+
+  const handleActiveTaskIdChange = useCallback((id: string | null) => {
+    setActiveTaskId(id);
+    setShortcutCopyError(null);
+  }, []);
+
+  const priorityHints = useMemo<TaskQueuePriorityHints>(
+    () => ({ activeTaskId, expandedIds }),
+    [activeTaskId, expandedIds],
+  );
+
+  const { tasks, enqueueFiles, clearAll } = useImageTaskQueue(
+    processingOptions,
+    priorityHints,
+  );
   const lastCompleted = getLastCompletedTask(tasks);
   const source = lastCompleted?.source ?? null;
   const result = lastCompleted?.result ?? null;
@@ -195,45 +236,11 @@ function App() {
   const handleCopyResult = useCallback(
     async (blob: Blob, mimeType: string) => {
       resetClipboardError();
+      setShortcutCopyError(null);
       await copyImage(blob, mimeType);
     },
     [copyImage, resetClipboardError],
   );
-
-  const handleDownloadAll = async () => {
-    setIsBuildingZip(true);
-    try {
-      const blob = await buildResultsZip(tasks);
-      if (!blob) return;
-
-      const now = new Date();
-      const timestamp =
-        now.getFullYear().toString() +
-        (now.getMonth() + 1).toString().padStart(2, "0") +
-        now.getDate().toString().padStart(2, "0") +
-        "-" +
-        now.getHours().toString().padStart(2, "0") +
-        now.getMinutes().toString().padStart(2, "0") +
-        now.getSeconds().toString().padStart(2, "0");
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `pastepreset-batch-${timestamp}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error(err);
-      setUiError(
-        "Failed to create ZIP: " +
-          (err instanceof Error ? err.message : String(err)),
-      );
-    } finally {
-      setIsBuildingZip(false);
-    }
-  };
 
   const settingsAspectSource: ImageInfo | null = result ?? source;
 
@@ -278,18 +285,18 @@ function App() {
     };
   }, [handleImagesSelected]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const handleWindowKeyDown = (event: KeyboardEvent) => {
       const isCopyShortcut =
         (event.metaKey || event.ctrlKey) &&
         (event.key === "c" || event.key === "C");
 
-      if (!isCopyShortcut || !result) {
+      if (!isCopyShortcut) {
         return;
       }
 
-      const target = event.target as HTMLElement | null;
-      if (target) {
+      const target = event.target;
+      if (target instanceof HTMLElement) {
         const tag = target.tagName.toLowerCase();
         const isInputLike =
           tag === "input" ||
@@ -303,15 +310,37 @@ function App() {
         }
       }
 
+      if (!activeTaskId) {
+        return;
+      }
+
       event.preventDefault();
-      void handleCopyResult(result.blob, result.mimeType);
+
+      const task = tasks.find((item) => item.id === activeTaskId);
+      const hasUpToDateResult =
+        Boolean(task?.result) &&
+        task?.resultGeneration === task?.desiredGeneration;
+
+      if (!task || !hasUpToDateResult || !task.result) {
+        setShortcutCopyError(t("shortcut.copy.noUpToDateResult"));
+        if (shortcutCopyErrorTimeoutRef.current !== null) {
+          window.clearTimeout(shortcutCopyErrorTimeoutRef.current);
+        }
+        shortcutCopyErrorTimeoutRef.current = window.setTimeout(() => {
+          setShortcutCopyError(null);
+          shortcutCopyErrorTimeoutRef.current = null;
+        }, 2500);
+        return;
+      }
+
+      void handleCopyResult(task.result.blob, task.result.mimeType);
     };
 
     window.addEventListener("keydown", handleWindowKeyDown);
     return () => {
       window.removeEventListener("keydown", handleWindowKeyDown);
     };
-  }, [handleCopyResult, result]);
+  }, [activeTaskId, handleCopyResult, t, tasks]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -377,9 +406,9 @@ function App() {
                 <TasksPanel
                   tasks={tasks}
                   onCopyResult={(_, blob, mime) => handleCopyResult(blob, mime)}
-                  onDownloadAll={handleDownloadAll}
                   onClearAll={clearAll}
-                  isBuildingZip={isBuildingZip}
+                  onActiveTaskIdChange={handleActiveTaskIdChange}
+                  onExpandedIdsChange={handleExpandedIdsChange}
                 />
 
                 {isCopying && (
@@ -440,9 +469,9 @@ function App() {
                 <TasksPanel
                   tasks={tasks}
                   onCopyResult={(_, blob, mime) => handleCopyResult(blob, mime)}
-                  onDownloadAll={handleDownloadAll}
                   onClearAll={clearAll}
-                  isBuildingZip={isBuildingZip}
+                  onActiveTaskIdChange={handleActiveTaskIdChange}
+                  onExpandedIdsChange={handleExpandedIdsChange}
                 />
 
                 {isCopying && (
@@ -522,7 +551,7 @@ function App() {
         <StatusBar
           status={status}
           processingError={processingError ?? uiError}
-          clipboardError={clipboardError}
+          clipboardError={clipboardError ?? shortcutCopyError}
         />
       </div>
     </div>

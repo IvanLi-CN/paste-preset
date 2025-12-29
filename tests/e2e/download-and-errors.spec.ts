@@ -19,7 +19,7 @@ test("E2E-080: download link has correct name and extension", async ({
     await uploadFixtureViaFileInput(page, testImagesDir, fileName);
     await waitForProcessingToFinish(page);
 
-    const latestTask = getTaskRows(page).last();
+    const latestTask = getTaskRows(page).first();
     await expect(latestTask).toBeVisible();
     await expect(latestTask.getByText(fileName)).toBeVisible();
 
@@ -45,17 +45,9 @@ test("E2E-080: download link has correct name and extension", async ({
   const webpName = await uploadAndGetDownloadName("screenshot-png.png");
   expect(webpName).toBe("screenshot-png.webp");
 
-  // Download all should emit a batch ZIP when at least one task is done.
-  const downloadAllButton = page.getByRole("button", { name: "Download all" });
-  await expect(downloadAllButton).toBeEnabled();
-
-  const [download] = await Promise.all([
-    page.waitForEvent("download"),
-    downloadAllButton.click(),
-  ]);
-
-  expect(download.suggestedFilename()).toMatch(
-    /^pastepreset-batch-\d{8}-\d{6}\.zip$/,
+  // Batch download is not supported; the button should not be present.
+  await expect(page.getByRole("button", { name: "Download all" })).toHaveCount(
+    0,
   );
 });
 
@@ -70,11 +62,12 @@ test("E2E-090: oversized output dimensions produce a clear error", async ({
 
   await widthInput.fill("10000");
   await heightInput.fill("10000");
+  await page.waitForTimeout(450);
 
   await uploadFixtureViaFileInput(page, testImagesDir, "screenshot-png.png");
   await waitForProcessingToFinish(page);
 
-  const errorRow = getTaskRows(page).last();
+  const errorRow = getTaskRows(page).first();
   await expect(errorRow.getByText("Error")).toBeVisible();
   await expect(
     errorRow.getByText(
@@ -85,10 +78,11 @@ test("E2E-090: oversized output dimensions produce a clear error", async ({
   // After reducing the size, a new task should succeed.
   await widthInput.fill("1000");
   await heightInput.fill("1000");
+  await page.waitForTimeout(450);
   await uploadFixtureViaFileInput(page, testImagesDir, "screenshot-png.png");
   await waitForProcessingToFinish(page);
 
-  const successRow = getTaskRows(page).last();
+  const successRow = getTaskRows(page).first();
   await expect(successRow.getByText("Done")).toBeVisible();
   await expandTaskRow(successRow);
   const resultDimensions = await getImageCardDimensionsText(

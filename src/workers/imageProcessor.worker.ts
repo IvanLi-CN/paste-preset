@@ -1,11 +1,9 @@
 /// <reference lib="webworker" />
-import piexif from "piexifjs";
 import { isHeicMimeType, normalizeImageBlobForCanvas } from "../lib/heic.ts";
 import type { ExifEmbeddingData } from "../lib/imageProcessingCommon.ts";
 import {
   buildExifFromEmbedding,
   computeTargetSize,
-  dataUrlToBlob,
   embedExifIntoImageBlob,
   extractImageMetadata,
   getOutputMimeType,
@@ -94,15 +92,6 @@ interface OffscreenProcessResult {
   metadataStripped: boolean;
   normalizedBuffer?: ArrayBuffer;
   normalizedMimeType?: string;
-}
-
-async function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("image.invalidDataUrl"));
-    reader.readAsDataURL(blob);
-  });
 }
 
 function drawToOffscreenCanvas(
@@ -288,42 +277,35 @@ async function processImageBlobOffscreen(
         ? (options.quality ?? 0.8)
         : undefined;
 
-    if (mime === "image/jpeg" && !options.stripMetadata) {
-      const exported = await canvasToBlob(canvas, mime, quality);
-      const dataUrl = await blobToDataUrl(exported);
-      const finalDataUrl =
-        exifString != null ? piexif.insert(exifString, dataUrl) : dataUrl;
-      resultBlob = dataUrlToBlob(finalDataUrl, mime);
-      didEmbedMetadata = exifString != null;
-    } else {
-      resultBlob = await canvasToBlob(canvas, mime, quality).then(
-        async (exportedBlob) => {
-          if (
-            !options.stripMetadata &&
-            (mime === "image/png" || mime === "image/webp") &&
-            exifString
-          ) {
-            try {
-              const patched = await embedExifIntoImageBlob(
-                exportedBlob,
-                mime,
-                exifString,
-              );
-              if (patched) {
-                didEmbedMetadata = true;
-                return patched;
-              }
-            } catch (error) {
-              console.error(
-                "[PastePreset] Failed to embed metadata in worker:",
-                error,
-              );
+    resultBlob = await canvasToBlob(canvas, mime, quality).then(
+      async (exportedBlob) => {
+        if (
+          !options.stripMetadata &&
+          exifString &&
+          (mime === "image/jpeg" ||
+            mime === "image/png" ||
+            mime === "image/webp")
+        ) {
+          try {
+            const patched = await embedExifIntoImageBlob(
+              exportedBlob,
+              mime,
+              exifString,
+            );
+            if (patched) {
+              didEmbedMetadata = true;
+              return patched;
             }
+          } catch (error) {
+            console.error(
+              "[PastePreset] Failed to embed metadata in worker:",
+              error,
+            );
           }
-          return exportedBlob;
-        },
-      );
-    }
+        }
+        return exportedBlob;
+      },
+    );
   }
 
   const metadataStripped = canPassThrough ? false : !didEmbedMetadata;
@@ -392,43 +374,35 @@ async function processImageBitmapOffscreen(
     const exifString = buildExifFromEmbedding(exifEmbedding);
     let didEmbedMetadata = false;
 
-    let resultBlob: Blob;
-    if (mime === "image/jpeg" && !options.stripMetadata) {
-      const exported = await canvasToBlob(canvas, mime, quality);
-      const dataUrl = await blobToDataUrl(exported);
-      const finalDataUrl =
-        exifString != null ? piexif.insert(exifString, dataUrl) : dataUrl;
-      resultBlob = dataUrlToBlob(finalDataUrl, mime);
-      didEmbedMetadata = exifString != null;
-    } else {
-      resultBlob = await canvasToBlob(canvas, mime, quality).then(
-        async (exportedBlob) => {
-          if (
-            !options.stripMetadata &&
-            (mime === "image/png" || mime === "image/webp") &&
-            exifString
-          ) {
-            try {
-              const patched = await embedExifIntoImageBlob(
-                exportedBlob,
-                mime,
-                exifString,
-              );
-              if (patched) {
-                didEmbedMetadata = true;
-                return patched;
-              }
-            } catch (error) {
-              console.error(
-                "[PastePreset] Failed to embed metadata in worker:",
-                error,
-              );
+    const resultBlob = await canvasToBlob(canvas, mime, quality).then(
+      async (exportedBlob) => {
+        if (
+          !options.stripMetadata &&
+          exifString &&
+          (mime === "image/jpeg" ||
+            mime === "image/png" ||
+            mime === "image/webp")
+        ) {
+          try {
+            const patched = await embedExifIntoImageBlob(
+              exportedBlob,
+              mime,
+              exifString,
+            );
+            if (patched) {
+              didEmbedMetadata = true;
+              return patched;
             }
+          } catch (error) {
+            console.error(
+              "[PastePreset] Failed to embed metadata in worker:",
+              error,
+            );
           }
-          return exportedBlob;
-        },
-      );
-    }
+        }
+        return exportedBlob;
+      },
+    );
 
     const resultBuffer = await resultBlob.arrayBuffer();
     const metadataStripped = !didEmbedMetadata;

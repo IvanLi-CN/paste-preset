@@ -26,9 +26,12 @@ export const zhCN: TranslationMessages = {
   "clipboard.error.prepareFailed": "准备图片以复制到剪贴板时失败。",
   "clipboard.error.convertFailed": "转换图片以复制到剪贴板时失败。",
   "clipboard.error.generic": "复制图片失败",
+  "shortcut.copy.noUpToDateResult":
+    "当前任务还没有符合当前设置的结果。请展开已完成的任务，或等待处理完成。",
 
   "status.processing": "处理中…",
   "status.queued": "排队中",
+  "status.regenerateQueued": "待重新生成",
   "status.done": "已完成",
   "status.error": "错误",
   "status.error.unknown": "未知处理错误",
@@ -115,6 +118,19 @@ export const zhCN: TranslationMessages = {
   "preview.actions.copyAria": "将结果图片复制到剪贴板",
   "preview.actions.downloadLabel": "下载",
   "preview.actions.downloadAria": "下载结果图片",
+
+  "export.gate.noResult": "暂无结果。",
+  "export.gate.queued": "正在排队…",
+  "export.gate.processing": "处理中…",
+  "export.gate.waiting": "等待重新生成…",
+  "export.gate.regenerating": "正在重新生成…",
+  "export.gate.failed": "当前设置下重新生成失败。",
+  "export.gate.stale": "结果已过期，请等待重新生成。",
+  "export.gate.unavailable": "暂不可导出。",
+
+  "preview.result.overlay.waiting": "等待中…",
+  "preview.result.overlay.regenerating": "重新生成中…",
+  "preview.result.overlay.failed": "重新生成失败",
 
   // Fullscreen viewer
   "preview.viewer.closeAria": "关闭全屏图片预览",

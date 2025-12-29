@@ -79,6 +79,15 @@ export type TaskStatus = "queued" | "processing" | "done" | "error";
 
 export interface ImageTask {
   id: string;
+  /**
+   * A “wave” identifier for tasks created from a single input action (paste/drop/file picker).
+   * Normative behavior: docs/reprocess-on-settings-change.md (Section 5).
+   */
+  batchId: string;
+  /**
+   * Timestamp (ms) for when the batch was created. Used for grouping UI.
+   */
+  batchCreatedAt: number;
   fileName?: string;
   source?: ImageInfo;
   result?: ImageInfo;
@@ -86,4 +95,18 @@ export interface ImageTask {
   errorMessage?: string;
   createdAt: number;
   completedAt?: number;
+  /**
+   * The generation this task is expected to match (normative: docs/reprocess-on-settings-change.md).
+   */
+  desiredGeneration: number;
+  /**
+   * The generation this task most recently attempted to process for (success or failure).
+   * This is used to prevent automatic retries within the same generation.
+   */
+  attemptGeneration?: number;
+  /**
+   * The generation that produced the currently stored result (if any).
+   * When this differs from the current generation, the visible result is stale.
+   */
+  resultGeneration?: number;
 }

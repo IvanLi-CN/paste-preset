@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useUserPresets } from "../hooks/useUserPresets.tsx";
 import { useUserSettings } from "../hooks/useUserSettings.tsx";
 import { useTranslation } from "../i18n";
@@ -10,12 +10,25 @@ interface SettingsPanelProps {
   currentImage?: ImageInfo | null;
 }
 
+const NUMERIC_INPUT_DEBOUNCE_MS = 400;
+
 export function SettingsPanel(props: SettingsPanelProps) {
   const { currentImage } = props;
   const { t } = useTranslation();
   const { settings, updateSettings, resetSettings } = useUserSettings();
   const options = settings;
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [targetWidthInput, setTargetWidthInput] = useState(
+    options.targetWidth?.toString() ?? "",
+  );
+  const [targetHeightInput, setTargetHeightInput] = useState(
+    options.targetHeight?.toString() ?? "",
+  );
+  const targetWidthInputRef = useRef(targetWidthInput);
+  const targetHeightInputRef = useRef(targetHeightInput);
+  const numericDebounceTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
   const {
     resetPresets,
     mode: presetsMode,
@@ -61,6 +74,35 @@ export function SettingsPanel(props: SettingsPanelProps) {
     return null;
   })();
 
+  useEffect(() => {
+    const next = options.targetWidth?.toString() ?? "";
+    setTargetWidthInput(next);
+    targetWidthInputRef.current = next;
+    if (numericDebounceTimeoutRef.current) {
+      clearTimeout(numericDebounceTimeoutRef.current);
+      numericDebounceTimeoutRef.current = null;
+    }
+  }, [options.targetWidth]);
+
+  useEffect(() => {
+    const next = options.targetHeight?.toString() ?? "";
+    setTargetHeightInput(next);
+    targetHeightInputRef.current = next;
+    if (numericDebounceTimeoutRef.current) {
+      clearTimeout(numericDebounceTimeoutRef.current);
+      numericDebounceTimeoutRef.current = null;
+    }
+  }, [options.targetHeight]);
+
+  useEffect(
+    () => () => {
+      if (numericDebounceTimeoutRef.current) {
+        clearTimeout(numericDebounceTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
   const handlePresetSelect = (presetId: string) => {
     const presetRecord = presets.find((preset) => preset.id === presetId);
     if (!presetRecord) {
@@ -95,6 +137,40 @@ export function SettingsPanel(props: SettingsPanelProps) {
     const parsed = Number.parseInt(value, 10);
     const nextValue = Number.isNaN(parsed) ? null : parsed;
 
+    if (key === "targetWidth") {
+      setTargetWidthInput(value);
+      targetWidthInputRef.current = value;
+    } else {
+      setTargetHeightInput(value);
+      targetHeightInputRef.current = value;
+    }
+
+    if (numericDebounceTimeoutRef.current) {
+      clearTimeout(numericDebounceTimeoutRef.current);
+    }
+
+    const scheduleCommit = () => {
+      numericDebounceTimeoutRef.current = setTimeout(() => {
+        const widthValue = (() => {
+          const widthParsed = Number.parseInt(targetWidthInputRef.current, 10);
+          return Number.isNaN(widthParsed) ? null : widthParsed;
+        })();
+        const heightValue = (() => {
+          const heightParsed = Number.parseInt(
+            targetHeightInputRef.current,
+            10,
+          );
+          return Number.isNaN(heightParsed) ? null : heightParsed;
+        })();
+
+        updateSettings({
+          targetWidth: widthValue,
+          targetHeight: heightValue,
+        });
+        numericDebounceTimeoutRef.current = null;
+      }, NUMERIC_INPUT_DEBOUNCE_MS);
+    };
+
     // When aspect ratio lock is enabled and we know an aspect ratio from
     // the current image, keep width/height in sync as the user edits one
     // dimension. When there is no image yet, fall back to independent
@@ -107,26 +183,18 @@ export function SettingsPanel(props: SettingsPanelProps) {
     ) {
       if (key === "targetWidth") {
         const derivedHeight = Math.round(nextValue / aspectRatio);
-        updateSettings({
-          targetWidth: nextValue,
-          targetHeight: derivedHeight,
-        });
-        return;
-      }
-
-      if (key === "targetHeight") {
+        const derivedHeightText = String(derivedHeight);
+        setTargetHeightInput(derivedHeightText);
+        targetHeightInputRef.current = derivedHeightText;
+      } else if (key === "targetHeight") {
         const derivedWidth = Math.round(nextValue * aspectRatio);
-        updateSettings({
-          targetWidth: derivedWidth,
-          targetHeight: nextValue,
-        });
-        return;
+        const derivedWidthText = String(derivedWidth);
+        setTargetWidthInput(derivedWidthText);
+        targetWidthInputRef.current = derivedWidthText;
       }
     }
 
-    updateSettings({
-      [key]: nextValue,
-    });
+    scheduleCommit();
   };
 
   const handleResizeModeChange = (mode: ResizeMode) => {
@@ -282,7 +350,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                     min={1}
                     placeholder={t("settings.resolution.placeholderAuto")}
                     className="input input-sm input-bordered"
-                    value={options.targetWidth ?? ""}
+                    value={targetWidthInput}
                     onChange={(event) =>
                       handleNumericChange("targetWidth", event.target.value)
                     }
@@ -299,7 +367,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                     min={1}
                     placeholder={t("settings.resolution.placeholderAuto")}
                     className="input input-sm input-bordered"
-                    value={options.targetHeight ?? ""}
+                    value={targetHeightInput}
                     onChange={(event) =>
                       handleNumericChange("targetHeight", event.target.value)
                     }

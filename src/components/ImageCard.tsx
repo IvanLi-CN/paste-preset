@@ -18,10 +18,14 @@ export interface ImageCardProps {
   title: string;
   image: ImageInfo;
   highlighted?: boolean;
+  overlay?: {
+    label: string;
+    tone?: "info" | "error";
+  };
 }
 
 export function ImageCard(props: ImageCardProps) {
-  const { title, image, highlighted } = props;
+  const { title, image, highlighted, overlay } = props;
   const { t } = useTranslation();
   const { openImagePreview } = useFullscreenImagePreview();
   const cardClassName = [
@@ -38,7 +42,7 @@ export function ImageCard(props: ImageCardProps) {
         <h3 className="card-title text-sm">{title}</h3>
         <button
           type="button"
-          className="flex cursor-pointer items-center justify-center rounded-md bg-base-200 p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100"
+          className="relative flex cursor-pointer items-center justify-center rounded-md bg-base-200 p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100"
           aria-label={title}
           onClick={(event) => {
             event.currentTarget.focus();
@@ -50,6 +54,29 @@ export function ImageCard(props: ImageCardProps) {
             alt={image.sourceName ?? title}
             className="max-h-64 max-w-full object-contain"
           />
+          {overlay && (
+            <div
+              className="pointer-events-none absolute inset-2 flex items-center justify-center rounded-md"
+              data-testid="image-overlay"
+            >
+              <div
+                className="absolute inset-0 rounded-md bg-base-100/55 backdrop-blur-[2px] animate-pulse"
+                aria-hidden
+              />
+              <div
+                className={[
+                  "relative z-10 rounded-full border bg-base-100/90 px-3 py-1 text-xs font-semibold text-base-content shadow-sm",
+                  overlay.tone === "error"
+                    ? "border-error/40 text-error"
+                    : "border-base-300",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                {overlay.label}
+              </div>
+            </div>
+          )}
         </button>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-base-content/80">
           <div>
