@@ -2,7 +2,7 @@ import { Icon } from "@iconify/react/offline";
 import { useState } from "react";
 import { useTranslation } from "../i18n";
 import type { ImageTask } from "../lib/types.ts";
-import { buildDownloadFileName } from "./ImageCard.tsx";
+import { buildDownloadFileName, type ImageCardProps } from "./ImageCard.tsx";
 import { TaskDetails } from "./TaskDetails.tsx";
 
 interface TaskRowProps {
@@ -55,10 +55,18 @@ export function TaskRow(props: TaskRowProps) {
 
   const resultOverlay = isResultStale
     ? task.status === "processing"
-      ? { label: t("preview.result.overlay.regenerating"), tone: "info" }
+      ? ({
+          label: t("preview.result.overlay.regenerating"),
+          tone: "info",
+        } satisfies ImageCardProps["overlay"])
       : task.status === "error"
-        ? { label: t("preview.result.overlay.failed"), tone: "error" }
-        : { label: t("preview.result.overlay.waiting") }
+        ? ({
+            label: t("preview.result.overlay.failed"),
+            tone: "error",
+          } satisfies ImageCardProps["overlay"])
+        : ({
+            label: t("preview.result.overlay.waiting"),
+          } satisfies ImageCardProps["overlay"])
     : null;
 
   const copyResult = async () => {

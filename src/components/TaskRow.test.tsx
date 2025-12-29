@@ -14,6 +14,8 @@ vi.mock("../i18n", () => ({
 
 const mockTask = (overrides: Partial<ImageTask>): ImageTask => ({
   id: "task-1",
+  batchId: overrides.batchId ?? "batch-1",
+  batchCreatedAt: overrides.batchCreatedAt ?? 1000,
   fileName: "test.png",
   status: "queued",
   createdAt: 1000,

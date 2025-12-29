@@ -692,7 +692,7 @@ export async function embedExifIntoImageBlob(
     if (!patched) {
       return null;
     }
-    return new Blob([patched], { type: mimeType });
+    return new Blob([patched.buffer as ArrayBuffer], { type: mimeType });
   }
 
   if (mimeType !== "image/png" && mimeType !== "image/webp") {

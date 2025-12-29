@@ -24,6 +24,8 @@ export function SettingsPanel(props: SettingsPanelProps) {
   const [targetHeightInput, setTargetHeightInput] = useState(
     options.targetHeight?.toString() ?? "",
   );
+  const targetWidthInputRef = useRef(targetWidthInput);
+  const targetHeightInputRef = useRef(targetHeightInput);
   const numericDebounceTimeoutRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
@@ -73,11 +75,23 @@ export function SettingsPanel(props: SettingsPanelProps) {
   })();
 
   useEffect(() => {
-    setTargetWidthInput(options.targetWidth?.toString() ?? "");
+    const next = options.targetWidth?.toString() ?? "";
+    setTargetWidthInput(next);
+    targetWidthInputRef.current = next;
+    if (numericDebounceTimeoutRef.current) {
+      clearTimeout(numericDebounceTimeoutRef.current);
+      numericDebounceTimeoutRef.current = null;
+    }
   }, [options.targetWidth]);
 
   useEffect(() => {
-    setTargetHeightInput(options.targetHeight?.toString() ?? "");
+    const next = options.targetHeight?.toString() ?? "";
+    setTargetHeightInput(next);
+    targetHeightInputRef.current = next;
+    if (numericDebounceTimeoutRef.current) {
+      clearTimeout(numericDebounceTimeoutRef.current);
+      numericDebounceTimeoutRef.current = null;
+    }
   }, [options.targetHeight]);
 
   useEffect(
@@ -125,17 +139,34 @@ export function SettingsPanel(props: SettingsPanelProps) {
 
     if (key === "targetWidth") {
       setTargetWidthInput(value);
+      targetWidthInputRef.current = value;
     } else {
       setTargetHeightInput(value);
+      targetHeightInputRef.current = value;
     }
 
     if (numericDebounceTimeoutRef.current) {
       clearTimeout(numericDebounceTimeoutRef.current);
     }
 
-    const schedule = (partial: Partial<UserSettings>) => {
+    const scheduleCommit = () => {
       numericDebounceTimeoutRef.current = setTimeout(() => {
-        updateSettings(partial);
+        const widthValue = (() => {
+          const widthParsed = Number.parseInt(targetWidthInputRef.current, 10);
+          return Number.isNaN(widthParsed) ? null : widthParsed;
+        })();
+        const heightValue = (() => {
+          const heightParsed = Number.parseInt(
+            targetHeightInputRef.current,
+            10,
+          );
+          return Number.isNaN(heightParsed) ? null : heightParsed;
+        })();
+
+        updateSettings({
+          targetWidth: widthValue,
+          targetHeight: heightValue,
+        });
         numericDebounceTimeoutRef.current = null;
       }, NUMERIC_INPUT_DEBOUNCE_MS);
     };
@@ -152,28 +183,18 @@ export function SettingsPanel(props: SettingsPanelProps) {
     ) {
       if (key === "targetWidth") {
         const derivedHeight = Math.round(nextValue / aspectRatio);
-        setTargetHeightInput(String(derivedHeight));
-        schedule({
-          targetWidth: nextValue,
-          targetHeight: derivedHeight,
-        });
-        return;
-      }
-
-      if (key === "targetHeight") {
+        const derivedHeightText = String(derivedHeight);
+        setTargetHeightInput(derivedHeightText);
+        targetHeightInputRef.current = derivedHeightText;
+      } else if (key === "targetHeight") {
         const derivedWidth = Math.round(nextValue * aspectRatio);
-        setTargetWidthInput(String(derivedWidth));
-        schedule({
-          targetWidth: derivedWidth,
-          targetHeight: nextValue,
-        });
-        return;
+        const derivedWidthText = String(derivedWidth);
+        setTargetWidthInput(derivedWidthText);
+        targetWidthInputRef.current = derivedWidthText;
       }
     }
 
-    schedule({
-      [key]: nextValue,
-    });
+    scheduleCommit();
   };
 
   const handleResizeModeChange = (mode: ResizeMode) => {

@@ -14,7 +14,7 @@ import {
 } from "./hooks/useImageTaskQueue.ts";
 import { useUserPresets } from "./hooks/useUserPresets.tsx";
 import { useUserSettings } from "./hooks/useUserSettings.tsx";
-import { useTranslation } from "./i18n";
+import { type TranslationKey, useTranslation } from "./i18n";
 import { preloadHeicConverter } from "./lib/heic.ts";
 import { PRESETS } from "./lib/presets.ts";
 import type { ImageInfo } from "./lib/types.ts";

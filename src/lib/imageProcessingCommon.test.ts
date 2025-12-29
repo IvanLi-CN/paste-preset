@@ -56,7 +56,7 @@ describe("embedExifIntoImageBlob", () => {
     expect(exifString).toBeTruthy();
 
     const jpeg = makeJpegBytes(true);
-    const blob = new Blob([jpeg], { type: "image/jpeg" });
+    const blob = new Blob([jpeg.buffer as ArrayBuffer], { type: "image/jpeg" });
 
     const patched = await embedExifIntoImageBlob(
       blob,
