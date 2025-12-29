@@ -1,5 +1,12 @@
 import { Icon } from "@iconify/react/offline";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { LanguageSelector } from "./components/LanguageSelector.tsx";
 import { PasteArea } from "./components/PasteArea.tsx";
 import { SettingsPanel } from "./components/SettingsPanel.tsx";
@@ -278,7 +285,7 @@ function App() {
     };
   }, [handleImagesSelected]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const handleWindowKeyDown = (event: KeyboardEvent) => {
       const isCopyShortcut =
         (event.metaKey || event.ctrlKey) &&
