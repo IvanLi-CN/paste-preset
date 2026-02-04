@@ -583,12 +583,13 @@ export function SettingsPanel(props: SettingsPanelProps) {
                   <div className="relative flex justify-end gap-2">
                     {isPresetSwitchHintOpen && canShowPresetSwitchHint && (
                       <output
-                        className="absolute bottom-full right-0 z-20 mb-2 max-w-[18rem] whitespace-pre-line rounded-box bg-base-200 p-3 text-xs text-base-content shadow"
+                        className="absolute bottom-full left-1/2 z-20 mb-3 w-[32rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 whitespace-pre-line rounded-3xl border border-base-content/10 bg-base-200 p-5 text-xs leading-relaxed text-base-content shadow-xl"
                         aria-live="polite"
                         data-testid="preset-switch-blocked-hint"
                       >
                         {t("settings.presets.switchBlockedHint")}
-                        <span className="pointer-events-none absolute right-4 top-full h-0 w-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-base-200" />
+                        <span className="pointer-events-none absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-l-[12px] border-r-[12px] border-t-[12px] border-l-transparent border-r-transparent border-t-base-content/10" />
+                        <span className="pointer-events-none absolute left-1/2 top-full -mt-px h-0 w-0 -translate-x-1/2 border-l-[11px] border-r-[11px] border-t-[11px] border-l-transparent border-r-transparent border-t-base-200" />
                       </output>
                     )}
                     {isEditingSavedPreset && (
