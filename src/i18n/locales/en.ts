@@ -50,6 +50,8 @@ export const en = {
   "settings.presets.delete": "Delete",
   "settings.presets.fallbackWarning":
     "Unable to save presets on this device. Changes to presets will not be remembered after closing this page.",
+  "settings.presets.switchBlockedHint":
+    "You have unsaved changes, so preset switching is locked. Click Save or Cancel to continue.",
 
   "settings.resolution.title": "Resolution",
   "settings.resolution.width": "Width (px)",

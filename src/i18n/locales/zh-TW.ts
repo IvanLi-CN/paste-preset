@@ -50,6 +50,8 @@ export const zhTW: TranslationMessages = {
   "settings.presets.delete": "刪除",
   "settings.presets.fallbackWarning":
     "無法在此裝置上儲存預設。對預設的變更在關閉頁面後不會被保留。",
+  "settings.presets.switchBlockedHint":
+    "你有尚未儲存的變更，因此暫時無法切換預設。請先點選「Save」儲存或「Cancel」取消，再切換預設。",
 
   "settings.resolution.title": "解析度",
   "settings.resolution.width": "寬度（px）",
