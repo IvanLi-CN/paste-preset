@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useUserPresets } from "../hooks/useUserPresets.tsx";
 import { useUserSettings } from "../hooks/useUserSettings.tsx";
 import { useTranslation } from "../i18n";
@@ -11,6 +11,9 @@ interface SettingsPanelProps {
 }
 
 const NUMERIC_INPUT_DEBOUNCE_MS = 400;
+const PRESET_SWITCH_BLOCKED_THRESHOLD = 3;
+const PRESET_SWITCH_BLOCKED_WINDOW_MS = 3500;
+const PRESET_SWITCH_BLOCKED_HINT_AUTOHIDE_MS = 6000;
 
 export function SettingsPanel(props: SettingsPanelProps) {
   const { currentImage } = props;
@@ -50,6 +53,15 @@ export function SettingsPanel(props: SettingsPanelProps) {
   const isEditingSavedPreset =
     presetsMode === "normal" && Boolean(editingPresetId) && !unsavedSlot;
   const isEditingUnsaved = presetsMode === "normal" && Boolean(unsavedSlot);
+  const canShowPresetSwitchHint = isEditingSavedPreset || isEditingUnsaved;
+  const [isPresetSwitchHintOpen, setIsPresetSwitchHintOpen] = useState(false);
+  const presetSwitchHintTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const presetSwitchAttemptRef = useRef<{ count: number; lastAt: number }>({
+    count: 0,
+    lastAt: 0,
+  });
 
   const aspectRatio = (() => {
     // Prefer the actual source/result image aspect ratio when available.
@@ -99,9 +111,65 @@ export function SettingsPanel(props: SettingsPanelProps) {
       if (numericDebounceTimeoutRef.current) {
         clearTimeout(numericDebounceTimeoutRef.current);
       }
+      if (presetSwitchHintTimeoutRef.current) {
+        clearTimeout(presetSwitchHintTimeoutRef.current);
+      }
     },
     [],
   );
+
+  useEffect(() => {
+    if (canShowPresetSwitchHint) {
+      return;
+    }
+
+    // Exit edit/unsaved mode: reset hint state so it does not linger.
+    setIsPresetSwitchHintOpen(false);
+    presetSwitchAttemptRef.current = { count: 0, lastAt: 0 };
+    if (presetSwitchHintTimeoutRef.current) {
+      clearTimeout(presetSwitchHintTimeoutRef.current);
+      presetSwitchHintTimeoutRef.current = null;
+    }
+  }, [canShowPresetSwitchHint]);
+
+  const handleBlockedPresetSwitchAttempt = useCallback(
+    (_attemptedId: string) => {
+      if (!canShowPresetSwitchHint) {
+        return;
+      }
+
+      const now = Date.now();
+      const { count, lastAt } = presetSwitchAttemptRef.current;
+      const nextCount =
+        lastAt > 0 && now - lastAt <= PRESET_SWITCH_BLOCKED_WINDOW_MS
+          ? count + 1
+          : 1;
+
+      presetSwitchAttemptRef.current = { count: nextCount, lastAt: now };
+
+      if (nextCount < PRESET_SWITCH_BLOCKED_THRESHOLD) {
+        return;
+      }
+
+      setIsPresetSwitchHintOpen(true);
+      if (presetSwitchHintTimeoutRef.current) {
+        clearTimeout(presetSwitchHintTimeoutRef.current);
+      }
+      presetSwitchHintTimeoutRef.current = setTimeout(() => {
+        setIsPresetSwitchHintOpen(false);
+      }, PRESET_SWITCH_BLOCKED_HINT_AUTOHIDE_MS);
+    },
+    [canShowPresetSwitchHint],
+  );
+
+  const resetPresetSwitchHint = () => {
+    setIsPresetSwitchHintOpen(false);
+    presetSwitchAttemptRef.current = { count: 0, lastAt: 0 };
+    if (presetSwitchHintTimeoutRef.current) {
+      clearTimeout(presetSwitchHintTimeoutRef.current);
+      presetSwitchHintTimeoutRef.current = null;
+    }
+  };
 
   const handlePresetSelect = (presetId: string) => {
     const presetRecord = presets.find((preset) => preset.id === presetId);
@@ -242,6 +310,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
     if (!isEditingSavedPreset || !editingPresetId) {
       return;
     }
+    resetPresetSwitchHint();
     applyEditPreset(options);
   };
 
@@ -249,6 +318,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
     if (!editingPresetId) {
       return;
     }
+    resetPresetSwitchHint();
 
     const preset = presets.find((item) => item.id === editingPresetId);
     if (preset) {
@@ -263,6 +333,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
     if (!isEditingUnsaved || !unsavedSlot) {
       return;
     }
+    resetPresetSwitchHint();
     applyUnsavedToNewPreset(options);
   };
 
@@ -270,6 +341,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
     if (!unsavedSlot) {
       return;
     }
+    resetPresetSwitchHint();
 
     const sourcePreset = presets.find(
       (preset) => preset.id === unsavedSlot.sourceId,
@@ -331,6 +403,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
           <PresetButtons
             selectedId={isEditingUnsaved ? "__unsaved__" : activePresetId}
             onPresetSelect={handlePresetSelect}
+            onBlockedPresetSwitchAttempt={handleBlockedPresetSwitchAttempt}
           />
 
           <div className="space-y-4">
@@ -507,7 +580,18 @@ export function SettingsPanel(props: SettingsPanelProps) {
                 </button>
 
                 {presetsMode === "normal" && (
-                  <div className="flex justify-end gap-2">
+                  <div className="relative flex justify-end gap-2">
+                    {isPresetSwitchHintOpen && canShowPresetSwitchHint && (
+                      <output
+                        className="absolute bottom-full left-1/2 z-20 mb-3 w-[32rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 whitespace-pre-line rounded-3xl border border-base-content/10 bg-base-200 p-5 text-xs leading-relaxed text-base-content shadow-xl"
+                        aria-live="polite"
+                        data-testid="preset-switch-blocked-hint"
+                      >
+                        {t("settings.presets.switchBlockedHint")}
+                        <span className="pointer-events-none absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-l-[12px] border-r-[12px] border-t-[12px] border-l-transparent border-r-transparent border-t-base-content/10" />
+                        <span className="pointer-events-none absolute left-1/2 top-full -mt-px h-0 w-0 -translate-x-1/2 border-l-[11px] border-r-[11px] border-t-[11px] border-l-transparent border-r-transparent border-t-base-200" />
+                      </output>
+                    )}
                     {isEditingSavedPreset && (
                       <>
                         <button

@@ -50,6 +50,8 @@ export const zhCN: TranslationMessages = {
   "settings.presets.delete": "删除",
   "settings.presets.fallbackWarning":
     "无法在此设备上保存预设。对预设的更改在关闭页面后不会被保留。",
+  "settings.presets.switchBlockedHint":
+    "你有未保存的更改，因此暂时无法切换预设。请先点击“Save”保存或“Cancel”取消，然后再切换。",
 
   "settings.resolution.title": "分辨率",
   "settings.resolution.width": "宽度（px）",

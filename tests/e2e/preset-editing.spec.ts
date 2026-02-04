@@ -754,3 +754,32 @@ test("E2E-150: fallback mode disables preset deletion", async ({
   // Storage writes should still be failing, so no presets are persisted.
   expect(storageSnapshot).toBeNull();
 });
+
+test("E2E-151: repeated blocked preset switch attempts surface a hint near Save/Cancel", async ({
+  page,
+}, testInfo) => {
+  if (testInfo.project.name !== "desktop") {
+    test.skip();
+  }
+
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Small" }).click();
+
+  // Create an unsaved slot to lock preset switching.
+  await page.getByLabel("Width (px)").fill("1234");
+
+  const originalButton = page.getByRole("button", { name: "Original" });
+  await originalButton.click();
+  await originalButton.click();
+  await originalButton.click();
+
+  const hint = page.getByTestId("preset-switch-blocked-hint");
+  await expect(hint).toBeVisible();
+  await expect(hint).toContainText("unsaved changes");
+
+  // Resolve by cancelling and verify that preset switching works again.
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await originalButton.click();
+  await expect(originalButton).toHaveClass(/btn-primary/);
+});

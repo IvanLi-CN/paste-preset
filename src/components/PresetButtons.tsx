@@ -11,10 +11,11 @@ import {
 interface PresetButtonsProps {
   selectedId: string | null;
   onPresetSelect: (id: string) => void;
+  onBlockedPresetSwitchAttempt?: (id: string) => void;
 }
 
 export function PresetButtons(props: PresetButtonsProps) {
-  const { selectedId, onPresetSelect } = props;
+  const { selectedId, onPresetSelect, onBlockedPresetSwitchAttempt } = props;
   const { t } = useTranslation();
   const {
     mode,
@@ -46,6 +47,9 @@ export function PresetButtons(props: PresetButtonsProps) {
 
   const handlePresetClick = (id: string) => {
     if (!canSwitchPresets) {
+      if (selectedId !== id) {
+        onBlockedPresetSwitchAttempt?.(id);
+      }
       return;
     }
 
@@ -76,7 +80,7 @@ export function PresetButtons(props: PresetButtonsProps) {
         <div className="flex flex-col gap-2 w-full">
           {presets.map((preset) => {
             const isActive = selectedId === preset.id;
-            const isDisabled = !canSwitchPresets && !isActive;
+            const isBlocked = !canSwitchPresets && !isActive;
             const label = getPresetDisplayName(preset, (key) => t(key));
             const diffTokens = getPresetDiffTokens(preset.settings, t);
 
@@ -149,8 +153,9 @@ export function PresetButtons(props: PresetButtonsProps) {
                   className={[
                     "btn btn-ghost btn-xs justify-start w-full truncate",
                     isActive ? "btn-primary btn-active font-semibold" : "",
+                    isBlocked ? "opacity-40 cursor-not-allowed" : "",
                   ].join(" ")}
-                  disabled={isDisabled}
+                  data-blocked={isBlocked ? "true" : undefined}
                   onClick={() => handlePresetClick(preset.id)}
                 >
                   {label}
@@ -228,7 +233,7 @@ export function PresetButtons(props: PresetButtonsProps) {
         <div className="join flex-nowrap">
           {presets.map((preset) => {
             const isActive = selectedId === preset.id;
-            const isDisabled = !canSwitchPresets && !isActive;
+            const isBlocked = !canSwitchPresets && !isActive;
 
             const label = getPresetDisplayName(preset, (key) => t(key));
 
@@ -264,9 +269,10 @@ export function PresetButtons(props: PresetButtonsProps) {
                 className={[
                   "btn btn-sm join-item",
                   isActive ? "btn-primary btn-active" : "",
+                  isBlocked ? "opacity-40 cursor-not-allowed" : "",
                 ].join(" ")}
                 onClick={() => handlePresetClick(preset.id)}
-                disabled={isDisabled}
+                data-blocked={isBlocked ? "true" : undefined}
               >
                 {label}
               </button>
