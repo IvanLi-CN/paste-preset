@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
   pages: write
   id-token: write
 
@@ -19,9 +20,80 @@ jobs:
         with:
           bun-version: "1.3.3"
       - run: bun install
+
+      - name: Determine build version bump (PR label)
+        id: intent
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const allowed = new Set([
+              "type:patch",
+              "type:minor",
+              "type:major",
+              "type:docs",
+              "type:skip",
+            ]);
+            const bumpMap = {
+              "type:patch": "patch",
+              "type:minor": "minor",
+              "type:major": "major",
+              // No-release PRs should not advance the displayed version.
+              "type:docs": "none",
+              "type:skip": "none",
+            };
+
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
+            const sha = context.sha;
+
+            const prsResp = await github.request(
+              "GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls",
+              {
+                owner,
+                repo,
+                commit_sha: sha,
+                mediaType: { previews: ["groot"] },
+              },
+            );
+            const prs = prsResp.data || [];
+            if (prs.length !== 1) {
+              core.info(
+                `Expected exactly one PR for ${sha}, got ${prs.length}. Defaulting bump=patch.`,
+              );
+              core.setOutput("bump", "patch");
+              return;
+            }
+
+            const pr = prs[0];
+            const labels = (pr.labels || [])
+              .map((l) => (typeof l === "string" ? l : l.name))
+              .filter(Boolean);
+            const typeLabels = labels.filter((n) => n.startsWith("type:"));
+            const invalid = typeLabels.filter((l) => !allowed.has(l));
+            if (invalid.length > 0) {
+              core.setFailed(
+                `Invalid type:* label(s) on PR #${pr.number}: ${invalid.join(", ")}`,
+              );
+              return;
+            }
+            if (typeLabels.length !== 1) {
+              core.setFailed(
+                `PR #${pr.number} must have exactly one type:* label (${Array.from(allowed).join(", ")}). Found: ${
+                  typeLabels.length
+                } (${typeLabels.join(", ") || "none"})`,
+              );
+              return;
+            }
+
+            const type = typeLabels[0];
+            const bump = bumpMap[type];
+            core.info(`PR #${pr.number}: ${type} -> build bump=${bump}`);
+            core.setOutput("bump", bump);
+
       - name: Compute effective version
         shell: bash
         run: ./.github/scripts/compute-version.sh
+        env:
+          APP_VERSION_BUMP: ${{ steps.intent.outputs.bump }}
       - name: Build for GitHub Pages
         env:
           VITE_APP_VERSION: ${{ env.APP_EFFECTIVE_VERSION }}

@@ -59,6 +59,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
+      pull-requests: read
     outputs:
       app_version: ${{ steps.export_version.outputs.version }}
     steps:
@@ -67,23 +68,110 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Determine release intent (PR label)
+        id: intent
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const allowed = new Set([
+              "type:patch",
+              "type:minor",
+              "type:major",
+              "type:docs",
+              "type:skip",
+            ]);
+            const bumpMap = {
+              "type:patch": "patch",
+              "type:minor": "minor",
+              "type:major": "major",
+              "type:docs": "skip",
+              "type:skip": "skip",
+            };
+
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
+            const sha = context.sha;
+
+            // Find the merged PR associated with this commit.
+            // Safer default: if missing or ambiguous, skip creating a release.
+            const prsResp = await github.request(
+              "GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls",
+              {
+                owner,
+                repo,
+                commit_sha: sha,
+                mediaType: { previews: ["groot"] },
+              },
+            );
+
+            const prs = prsResp.data || [];
+            if (prs.length !== 1) {
+              core.info(
+                `Expected exactly one PR for ${sha}, got ${prs.length}. Skipping release.`,
+              );
+              core.setOutput("release", "false");
+              return;
+            }
+
+            const pr = prs[0];
+            const labels = (pr.labels || [])
+              .map((l) => (typeof l === "string" ? l : l.name))
+              .filter(Boolean);
+            const typeLabels = labels.filter((n) => n.startsWith("type:"));
+            const invalid = typeLabels.filter((l) => !allowed.has(l));
+            if (invalid.length > 0) {
+              core.setFailed(
+                `Invalid type:* label(s) on PR #${pr.number}: ${invalid.join(", ")}`,
+              );
+              return;
+            }
+            if (typeLabels.length !== 1) {
+              core.setFailed(
+                `PR #${pr.number} must have exactly one type:* label (${Array.from(allowed).join(", ")}). Found: ${
+                  typeLabels.length
+                } (${typeLabels.join(", ") || "none"})`,
+              );
+              return;
+            }
+
+            const type = typeLabels[0];
+            const bump = bumpMap[type];
+
+            core.setOutput("pr_number", String(pr.number));
+            core.setOutput("type_label", type);
+
+            if (bump === "skip") {
+              core.info(`PR #${pr.number}: ${type} -> skip release`);
+              core.setOutput("release", "false");
+              return;
+            }
+
+            core.info(`PR #${pr.number}: ${type} -> release bump=${bump}`);
+            core.setOutput("release", "true");
+            core.setOutput("bump", bump);
+
       - name: Compute effective version
+        if: steps.intent.outputs.release == 'true'
         shell: bash
         run: ./.github/scripts/compute-version.sh
+        env:
+          APP_VERSION_BUMP: ${{ steps.intent.outputs.bump }}
 
       - name: Export effective version
         id: export_version
+        if: steps.intent.outputs.release == 'true'
         shell: bash
         run: |
           echo "version=${APP_EFFECTIVE_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Configure Git user
+        if: steps.intent.outputs.release == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Create and push tag (if missing)
         id: tag
+        if: steps.intent.outputs.release == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -99,6 +187,7 @@ jobs:
           fi
 
       - name: Create GitHub Release
+        if: steps.intent.outputs.release == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.APP_EFFECTIVE_VERSION }}

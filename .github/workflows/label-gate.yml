@@ -1,0 +1,52 @@
+name: PR Label Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - labeled
+      - unlabeled
+      - edited
+
+permissions:
+  pull-requests: read
+
+jobs:
+  label-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate release intent label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = (context.payload.pull_request.labels || []).map((l) => l.name);
+            const typeLabels = labels.filter((n) => n.startsWith("type:"));
+            const allowed = new Set([
+              "type:patch",
+              "type:minor",
+              "type:major",
+              "type:docs",
+              "type:skip",
+            ]);
+
+            const invalid = typeLabels.filter((l) => !allowed.has(l));
+            if (invalid.length > 0) {
+              core.setFailed(`Invalid type:* label(s): ${invalid.join(", ")}`);
+              return;
+            }
+
+            if (typeLabels.length !== 1) {
+              core.setFailed(
+                `Require exactly one type:* label (${Array.from(allowed).join(", ")}). Found: ${
+                  typeLabels.length
+                } (${typeLabels.join(", ") || "none"})`,
+              );
+              return;
+            }
+
+            core.info(`OK. release intent label: ${typeLabels[0]}`);
+
