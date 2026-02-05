@@ -73,19 +73,24 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const allowed = new Set([
+            const allowedType = new Set([
               "type:patch",
               "type:minor",
               "type:major",
               "type:docs",
               "type:skip",
             ]);
+            const allowedChannel = new Set(["channel:stable", "channel:rc"]);
             const bumpMap = {
               "type:patch": "patch",
               "type:minor": "minor",
               "type:major": "major",
               "type:docs": "skip",
               "type:skip": "skip",
+            };
+            const channelMap = {
+              "channel:stable": "stable",
+              "channel:rc": "rc",
             };
 
             const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
@@ -117,37 +122,66 @@ jobs:
               .map((l) => (typeof l === "string" ? l : l.name))
               .filter(Boolean);
             const typeLabels = labels.filter((n) => n.startsWith("type:"));
-            const invalid = typeLabels.filter((l) => !allowed.has(l));
-            if (invalid.length > 0) {
+            const channelLabels = labels.filter((n) => n.startsWith("channel:"));
+
+            const invalidType = typeLabels.filter((l) => !allowedType.has(l));
+            if (invalidType.length > 0) {
               core.setFailed(
-                `Invalid type:* label(s) on PR #${pr.number}: ${invalid.join(", ")}`,
+                `Invalid type:* label(s) on PR #${pr.number}: ${invalidType.join(", ")}`,
               );
               return;
             }
             if (typeLabels.length !== 1) {
               core.setFailed(
-                `PR #${pr.number} must have exactly one type:* label (${Array.from(allowed).join(", ")}). Found: ${
+                `PR #${pr.number} must have exactly one type:* label (${Array.from(allowedType).join(", ")}). Found: ${
                   typeLabels.length
                 } (${typeLabels.join(", ") || "none"})`,
               );
               return;
             }
 
+            const invalidChannel = channelLabels.filter(
+              (l) => !allowedChannel.has(l),
+            );
+            if (invalidChannel.length > 0) {
+              core.setFailed(
+                `Invalid channel:* label(s) on PR #${pr.number}: ${invalidChannel.join(", ")}`,
+              );
+              return;
+            }
+            if (channelLabels.length !== 1) {
+              core.setFailed(
+                `PR #${pr.number} must have exactly one channel:* label (${Array.from(allowedChannel).join(", ")}). Found: ${
+                  channelLabels.length
+                } (${channelLabels.join(", ") || "none"})`,
+              );
+              return;
+            }
+
             const type = typeLabels[0];
             const bump = bumpMap[type];
+            const channelLabel = channelLabels[0];
+            const channel = channelMap[channelLabel];
 
             core.setOutput("pr_number", String(pr.number));
             core.setOutput("type_label", type);
+            core.setOutput("channel_label", channelLabel);
+            core.setOutput("channel", channel);
 
             if (bump === "skip") {
-              core.info(`PR #${pr.number}: ${type} -> skip release`);
+              core.info(
+                `PR #${pr.number}: ${type} + ${channelLabel} -> skip release`,
+              );
               core.setOutput("release", "false");
               return;
             }
 
-            core.info(`PR #${pr.number}: ${type} -> release bump=${bump}`);
+            core.info(
+              `PR #${pr.number}: ${type} + ${channelLabel} -> release bump=${bump}`,
+            );
             core.setOutput("release", "true");
             core.setOutput("bump", bump);
+            core.setOutput("prerelease", channel === "rc" ? "true" : "false");
 
       - name: Compute effective version
         if: steps.intent.outputs.release == 'true'
@@ -155,6 +189,7 @@ jobs:
         run: ./.github/scripts/compute-version.sh
         env:
           APP_VERSION_BUMP: ${{ steps.intent.outputs.bump }}
+          APP_RELEASE_CHANNEL: ${{ steps.intent.outputs.channel }}
 
       - name: Export effective version
         id: export_version
@@ -193,5 +228,6 @@ jobs:
           tag_name: v${{ env.APP_EFFECTIVE_VERSION }}
           name: v${{ env.APP_EFFECTIVE_VERSION }}
           generate_release_notes: true
+          prerelease: ${{ steps.intent.outputs.prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

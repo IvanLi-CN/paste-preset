@@ -58,15 +58,22 @@ The dev server runs at `http://localhost:25119/` by default.
 
 ## Release
 
-This repo uses a PR-label-driven release flow. Every PR targeting `main` must carry exactly one of:
+This repo uses a PR-label-driven release flow. Every PR targeting `main` must carry:
 
-- `type:patch` – Create a release and bump patch.
-- `type:minor` – Create a release and bump minor.
-- `type:major` – Create a release and bump major.
-- `type:docs` – No release.
-- `type:skip` – No release.
+- Exactly one `type:*` label:
+  - `type:patch` – Release and bump patch.
+  - `type:minor` – Release and bump minor.
+  - `type:major` – Release and bump major.
+  - `type:docs` – No release.
+  - `type:skip` – No release.
+- Exactly one `channel:*` label:
+  - `channel:stable` – Stable release.
+  - `channel:rc` – Prerelease (RC).
 
-On a successful merge to `main`, CI will create a semver tag (`vMAJOR.MINOR.PATCH`) and a GitHub Release when the PR intent label is `type:patch|minor|major`.
+On a successful merge to `main`, CI will create a tag + GitHub Release when `type:patch|minor|major` is set:
+
+- Stable: `vX.Y.Z`
+- RC: `vX.Y.Z-rc.<sha7>` (marked as a GitHub prerelease)
 
 ## Deployment
 

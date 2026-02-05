@@ -3,9 +3,12 @@ set -euo pipefail
 
 # Compute the version used for CI builds and releases.
 #
-# - Uses the highest semver tag (`vMAJOR.MINOR.PATCH`) and `package.json` version as lower bounds.
+# - Computes the next semver from the highest stable semver tag (`vMAJOR.MINOR.PATCH`).
 # - Supports semver bumps via `APP_VERSION_BUMP` (patch|minor|major|none).
-# - Is idempotent for already-tagged commits: if `HEAD` already has a semver tag, reuse it.
+# - Supports release channels via `APP_RELEASE_CHANNEL` (stable|rc):
+#   - stable: `X.Y.Z`
+#   - rc: `X.Y.Z-rc.<sha7>`
+# - Is idempotent for already-tagged commits: if `HEAD` already has a stable/rc tag, reuse it.
 #
 # Result is exported as APP_EFFECTIVE_VERSION (via $GITHUB_ENV when available).
 
@@ -14,24 +17,49 @@ root_dir="$(git rev-parse --show-toplevel)"
 # Ensure tags are available (defensive when checkout uses shallow clone)
 git fetch --tags --force >/dev/null 2>&1 || true
 
-# If this commit is already tagged, reuse the tag (rerun-safe).
 target_ref="${GITHUB_SHA:-HEAD}"
 target_sha="$(git rev-parse "${target_ref}")"
-existing_tag="$(
+sha7="${target_sha:0:7}"
+
+tag_exists() {
+  local tag="$1"
+  git rev-parse -q --verify "refs/tags/${tag}" >/dev/null 2>&1
+}
+
+# If this commit is already tagged, reuse the tag (rerun-safe).
+existing_stable_tag="$(
   git tag --points-at "${target_sha}" \
     | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
     | sort -V \
     | tail -n 1 \
     || true
 )"
-if [[ -n "${existing_tag:-}" ]]; then
-  effective="${existing_tag#v}"
+if [[ -n "${existing_stable_tag:-}" ]]; then
+  effective="${existing_stable_tag#v}"
   if [[ -n "${GITHUB_ENV:-}" ]]; then
     echo "APP_EFFECTIVE_VERSION=${effective}" >> "${GITHUB_ENV}"
   else
     export APP_EFFECTIVE_VERSION="${effective}"
   fi
-  echo "Computed APP_EFFECTIVE_VERSION=${effective} (already tagged: ${existing_tag})"
+  echo "Computed APP_EFFECTIVE_VERSION=${effective} (already tagged: ${existing_stable_tag})"
+  exit 0
+fi
+
+existing_rc_tag="$(
+  git tag --points-at "${target_sha}" \
+    | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9a-f]{7}$' \
+    | sort -V \
+    | tail -n 1 \
+    || true
+)"
+if [[ -n "${existing_rc_tag:-}" ]]; then
+  effective="${existing_rc_tag#v}"
+  if [[ -n "${GITHUB_ENV:-}" ]]; then
+    echo "APP_EFFECTIVE_VERSION=${effective}" >> "${GITHUB_ENV}"
+  else
+    export APP_EFFECTIVE_VERSION="${effective}"
+  fi
+  echo "Computed APP_EFFECTIVE_VERSION=${effective} (already tagged: ${existing_rc_tag})"
   exit 0
 fi
 
@@ -61,41 +89,32 @@ base_major="${BASH_REMATCH[1]}"
 base_minor="${BASH_REMATCH[2]}"
 base_patch="${BASH_REMATCH[3]}"
 
-latest_tag="$(
-  git tag -l 'v*' \
+# Base version comes from the latest stable semver tag. If none exists, fall back to package.json.
+latest_stable_tag="$(
+  git tag -l \
     | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
     | sort -V \
     | tail -n 1 \
     || true
 )"
-tag_major=0
-tag_minor=0
-tag_patch=0
-if [[ -n "${latest_tag:-}" && "$latest_tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-  tag_major="${BASH_REMATCH[1]}"
-  tag_minor="${BASH_REMATCH[2]}"
-  tag_patch="${BASH_REMATCH[3]}"
-fi
-
-# Base version is the higher of (package.json version, latest semver tag).
-base_major_cmp="${base_major}"
-base_minor_cmp="${base_minor}"
-base_patch_cmp="${base_patch}"
-if [[ "${tag_major}" -gt "${base_major_cmp}" ]] \
-  || [[ "${tag_major}" -eq "${base_major_cmp}" && "${tag_minor}" -gt "${base_minor_cmp}" ]] \
-  || [[ "${tag_major}" -eq "${base_major_cmp}" && "${tag_minor}" -eq "${base_minor_cmp}" && "${tag_patch}" -gt "${base_patch_cmp}" ]]; then
-  base_major_cmp="${tag_major}"
-  base_minor_cmp="${tag_minor}"
-  base_patch_cmp="${tag_patch}"
+base_source="pkg ${pkg_ver}"
+if [[ -n "${latest_stable_tag:-}" && "$latest_stable_tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+  base_major="${BASH_REMATCH[1]}"
+  base_minor="${BASH_REMATCH[2]}"
+  base_patch="${BASH_REMATCH[3]}"
+  base_source="tag ${latest_stable_tag}"
 fi
 
 bump="${APP_VERSION_BUMP:-patch}"
-target_major="${base_major_cmp}"
-target_minor="${base_minor_cmp}"
-target_patch="${base_patch_cmp}"
+channel="${APP_RELEASE_CHANNEL:-stable}"
+
+target_major="${base_major}"
+target_minor="${base_minor}"
+target_patch="${base_patch}"
 ensure_unique_tag=true
 case "${bump}" in
   patch)
+    target_patch="$((target_patch + 1))"
     ;;
   minor)
     target_minor="$((target_minor + 1))"
@@ -115,18 +134,30 @@ case "${bump}" in
     ;;
 esac
 
-candidate="${target_patch}"
+core="${target_major}.${target_minor}.${target_patch}"
 if [[ "${ensure_unique_tag}" == "true" ]]; then
-  while git rev-parse -q --verify "refs/tags/v${target_major}.${target_minor}.${candidate}" >/dev/null; do
-    candidate="$((candidate + 1))"
+  while tag_exists "v${core}" || tag_exists "${core}"; do
+    target_patch="$((target_patch + 1))"
+    core="${target_major}.${target_minor}.${target_patch}"
   done
 fi
 
-effective="${target_major}.${target_minor}.${candidate}"
+case "${channel}" in
+  stable)
+    effective="${core}"
+    ;;
+  rc)
+    effective="${core}-rc.${sha7}"
+    ;;
+  *)
+    echo "Unsupported APP_RELEASE_CHANNEL='${channel}' (expected stable|rc)" >&2
+    exit 1
+    ;;
+esac
 
 if [[ -n "${GITHUB_ENV:-}" ]]; then
   echo "APP_EFFECTIVE_VERSION=${effective}" >> "${GITHUB_ENV}"
 else
   export APP_EFFECTIVE_VERSION="${effective}"
 fi
-echo "Computed APP_EFFECTIVE_VERSION=${effective} (pkg ${pkg_ver}, latest ${latest_tag:-none}, bump ${bump})"
+echo "Computed APP_EFFECTIVE_VERSION=${effective} (base ${base_source}, bump ${bump}, channel ${channel})"

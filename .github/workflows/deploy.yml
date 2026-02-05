@@ -26,13 +26,14 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const allowed = new Set([
+            const allowedType = new Set([
               "type:patch",
               "type:minor",
               "type:major",
               "type:docs",
               "type:skip",
             ]);
+            const allowedChannel = new Set(["channel:stable", "channel:rc"]);
             const bumpMap = {
               "type:patch": "patch",
               "type:minor": "minor",
@@ -40,6 +41,10 @@ jobs:
               // No-release PRs should not advance the displayed version.
               "type:docs": "none",
               "type:skip": "none",
+            };
+            const channelMap = {
+              "channel:stable": "stable",
+              "channel:rc": "rc",
             };
 
             const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
@@ -57,9 +62,10 @@ jobs:
             const prs = prsResp.data || [];
             if (prs.length !== 1) {
               core.info(
-                `Expected exactly one PR for ${sha}, got ${prs.length}. Defaulting bump=patch.`,
+                `Expected exactly one PR for ${sha}, got ${prs.length}. Defaulting bump=patch, channel=stable.`,
               );
               core.setOutput("bump", "patch");
+              core.setOutput("channel", "stable");
               return;
             }
 
@@ -68,32 +74,58 @@ jobs:
               .map((l) => (typeof l === "string" ? l : l.name))
               .filter(Boolean);
             const typeLabels = labels.filter((n) => n.startsWith("type:"));
-            const invalid = typeLabels.filter((l) => !allowed.has(l));
-            if (invalid.length > 0) {
+            const channelLabels = labels.filter((n) => n.startsWith("channel:"));
+
+            const invalidType = typeLabels.filter((l) => !allowedType.has(l));
+            if (invalidType.length > 0) {
               core.setFailed(
-                `Invalid type:* label(s) on PR #${pr.number}: ${invalid.join(", ")}`,
+                `Invalid type:* label(s) on PR #${pr.number}: ${invalidType.join(", ")}`,
               );
               return;
             }
             if (typeLabels.length !== 1) {
               core.setFailed(
-                `PR #${pr.number} must have exactly one type:* label (${Array.from(allowed).join(", ")}). Found: ${
+                `PR #${pr.number} must have exactly one type:* label (${Array.from(allowedType).join(", ")}). Found: ${
                   typeLabels.length
                 } (${typeLabels.join(", ") || "none"})`,
               );
               return;
             }
 
+            const invalidChannel = channelLabels.filter(
+              (l) => !allowedChannel.has(l),
+            );
+            if (invalidChannel.length > 0) {
+              core.setFailed(
+                `Invalid channel:* label(s) on PR #${pr.number}: ${invalidChannel.join(", ")}`,
+              );
+              return;
+            }
+            if (channelLabels.length !== 1) {
+              core.setFailed(
+                `PR #${pr.number} must have exactly one channel:* label (${Array.from(allowedChannel).join(", ")}). Found: ${
+                  channelLabels.length
+                } (${channelLabels.join(", ") || "none"})`,
+              );
+              return;
+            }
+
             const type = typeLabels[0];
             const bump = bumpMap[type];
-            core.info(`PR #${pr.number}: ${type} -> build bump=${bump}`);
+            const channelLabel = channelLabels[0];
+            const channel = channelMap[channelLabel];
+            core.info(
+              `PR #${pr.number}: ${type} + ${channelLabel} -> build bump=${bump}`,
+            );
             core.setOutput("bump", bump);
+            core.setOutput("channel", channel);
 
       - name: Compute effective version
         shell: bash
         run: ./.github/scripts/compute-version.sh
         env:
           APP_VERSION_BUMP: ${{ steps.intent.outputs.bump }}
+          APP_RELEASE_CHANNEL: ${{ steps.intent.outputs.channel }}
       - name: Build for GitHub Pages
         env:
           VITE_APP_VERSION: ${{ env.APP_EFFECTIVE_VERSION }}
