@@ -27,39 +27,41 @@ tag_exists() {
 }
 
 # If this commit is already tagged, reuse the tag (rerun-safe).
-existing_stable_tag="$(
+existing_stable_core="$(
   git tag --points-at "${target_sha}" \
-    | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+    | grep -E '^(v)?[0-9]+\.[0-9]+\.[0-9]+$' \
+    | sed -E 's/^v//' \
     | sort -V \
     | tail -n 1 \
     || true
 )"
-if [[ -n "${existing_stable_tag:-}" ]]; then
-  effective="${existing_stable_tag#v}"
+if [[ -n "${existing_stable_core:-}" ]]; then
+  effective="${existing_stable_core}"
   if [[ -n "${GITHUB_ENV:-}" ]]; then
     echo "APP_EFFECTIVE_VERSION=${effective}" >> "${GITHUB_ENV}"
   else
     export APP_EFFECTIVE_VERSION="${effective}"
   fi
-  echo "Computed APP_EFFECTIVE_VERSION=${effective} (already tagged: ${existing_stable_tag})"
+  echo "Computed APP_EFFECTIVE_VERSION=${effective} (already tagged: v${existing_stable_core})"
   exit 0
 fi
 
-existing_rc_tag="$(
+existing_rc_core="$(
   git tag --points-at "${target_sha}" \
-    | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9a-f]{7}$' \
+    | grep -E '^(v)?[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9a-f]{7}$' \
+    | sed -E 's/^v//' \
     | sort -V \
     | tail -n 1 \
     || true
 )"
-if [[ -n "${existing_rc_tag:-}" ]]; then
-  effective="${existing_rc_tag#v}"
+if [[ -n "${existing_rc_core:-}" ]]; then
+  effective="${existing_rc_core}"
   if [[ -n "${GITHUB_ENV:-}" ]]; then
     echo "APP_EFFECTIVE_VERSION=${effective}" >> "${GITHUB_ENV}"
   else
     export APP_EFFECTIVE_VERSION="${effective}"
   fi
-  echo "Computed APP_EFFECTIVE_VERSION=${effective} (already tagged: ${existing_rc_tag})"
+  echo "Computed APP_EFFECTIVE_VERSION=${effective} (already tagged: v${existing_rc_core})"
   exit 0
 fi
 
@@ -90,19 +92,20 @@ base_minor="${BASH_REMATCH[2]}"
 base_patch="${BASH_REMATCH[3]}"
 
 # Base version comes from the latest stable semver tag. If none exists, fall back to package.json.
-latest_stable_tag="$(
+latest_stable_core="$(
   git tag -l \
-    | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+    | grep -E '^(v)?[0-9]+\.[0-9]+\.[0-9]+$' \
+    | sed -E 's/^v//' \
     | sort -V \
     | tail -n 1 \
     || true
 )"
 base_source="pkg ${pkg_ver}"
-if [[ -n "${latest_stable_tag:-}" && "$latest_stable_tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+if [[ -n "${latest_stable_core:-}" && "$latest_stable_core" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
   base_major="${BASH_REMATCH[1]}"
   base_minor="${BASH_REMATCH[2]}"
   base_patch="${BASH_REMATCH[3]}"
-  base_source="tag ${latest_stable_tag}"
+  base_source="tag v${latest_stable_core}"
 fi
 
 bump="${APP_VERSION_BUMP:-patch}"

@@ -73,7 +73,7 @@ This repo uses a PR-label-driven release flow. Every PR targeting `main` must ca
 On a successful merge to `main`, CI will create a tag + GitHub Release when `type:patch|minor|major` is set:
 
 - Stable: `vX.Y.Z`
-- RC: `vX.Y.Z-rc.<sha7>` (marked as a GitHub prerelease)
+- RC: `vX.Y.Z-rc.{sha7}` (marked as a GitHub prerelease)
 
 ## Deployment
 
