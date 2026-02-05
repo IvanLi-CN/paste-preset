@@ -1,0 +1,69 @@
+name: PR Label Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - labeled
+      - unlabeled
+      - edited
+
+permissions:
+  pull-requests: read
+
+jobs:
+  label-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate release labels (type + channel)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = (context.payload.pull_request.labels || []).map((l) => l.name);
+            const typeLabels = labels.filter((n) => n.startsWith("type:"));
+            const channelLabels = labels.filter((n) => n.startsWith("channel:"));
+
+            const allowedType = new Set([
+              "type:patch",
+              "type:minor",
+              "type:major",
+              "type:docs",
+              "type:skip",
+            ]);
+            const allowedChannel = new Set(["channel:stable", "channel:rc"]);
+
+            const invalidType = typeLabels.filter((l) => !allowedType.has(l));
+            if (invalidType.length > 0) {
+              core.setFailed(`Invalid type:* label(s): ${invalidType.join(", ")}`);
+              return;
+            }
+
+            const invalidChannel = channelLabels.filter((l) => !allowedChannel.has(l));
+            if (invalidChannel.length > 0) {
+              core.setFailed(`Invalid channel:* label(s): ${invalidChannel.join(", ")}`);
+              return;
+            }
+
+            if (typeLabels.length !== 1) {
+              core.setFailed(
+                `Require exactly one type:* label (${Array.from(allowedType).join(", ")}). Found: ${
+                  typeLabels.length
+                } (${typeLabels.join(", ") || "none"})`,
+              );
+              return;
+            }
+
+            if (channelLabels.length !== 1) {
+              core.setFailed(
+                `Require exactly one channel:* label (${Array.from(allowedChannel).join(", ")}). Found: ${
+                  channelLabels.length
+                } (${channelLabels.join(", ") || "none"})`,
+              );
+              return;
+            }
+
+            core.info(`OK. type: ${typeLabels[0]}, channel: ${channelLabels[0]}`);

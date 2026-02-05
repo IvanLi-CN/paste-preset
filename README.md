@@ -56,6 +56,25 @@ The dev server runs at `http://localhost:25119/` by default.
 - `bun run format` – Run `biome format --write .` to format code in place.
 - `bun run check` – Run `biome check .` for combined formatting, import sorting, and lint checks.
 
+## Release
+
+This repo uses a PR-label-driven release flow. Every PR targeting `main` must carry:
+
+- Exactly one `type:*` label:
+  - `type:patch` – Release and bump patch.
+  - `type:minor` – Release and bump minor.
+  - `type:major` – Release and bump major.
+  - `type:docs` – No release.
+  - `type:skip` – No release.
+- Exactly one `channel:*` label:
+  - `channel:stable` – Stable release.
+  - `channel:rc` – Prerelease (RC).
+
+On a successful merge to `main`, CI will create a tag + GitHub Release when `type:patch|minor|major` is set:
+
+- Stable: `vX.Y.Z`
+- RC: `vX.Y.Z-rc.{sha7}` (marked as a GitHub prerelease)
+
 ## Deployment
 
 See `docs/deploy-github-pages.md` for instructions on deploying to GitHub Pages.

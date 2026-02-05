@@ -59,6 +59,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
+      pull-requests: read
     outputs:
       app_version: ${{ steps.export_version.outputs.version }}
     steps:
@@ -67,23 +68,145 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Determine release intent (PR label)
+        id: intent
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const allowedType = new Set([
+              "type:patch",
+              "type:minor",
+              "type:major",
+              "type:docs",
+              "type:skip",
+            ]);
+            const allowedChannel = new Set(["channel:stable", "channel:rc"]);
+            const bumpMap = {
+              "type:patch": "patch",
+              "type:minor": "minor",
+              "type:major": "major",
+              "type:docs": "skip",
+              "type:skip": "skip",
+            };
+            const channelMap = {
+              "channel:stable": "stable",
+              "channel:rc": "rc",
+            };
+
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
+            const sha = context.sha;
+
+            // Find the merged PR associated with this commit.
+            // Safer default: if missing or ambiguous, skip creating a release.
+            const prsResp = await github.request(
+              "GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls",
+              {
+                owner,
+                repo,
+                commit_sha: sha,
+                mediaType: { previews: ["groot"] },
+              },
+            );
+
+            const prs = prsResp.data || [];
+            if (prs.length !== 1) {
+              core.info(
+                `Expected exactly one PR for ${sha}, got ${prs.length}. Skipping release.`,
+              );
+              core.setOutput("release", "false");
+              return;
+            }
+
+            const pr = prs[0];
+            const labels = (pr.labels || [])
+              .map((l) => (typeof l === "string" ? l : l.name))
+              .filter(Boolean);
+            const typeLabels = labels.filter((n) => n.startsWith("type:"));
+            const channelLabels = labels.filter((n) => n.startsWith("channel:"));
+
+            const invalidType = typeLabels.filter((l) => !allowedType.has(l));
+            if (invalidType.length > 0) {
+              core.setFailed(
+                `Invalid type:* label(s) on PR #${pr.number}: ${invalidType.join(", ")}`,
+              );
+              return;
+            }
+            if (typeLabels.length !== 1) {
+              core.setFailed(
+                `PR #${pr.number} must have exactly one type:* label (${Array.from(allowedType).join(", ")}). Found: ${
+                  typeLabels.length
+                } (${typeLabels.join(", ") || "none"})`,
+              );
+              return;
+            }
+
+            const invalidChannel = channelLabels.filter(
+              (l) => !allowedChannel.has(l),
+            );
+            if (invalidChannel.length > 0) {
+              core.setFailed(
+                `Invalid channel:* label(s) on PR #${pr.number}: ${invalidChannel.join(", ")}`,
+              );
+              return;
+            }
+            if (channelLabels.length !== 1) {
+              core.setFailed(
+                `PR #${pr.number} must have exactly one channel:* label (${Array.from(allowedChannel).join(", ")}). Found: ${
+                  channelLabels.length
+                } (${channelLabels.join(", ") || "none"})`,
+              );
+              return;
+            }
+
+            const type = typeLabels[0];
+            const bump = bumpMap[type];
+            const channelLabel = channelLabels[0];
+            const channel = channelMap[channelLabel];
+
+            core.setOutput("pr_number", String(pr.number));
+            core.setOutput("type_label", type);
+            core.setOutput("channel_label", channelLabel);
+            core.setOutput("channel", channel);
+
+            if (bump === "skip") {
+              core.info(
+                `PR #${pr.number}: ${type} + ${channelLabel} -> skip release`,
+              );
+              core.setOutput("release", "false");
+              return;
+            }
+
+            core.info(
+              `PR #${pr.number}: ${type} + ${channelLabel} -> release bump=${bump}`,
+            );
+            core.setOutput("release", "true");
+            core.setOutput("bump", bump);
+            core.setOutput("prerelease", channel === "rc" ? "true" : "false");
+
       - name: Compute effective version
+        if: steps.intent.outputs.release == 'true'
         shell: bash
         run: ./.github/scripts/compute-version.sh
+        env:
+          APP_VERSION_BUMP: ${{ steps.intent.outputs.bump }}
+          APP_RELEASE_CHANNEL: ${{ steps.intent.outputs.channel }}
 
       - name: Export effective version
         id: export_version
+        if: steps.intent.outputs.release == 'true'
         shell: bash
         run: |
           echo "version=${APP_EFFECTIVE_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Configure Git user
+        if: steps.intent.outputs.release == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Create and push tag (if missing)
         id: tag
+        if: steps.intent.outputs.release == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -99,10 +222,12 @@ jobs:
           fi
 
       - name: Create GitHub Release
+        if: steps.intent.outputs.release == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.APP_EFFECTIVE_VERSION }}
           name: v${{ env.APP_EFFECTIVE_VERSION }}
           generate_release_notes: true
+          prerelease: ${{ steps.intent.outputs.prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
