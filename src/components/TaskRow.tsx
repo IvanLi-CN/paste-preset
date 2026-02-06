@@ -8,16 +8,18 @@ import { TaskDetails } from "./TaskDetails.tsx";
 interface TaskRowProps {
   task: ImageTask;
   isExpanded: boolean;
+  isSelected: boolean;
   onToggleExpand: (event: React.MouseEvent) => void;
   onCopyResult: (taskId: string, blob: Blob, mimeType: string) => void;
 }
 
 export function TaskRow(props: TaskRowProps) {
-  const { task, isExpanded, onToggleExpand, onCopyResult } = props;
+  const { task, isExpanded, isSelected, onToggleExpand, onCopyResult } = props;
   const { t } = useTranslation();
 
   const result = task.result;
   const [isCopying, setIsCopying] = useState(false);
+  const [previewRotationDeg, setPreviewRotationDeg] = useState(0);
 
   const hasCurrentResult =
     Boolean(result) &&
@@ -92,6 +94,10 @@ export function TaskRow(props: TaskRowProps) {
     e.stopPropagation();
   };
 
+  const handleRotatePreview = () => {
+    setPreviewRotationDeg((current) => (current + 90) % 360);
+  };
+
   const getStatusBadge = () => {
     if (isResultStale) {
       switch (task.status) {
@@ -151,7 +157,16 @@ export function TaskRow(props: TaskRowProps) {
   return (
     <div
       data-testid="task-row"
-      className={`collapse bg-base-100 border border-base-300 ${isExpanded ? "collapse-open" : "collapse-close"}`}
+      data-selected={isSelected ? "true" : "false"}
+      className={[
+        "collapse bg-base-100 border border-base-300",
+        isExpanded ? "collapse-open" : "collapse-close",
+        isSelected
+          ? "ring-2 ring-primary/40 ring-offset-2 ring-offset-base-200"
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
       {/* biome-ignore lint/a11y/useSemanticElements: DaisyUI structure requires div or specifically styled element */}
       <div
@@ -328,6 +343,8 @@ export function TaskRow(props: TaskRowProps) {
             result={task.result ?? null}
             originalFileName={task.fileName}
             onCopyResult={() => copyResult()}
+            onRotatePreview={handleRotatePreview}
+            previewRotationDeg={previewRotationDeg}
             canExportResult={canExport}
             exportDisabledReason={canExport ? null : exportDisabledReason}
             isCopyingResult={isCopying}

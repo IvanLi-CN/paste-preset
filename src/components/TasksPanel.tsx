@@ -86,14 +86,15 @@ export function TasksPanel(props: TasksPanelProps) {
     const isExpanded = expandedIds.has(task.id);
 
     const nextExpanded = new Set(expandedIds);
-    let nextActive = activeTaskId;
+    // Single "selected" task concept: always track the last interacted task,
+    // even when its details are collapsed (useful for shortcut copy, settings, etc).
+    const nextActive = task.id;
 
     if (isMultiSelect) {
       if (isExpanded) {
         nextExpanded.delete(task.id);
       } else {
         nextExpanded.add(task.id);
-        nextActive = task.id;
       }
     } else {
       if (isExpanded) {
@@ -101,23 +102,7 @@ export function TasksPanel(props: TasksPanelProps) {
       } else {
         nextExpanded.clear();
         nextExpanded.add(task.id);
-        nextActive = task.id;
       }
-    }
-
-    if (isExpanded && task.id === activeTaskId) {
-      // If the active task is collapsed, pick the first remaining expanded task in list order.
-      nextActive = null;
-      for (const item of tasks) {
-        if (nextExpanded.has(item.id)) {
-          nextActive = item.id;
-          break;
-        }
-      }
-    }
-
-    if (nextExpanded.size === 0) {
-      nextActive = null;
     }
 
     setExpandedIds(nextExpanded);
@@ -168,6 +153,7 @@ export function TasksPanel(props: TasksPanelProps) {
                   key={task.id}
                   task={task}
                   isExpanded={expandedIds.has(task.id)}
+                  isSelected={activeTaskId === task.id}
                   onToggleExpand={(e) => handleToggleExpand(task, e)}
                   onCopyResult={onCopyResult}
                 />

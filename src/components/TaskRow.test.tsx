@@ -36,10 +36,12 @@ const mockImageInfo = (overrides: Partial<ImageInfo> = {}): ImageInfo => ({
 function renderTaskRow({
   task,
   isExpanded = false,
+  isSelected = false,
   onCopyResult = vi.fn(),
 }: {
   task: ImageTask;
   isExpanded?: boolean;
+  isSelected?: boolean;
   onCopyResult?: (taskId: string, blob: Blob, mimeType: string) => unknown;
 }) {
   const container = document.createElement("div");
@@ -52,6 +54,7 @@ function renderTaskRow({
         <TaskRow
           task={task}
           isExpanded={isExpanded}
+          isSelected={isSelected}
           onToggleExpand={() => {}}
           onCopyResult={
             onCopyResult as (id: string, blob: Blob, mime: string) => void
@@ -169,6 +172,43 @@ describe("TaskRow export gating + stale overlay", () => {
     });
 
     expect(copyBtn?.querySelector(".loading")).toBeNull();
+
+    cleanup();
+  });
+
+  it("rotates both source/result previews by 90 degrees", () => {
+    const task = mockTask({
+      status: "done",
+      desiredGeneration: 0,
+      resultGeneration: 0,
+      source: mockImageInfo({ url: "blob:source", width: 800, height: 600 }),
+      result: mockImageInfo({ url: "blob:result", width: 800, height: 600 }),
+    });
+
+    const { container, cleanup } = renderTaskRow({ task, isExpanded: true });
+
+    const rotateButton = container.querySelector<HTMLButtonElement>(
+      '[data-testid="task-rotate"]',
+    );
+    expect(rotateButton).toBeTruthy();
+
+    const previewImages = Array.from(
+      container.querySelectorAll<HTMLImageElement>(".card img"),
+    );
+    expect(previewImages).toHaveLength(2);
+    expect(previewImages[0]?.style.transform).toContain("rotate(0deg)");
+    expect(previewImages[1]?.style.transform).toContain("rotate(0deg)");
+
+    act(() => {
+      rotateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const after = Array.from(
+      container.querySelectorAll<HTMLImageElement>(".card img"),
+    );
+    expect(after).toHaveLength(2);
+    expect(after[0]?.style.transform).toContain("rotate(90deg)");
+    expect(after[1]?.style.transform).toContain("rotate(90deg)");
 
     cleanup();
   });
