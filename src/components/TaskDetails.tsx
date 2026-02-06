@@ -12,6 +12,7 @@ interface TaskDetailsProps {
   result: ImageInfo | null;
   originalFileName?: string;
   onCopyResult: (blob: Blob, mimeType: string) => void;
+  previewRotationDeg?: number;
   canExportResult?: boolean;
   exportDisabledReason?: string | null;
   isCopyingResult?: boolean;
@@ -24,6 +25,7 @@ export function TaskDetails(props: TaskDetailsProps) {
     result,
     originalFileName,
     onCopyResult,
+    previewRotationDeg,
     canExportResult,
     exportDisabledReason,
     isCopyingResult,
@@ -33,17 +35,25 @@ export function TaskDetails(props: TaskDetailsProps) {
 
   if (!source && !result) return null;
 
+  const rotationDeg = previewRotationDeg ?? 0;
   const canExport = canExportResult ?? Boolean(result);
   const isCopying = isCopyingResult ?? false;
 
   return (
     <div className="grid gap-4 md:grid-cols-2 mt-4 p-4 bg-base-200/50 rounded-lg animate-fade-in-up">
-      {source && <ImageCard title={t("preview.source.title")} image={source} />}
+      {source && (
+        <ImageCard
+          title={t("preview.source.title")}
+          image={source}
+          rotationDeg={rotationDeg}
+        />
+      )}
       {result && (
         <div className="flex flex-col gap-3">
           <ImageCard
             title={t("preview.result.title")}
             image={result}
+            rotationDeg={rotationDeg}
             highlighted
             overlay={resultOverlay ?? undefined}
           />

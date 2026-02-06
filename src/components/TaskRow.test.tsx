@@ -132,6 +132,53 @@ describe("TaskRow export gating + stale overlay", () => {
     cleanup();
   });
 
+  it("rotates both source and result previews when rotate button is clicked", () => {
+    const task = mockTask({
+      status: "done",
+      desiredGeneration: 1,
+      resultGeneration: 1,
+      source: mockImageInfo({
+        url: "blob:source",
+        sourceName: "source.png",
+        width: 120,
+        height: 80,
+      }),
+      result: mockImageInfo({
+        url: "blob:result",
+        sourceName: "result.png",
+        width: 200,
+        height: 100,
+      }),
+    });
+
+    const { container, cleanup } = renderTaskRow({ task, isExpanded: true });
+
+    const rotateBtn = container.querySelector<HTMLButtonElement>(
+      '[data-testid="task-rotate"]',
+    );
+    expect(rotateBtn).toBeTruthy();
+
+    const sourceImg = container.querySelector<HTMLImageElement>(
+      'img[alt="source.png"]',
+    );
+    const resultImg = container.querySelector<HTMLImageElement>(
+      'img[alt="result.png"]',
+    );
+    expect(sourceImg).toBeTruthy();
+    expect(resultImg).toBeTruthy();
+    expect(sourceImg?.style.transform).toContain("rotate(0deg)");
+    expect(resultImg?.style.transform).toContain("rotate(0deg)");
+
+    act(() => {
+      rotateBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(sourceImg?.style.transform).toContain("rotate(90deg)");
+    expect(resultImg?.style.transform).toContain("rotate(90deg)");
+
+    cleanup();
+  });
+
   it("shows loading state while copy is in-flight", async () => {
     let resolveCopy: (() => void) | null = null;
     const onCopy = vi.fn(

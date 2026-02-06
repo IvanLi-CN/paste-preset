@@ -4,6 +4,7 @@ import { UserPresetsProvider } from "../src/hooks/useUserPresets.tsx";
 import { UserSettingsProvider } from "../src/hooks/useUserSettings.tsx";
 import { I18nProvider } from "../src/i18n";
 import "../src/index.css";
+import "../src/ui/iconify.ts";
 
 if (typeof document !== "undefined") {
   document.documentElement.setAttribute("data-theme", "winter");

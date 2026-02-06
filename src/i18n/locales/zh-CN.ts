@@ -120,6 +120,8 @@ export const zhCN: TranslationMessages = {
   "preview.actions.copyAria": "将结果图片复制到剪贴板",
   "preview.actions.downloadLabel": "下载",
   "preview.actions.downloadAria": "下载结果图片",
+  "preview.actions.rotate90Label": "旋转 90°",
+  "preview.actions.rotate90Aria": "顺时针旋转预览 90°",
 
   "export.gate.noResult": "暂无结果。",
   "export.gate.queued": "正在排队…",

@@ -19,6 +19,7 @@ export function TaskRow(props: TaskRowProps) {
 
   const result = task.result;
   const [isCopying, setIsCopying] = useState(false);
+  const [previewRotationDeg, setPreviewRotationDeg] = useState(0);
 
   const hasCurrentResult =
     Boolean(result) &&
@@ -91,6 +92,11 @@ export function TaskRow(props: TaskRowProps) {
 
   const handleDownloadClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+  };
+
+  const handleRotatePreview = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPreviewRotationDeg((current) => (current + 90) % 360);
   };
 
   const getStatusBadge = () => {
@@ -224,6 +230,22 @@ export function TaskRow(props: TaskRowProps) {
           className="flex items-center gap-1 z-10"
           onClick={(e) => e.stopPropagation()}
         >
+          {isExpanded && (task.source || task.result) && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm btn-square"
+              onClick={handleRotatePreview}
+              aria-label={t("preview.actions.rotate90Aria")}
+              data-testid="task-rotate"
+              title={t("preview.actions.rotate90Label")}
+            >
+              <Icon
+                icon="mdi:rotate-right"
+                data-icon="mdi:rotate-right"
+                className="w-5 h-5"
+              />
+            </button>
+          )}
           {result && (
             <>
               {!canExport ? (
@@ -334,6 +356,7 @@ export function TaskRow(props: TaskRowProps) {
             result={task.result ?? null}
             originalFileName={task.fileName}
             onCopyResult={() => copyResult()}
+            previewRotationDeg={previewRotationDeg}
             canExportResult={canExport}
             exportDisabledReason={canExport ? null : exportDisabledReason}
             isCopyingResult={isCopying}
