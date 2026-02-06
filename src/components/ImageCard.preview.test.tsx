@@ -79,6 +79,20 @@ describe("ImageCard fullscreen preview integration", () => {
 
     expect(document.querySelector("dialog.modal")).not.toBeNull();
 
+    const rotateRightButton = [
+      ...document.querySelectorAll<HTMLButtonElement>("button"),
+    ].find((button) => button.textContent === "Rotate right");
+    if (!rotateRightButton) throw new Error("rotate right button not found");
+
+    act(() => {
+      rotateRightButton.click();
+    });
+
+    const previewImage =
+      document.querySelector<HTMLImageElement>("dialog.modal img");
+    if (!previewImage) throw new Error("preview image not found");
+    expect(previewImage.style.transform).toContain("rotate(90deg)");
+
     act(() => {
       window.dispatchEvent(
         new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),

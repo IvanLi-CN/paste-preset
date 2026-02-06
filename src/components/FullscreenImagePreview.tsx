@@ -24,9 +24,15 @@ type Offset = { x: number; y: number };
 type Point = { x: number; y: number };
 
 const ZOOM_STEP = 1.2;
+const ROTATE_STEP_DEG = 90;
 
 function distance(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function normalizeRotation(deg: number): number {
+  const normalized = deg % 360;
+  return normalized < 0 ? normalized + 360 : normalized;
 }
 
 export function FullscreenImagePreview(props: FullscreenImagePreviewProps) {
@@ -42,12 +48,29 @@ export function FullscreenImagePreview(props: FullscreenImagePreviewProps) {
   const { ref: viewportRef, size: viewportSize } =
     useElementSize<HTMLDivElement>();
 
+  const [rotationDeg, setRotationDeg] = useState(0);
+  const normalizedRotation = useMemo(
+    () => normalizeRotation(rotationDeg),
+    [rotationDeg],
+  );
+  const isQuarterTurn = normalizedRotation === 90 || normalizedRotation === 270;
+
   const fitScale = useMemo(() => {
     return computeFitScale(
       { width: viewportSize.width, height: viewportSize.height },
-      { width: image.width, height: image.height },
+      {
+        // When rotated 90/270 degrees, the bounding box swaps width/height.
+        width: isQuarterTurn ? image.height : image.width,
+        height: isQuarterTurn ? image.width : image.height,
+      },
     );
-  }, [image.height, image.width, viewportSize.height, viewportSize.width]);
+  }, [
+    image.height,
+    image.width,
+    isQuarterTurn,
+    viewportSize.height,
+    viewportSize.width,
+  ]);
 
   const minScale = useMemo(() => computeMinScale(fitScale), [fitScale]);
 
@@ -123,6 +146,7 @@ export function FullscreenImagePreview(props: FullscreenImagePreviewProps) {
     setMode("fit");
     setScale(fitScale);
     setOffset({ x: 0, y: 0 });
+    setRotationDeg(0);
     setRetryCount(0);
     setLoadState("loading");
     pointersRef.current.clear();
@@ -198,6 +222,20 @@ export function FullscreenImagePreview(props: FullscreenImagePreviewProps) {
     setScale(nextScale);
     resetOffset();
   }, [fitScale, mode, resetOffset, scale]);
+
+  const canResetRotation = open && normalizedRotation !== 0;
+
+  const handleRotateLeft = useCallback(() => {
+    setRotationDeg((current) => current - ROTATE_STEP_DEG);
+  }, []);
+
+  const handleRotateRight = useCallback(() => {
+    setRotationDeg((current) => current + ROTATE_STEP_DEG);
+  }, []);
+
+  const handleResetRotation = useCallback(() => {
+    setRotationDeg(0);
+  }, []);
 
   const handleWheel = useCallback(
     (event: React.WheelEvent) => {
@@ -379,6 +417,30 @@ export function FullscreenImagePreview(props: FullscreenImagePreviewProps) {
                 {t("preview.viewer.actualSize")}
               </button>
             </div>
+            <div className="join">
+              <button
+                type="button"
+                className="btn btn-outline btn-xs join-item"
+                onClick={handleRotateLeft}
+              >
+                {t("preview.viewer.rotateLeft")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline btn-xs join-item"
+                onClick={handleRotateRight}
+              >
+                {t("preview.viewer.rotateRight")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline btn-xs join-item"
+                onClick={handleResetRotation}
+                disabled={!canResetRotation}
+              >
+                {t("preview.viewer.rotateReset")}
+              </button>
+            </div>
             <button
               ref={closeButtonRef}
               type="button"
@@ -435,7 +497,7 @@ export function FullscreenImagePreview(props: FullscreenImagePreviewProps) {
               .join(" ")}
             style={{
               transformOrigin: "center center",
-              transform: `translate3d(${offset.x}px, ${offset.y}px, 0) scale(${scale})`,
+              transform: `translate3d(${offset.x}px, ${offset.y}px, 0) rotate(${normalizedRotation}deg) scale(${scale})`,
               transition:
                 mode === "fit" || mode === "oneToOne"
                   ? "transform 120ms ease-out"
@@ -446,7 +508,7 @@ export function FullscreenImagePreview(props: FullscreenImagePreviewProps) {
           />
 
           {loadState !== "loaded" && (
-            <div className="absolute inset-0 flex items-center justify-center bg-base-200/80">
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-base-200/80">
               {loadState === "loading" ? (
                 <div className="flex flex-col items-center gap-3">
                   <span className="loading loading-spinner loading-md" />
@@ -455,7 +517,7 @@ export function FullscreenImagePreview(props: FullscreenImagePreviewProps) {
                   </span>
                 </div>
               ) : (
-                <div className="flex flex-col items-center gap-3">
+                <div className="pointer-events-auto flex flex-col items-center gap-3">
                   <p className="text-sm text-base-content/80">
                     {t("preview.viewer.error")}
                   </p>
