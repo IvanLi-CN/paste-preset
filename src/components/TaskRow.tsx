@@ -8,12 +8,13 @@ import { TaskDetails } from "./TaskDetails.tsx";
 interface TaskRowProps {
   task: ImageTask;
   isExpanded: boolean;
+  isSelected: boolean;
   onToggleExpand: (event: React.MouseEvent) => void;
   onCopyResult: (taskId: string, blob: Blob, mimeType: string) => void;
 }
 
 export function TaskRow(props: TaskRowProps) {
-  const { task, isExpanded, onToggleExpand, onCopyResult } = props;
+  const { task, isExpanded, isSelected, onToggleExpand, onCopyResult } = props;
   const { t } = useTranslation();
 
   const result = task.result;
@@ -151,7 +152,12 @@ export function TaskRow(props: TaskRowProps) {
   return (
     <div
       data-testid="task-row"
-      className={`collapse bg-base-100 border border-base-300 ${isExpanded ? "collapse-open" : "collapse-close"}`}
+      data-selected={isSelected ? "true" : "false"}
+      className={`collapse bg-base-100 border border-base-300 ${
+        isSelected
+          ? "ring-2 ring-primary/40 ring-offset-2 ring-offset-base-200"
+          : ""
+      } ${isExpanded ? "collapse-open" : "collapse-close"}`}
     >
       {/* biome-ignore lint/a11y/useSemanticElements: DaisyUI structure requires div or specifically styled element */}
       <div
