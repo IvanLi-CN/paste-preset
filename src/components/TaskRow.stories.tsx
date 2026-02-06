@@ -39,6 +39,7 @@ const meta = {
   tags: ["autodocs"],
   args: {
     isExpanded: false,
+    isSelected: false,
     onToggleExpand: fn(),
     onCopyResult: fn(),
   },
@@ -71,6 +72,7 @@ export const Processing: Story = {
 export const DoneWithResult: Story = {
   args: {
     isExpanded: true,
+    isSelected: true,
     task: {
       ...taskBase,
       id: "task-done",
