@@ -244,6 +244,59 @@ describe("App integrates task queue", () => {
     expect(copyImageMock).toHaveBeenCalledWith(blob, "image/png");
   });
 
+  it("Ctrl/Cmd+C targets the selected task even when its details are collapsed", async () => {
+    const blob = new Blob(["ok"], { type: "image/png" });
+    mockedTasks = [
+      createTask({ id: "a", fileName: "a.png", batchId: "b1" }),
+      createTask({
+        id: "b",
+        fileName: "b.png",
+        batchId: "b1",
+        status: "done",
+        result: {
+          ...sampleImage,
+          blob,
+          url: "blob:b",
+          sourceName: "b.png",
+        },
+        resultGeneration: 0,
+        attemptGeneration: 0,
+      }),
+    ];
+
+    act(() => {
+      root.render(
+        <I18nProvider>
+          <FullscreenImagePreviewProvider>
+            <App />
+          </FullscreenImagePreviewProvider>
+        </I18nProvider>,
+      );
+    });
+
+    const toggles = Array.from(container.querySelectorAll('[role="button"]'));
+    const toggle = toggles.find((el) =>
+      (el.textContent ?? "").includes("b.png"),
+    );
+    expect(toggle).toBeTruthy();
+
+    act(() => {
+      toggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    act(() => {
+      toggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "c", ctrlKey: true }),
+      );
+    });
+
+    expect(copyImageMock).toHaveBeenCalledTimes(1);
+    expect(copyImageMock).toHaveBeenCalledWith(blob, "image/png");
+  });
+
   it("Ctrl/Cmd+C refuses when active task has no up-to-date result", async () => {
     mockedTasks = [
       createTask({
