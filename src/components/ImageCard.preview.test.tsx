@@ -90,4 +90,46 @@ describe("ImageCard fullscreen preview integration", () => {
 
     cleanup();
   });
+
+  it("rotates the inline preview without entering fullscreen mode", () => {
+    const title = "Source image";
+    const { container, cleanup } = renderImageCard({
+      title,
+      image: sampleImage({ width: 1200, height: 800 }),
+    });
+
+    const rotateRight = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Rotate right"]',
+    );
+    if (!rotateRight) throw new Error("rotate right button not found");
+
+    const resetRotation = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Reset rotation"]',
+    );
+    if (!resetRotation) throw new Error("reset rotation button not found");
+
+    expect(resetRotation.disabled).toBe(true);
+
+    act(() => {
+      rotateRight.click();
+    });
+
+    const previewImage = container.querySelector<HTMLImageElement>(
+      `button[aria-label="${title}"] img`,
+    );
+    if (!previewImage) throw new Error("preview image not found");
+
+    expect(document.querySelector("dialog.modal")).toBeNull();
+    expect(previewImage.style.transform).toContain("rotate(90deg)");
+    expect(resetRotation.disabled).toBe(false);
+
+    act(() => {
+      resetRotation.click();
+    });
+
+    expect(previewImage.style.transform).toContain("rotate(0deg)");
+    expect(resetRotation.disabled).toBe(true);
+
+    cleanup();
+  });
 });

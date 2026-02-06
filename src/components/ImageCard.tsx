@@ -1,6 +1,10 @@
+import { Icon } from "@iconify/react/offline";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "../i18n";
 import type { ImageInfo } from "../lib/types.ts";
 import { useFullscreenImagePreview } from "./FullscreenImagePreviewProvider.tsx";
+
+const ROTATE_STEP_DEG = 90;
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) {
@@ -12,6 +16,11 @@ function formatFileSize(bytes: number): string {
   }
   const mb = kb / 1024;
   return `${mb.toFixed(2)} MB`;
+}
+
+function normalizeRotation(deg: number): number {
+  const normalized = deg % 360;
+  return normalized < 0 ? normalized + 360 : normalized;
 }
 
 export interface ImageCardProps {
@@ -28,6 +37,36 @@ export function ImageCard(props: ImageCardProps) {
   const { title, image, highlighted, overlay } = props;
   const { t } = useTranslation();
   const { openImagePreview } = useFullscreenImagePreview();
+  const [rotationDeg, setRotationDeg] = useState(0);
+
+  // Rotation is a per-image UI state; reset when a new image is shown.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: We intentionally use image.url as a reset key.
+  useEffect(() => {
+    setRotationDeg(0);
+  }, [image.url]);
+
+  const normalizedRotation = useMemo(
+    () => normalizeRotation(rotationDeg),
+    [rotationDeg],
+  );
+  const isQuarterTurn = normalizedRotation === 90 || normalizedRotation === 270;
+  const rotationScale = isQuarterTurn
+    ? Math.min(1, image.height / image.width)
+    : 1;
+  const canResetRotation = normalizedRotation !== 0;
+
+  const handleRotateLeft = useCallback(() => {
+    setRotationDeg((current) => current - ROTATE_STEP_DEG);
+  }, []);
+
+  const handleRotateRight = useCallback(() => {
+    setRotationDeg((current) => current + ROTATE_STEP_DEG);
+  }, []);
+
+  const handleResetRotation = useCallback(() => {
+    setRotationDeg(0);
+  }, []);
+
   const cardClassName = [
     "card bg-base-100 shadow-sm animate-fade-in-up",
     highlighted
@@ -40,44 +79,93 @@ export function ImageCard(props: ImageCardProps) {
     <div className={cardClassName}>
       <div className="card-body gap-3">
         <h3 className="card-title text-sm">{title}</h3>
-        <button
-          type="button"
-          className="relative flex cursor-pointer items-center justify-center rounded-md bg-base-200 p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100"
-          aria-label={title}
-          onClick={(event) => {
-            event.currentTarget.focus();
-            openImagePreview({ image, title });
-          }}
-        >
-          <img
-            src={image.url}
-            alt={image.sourceName ?? title}
-            className="max-h-64 max-w-full object-contain"
-          />
-          {overlay && (
-            <div
-              className="pointer-events-none absolute inset-2 flex items-center justify-center rounded-md"
-              data-testid="image-overlay"
-            >
+        <div className="relative">
+          <button
+            type="button"
+            className="relative flex w-full cursor-pointer items-center justify-center rounded-md bg-base-200 p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100"
+            aria-label={title}
+            onClick={(event) => {
+              event.currentTarget.focus();
+              openImagePreview({ image, title });
+            }}
+          >
+            <img
+              src={image.url}
+              alt={image.sourceName ?? title}
+              className="max-h-64 max-w-full object-contain transition-transform duration-150 ease-out"
+              style={{
+                transformOrigin: "center center",
+                transform: `rotate(${normalizedRotation}deg) scale(${rotationScale})`,
+              }}
+            />
+            {overlay && (
               <div
-                className="absolute inset-0 rounded-md bg-base-100/55 backdrop-blur-[2px] animate-pulse"
-                aria-hidden
-              />
-              <div
-                className={[
-                  "relative z-10 rounded-full border bg-base-100/90 px-3 py-1 text-xs font-semibold text-base-content shadow-sm",
-                  overlay.tone === "error"
-                    ? "border-error/40 text-error"
-                    : "border-base-300",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
+                className="pointer-events-none absolute inset-2 flex items-center justify-center rounded-md"
+                data-testid="image-overlay"
               >
-                {overlay.label}
+                <div
+                  className="absolute inset-0 rounded-md bg-base-100/55 backdrop-blur-[2px] animate-pulse"
+                  aria-hidden
+                />
+                <div
+                  className={[
+                    "relative z-10 rounded-full border bg-base-100/90 px-3 py-1 text-xs font-semibold text-base-content shadow-sm",
+                    overlay.tone === "error"
+                      ? "border-error/40 text-error"
+                      : "border-base-300",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                >
+                  {overlay.label}
+                </div>
               </div>
-            </div>
-          )}
-        </button>
+            )}
+          </button>
+
+          <div className="absolute right-2 top-2 flex items-center gap-1">
+            <button
+              type="button"
+              className="btn btn-ghost btn-xs btn-square bg-base-100/70 hover:bg-base-100"
+              aria-label={t("preview.card.rotateLeft")}
+              title={t("preview.card.rotateLeft")}
+              onClick={handleRotateLeft}
+            >
+              <Icon
+                icon="mdi:rotate-left"
+                data-icon="mdi:rotate-left"
+                className="h-4 w-4"
+              />
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-xs btn-square bg-base-100/70 hover:bg-base-100"
+              aria-label={t("preview.card.rotateRight")}
+              title={t("preview.card.rotateRight")}
+              onClick={handleRotateRight}
+            >
+              <Icon
+                icon="mdi:rotate-right"
+                data-icon="mdi:rotate-right"
+                className="h-4 w-4"
+              />
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-xs btn-square bg-base-100/70 hover:bg-base-100"
+              aria-label={t("preview.card.rotateReset")}
+              title={t("preview.card.rotateReset")}
+              onClick={handleResetRotation}
+              disabled={!canResetRotation}
+            >
+              <Icon
+                icon="mdi:reload"
+                data-icon="mdi:reload"
+                className="h-4 w-4"
+              />
+            </button>
+          </div>
+        </div>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-base-content/80">
           <div>
             <dt className="font-medium">{t("preview.card.dimensions")}</dt>
