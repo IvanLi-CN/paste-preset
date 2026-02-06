@@ -64,13 +64,30 @@ test("E2E-091: clicking the preview background closes the viewer", async ({
   await expect(dialog).toBeVisible();
 
   const stage = dialog.locator('section[aria-label="Source image"]');
+  const previewImage = stage.getByRole("img").first();
+
+  // Wait for the image to be visually fitted into the viewport before clicking
+  // the background. `useElementSize` relies on ResizeObserver, so the first
+  // render may briefly use a 1:1 scale (making background clicks land on the
+  // image instead of the stage).
+  await expect
+    .poll(async () => {
+      const stageBox = await stage.boundingBox();
+      const imgBox = await previewImage.boundingBox();
+      if (!stageBox || !imgBox) {
+        return false;
+      }
+      return (
+        imgBox.width <= stageBox.width + 1 &&
+        imgBox.height <= stageBox.height + 1
+      );
+    })
+    .toBe(true);
+
   const stageBounds = await stage.boundingBox();
   expect(stageBounds).not.toBeNull();
 
-  await page.mouse.click(
-    (stageBounds?.x ?? 0) + 5,
-    (stageBounds?.y ?? 0) + (stageBounds?.height ?? 0) / 2,
-  );
+  await stage.click({ position: { x: 5, y: 5 } });
 
   await expect(dialog).toHaveCount(0);
   await expect(trigger).toBeFocused();
