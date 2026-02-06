@@ -51,7 +51,7 @@ export function ImageCard(props: ImageCardProps) {
   );
   const isQuarterTurn = normalizedRotation === 90 || normalizedRotation === 270;
   const rotationScale = isQuarterTurn
-    ? Math.min(1, image.height / image.width)
+    ? Math.min(image.width / image.height, image.height / image.width)
     : 1;
   const canResetRotation = normalizedRotation !== 0;
 
@@ -78,55 +78,12 @@ export function ImageCard(props: ImageCardProps) {
   return (
     <div className={cardClassName}>
       <div className="card-body gap-3">
-        <h3 className="card-title text-sm">{title}</h3>
-        <div className="relative">
-          <button
-            type="button"
-            className="relative flex w-full cursor-pointer items-center justify-center rounded-md bg-base-200 p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100"
-            aria-label={title}
-            onClick={(event) => {
-              event.currentTarget.focus();
-              openImagePreview({ image, title });
-            }}
-          >
-            <img
-              src={image.url}
-              alt={image.sourceName ?? title}
-              className="max-h-64 max-w-full object-contain transition-transform duration-150 ease-out"
-              style={{
-                transformOrigin: "center center",
-                transform: `rotate(${normalizedRotation}deg) scale(${rotationScale})`,
-              }}
-            />
-            {overlay && (
-              <div
-                className="pointer-events-none absolute inset-2 flex items-center justify-center rounded-md"
-                data-testid="image-overlay"
-              >
-                <div
-                  className="absolute inset-0 rounded-md bg-base-100/55 backdrop-blur-[2px] animate-pulse"
-                  aria-hidden
-                />
-                <div
-                  className={[
-                    "relative z-10 rounded-full border bg-base-100/90 px-3 py-1 text-xs font-semibold text-base-content shadow-sm",
-                    overlay.tone === "error"
-                      ? "border-error/40 text-error"
-                      : "border-base-300",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                >
-                  {overlay.label}
-                </div>
-              </div>
-            )}
-          </button>
-
-          <div className="absolute right-2 top-2 flex items-center gap-1">
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="card-title text-sm">{title}</h3>
+          <div className="join">
             <button
               type="button"
-              className="btn btn-ghost btn-xs btn-square bg-base-100/70 hover:bg-base-100"
+              className="btn btn-ghost btn-xs btn-square join-item"
               aria-label={t("preview.card.rotateLeft")}
               title={t("preview.card.rotateLeft")}
               onClick={handleRotateLeft}
@@ -139,7 +96,7 @@ export function ImageCard(props: ImageCardProps) {
             </button>
             <button
               type="button"
-              className="btn btn-ghost btn-xs btn-square bg-base-100/70 hover:bg-base-100"
+              className="btn btn-ghost btn-xs btn-square join-item"
               aria-label={t("preview.card.rotateRight")}
               title={t("preview.card.rotateRight")}
               onClick={handleRotateRight}
@@ -152,7 +109,7 @@ export function ImageCard(props: ImageCardProps) {
             </button>
             <button
               type="button"
-              className="btn btn-ghost btn-xs btn-square bg-base-100/70 hover:bg-base-100"
+              className="btn btn-ghost btn-xs btn-square join-item"
               aria-label={t("preview.card.rotateReset")}
               title={t("preview.card.rotateReset")}
               onClick={handleResetRotation}
@@ -166,6 +123,49 @@ export function ImageCard(props: ImageCardProps) {
             </button>
           </div>
         </div>
+
+        <button
+          type="button"
+          className="relative flex w-full cursor-pointer items-center justify-center rounded-md bg-base-200 p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100"
+          aria-label={title}
+          onClick={(event) => {
+            event.currentTarget.focus();
+            openImagePreview({ image, title });
+          }}
+        >
+          <img
+            src={image.url}
+            alt={image.sourceName ?? title}
+            className="max-h-64 max-w-full object-contain transition-transform duration-150 ease-out"
+            style={{
+              transformOrigin: "center center",
+              transform: `rotate(${normalizedRotation}deg) scale(${rotationScale})`,
+            }}
+          />
+          {overlay && (
+            <div
+              className="pointer-events-none absolute inset-2 flex items-center justify-center rounded-md"
+              data-testid="image-overlay"
+            >
+              <div
+                className="absolute inset-0 rounded-md bg-base-100/55 backdrop-blur-[2px] animate-pulse"
+                aria-hidden
+              />
+              <div
+                className={[
+                  "relative z-10 rounded-full border bg-base-100/90 px-3 py-1 text-xs font-semibold text-base-content shadow-sm",
+                  overlay.tone === "error"
+                    ? "border-error/40 text-error"
+                    : "border-base-300",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                {overlay.label}
+              </div>
+            </div>
+          )}
+        </button>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-base-content/80">
           <div>
             <dt className="font-medium">{t("preview.card.dimensions")}</dt>
