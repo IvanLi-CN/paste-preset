@@ -52,6 +52,7 @@ function renderTaskRow({
         <TaskRow
           task={task}
           isExpanded={isExpanded}
+          isSelected={false}
           onToggleExpand={() => {}}
           onCopyResult={
             onCopyResult as (id: string, blob: Blob, mime: string) => void

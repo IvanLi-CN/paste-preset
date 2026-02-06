@@ -184,6 +184,41 @@ describe("TasksPanel", () => {
     cleanup();
   });
 
+  it("keeps a single selected task even when collapsing details", () => {
+    const onActiveTaskIdChange = vi.fn();
+    const tasks = [
+      mockTask({ id: "1", fileName: "a.png" }),
+      mockTask({ id: "2", fileName: "b.png" }),
+    ];
+    const { container, cleanup } = renderTasksPanel({
+      tasks,
+      onActiveTaskIdChange,
+    });
+
+    const titles = container.querySelectorAll(".collapse-title");
+    const rows = container.querySelectorAll('[data-testid="task-row"]');
+
+    // First task is auto-expanded + selected.
+    expect(rows[0]?.getAttribute("data-selected")).toBe("true");
+    expect(rows[1]?.getAttribute("data-selected")).toBe("false");
+
+    act(() => {
+      titles[1].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(rows[0]?.getAttribute("data-selected")).toBe("false");
+    expect(rows[1]?.getAttribute("data-selected")).toBe("true");
+    expect(onActiveTaskIdChange).toHaveBeenLastCalledWith("2");
+
+    // Collapse details; selection should stay on the last interacted task.
+    act(() => {
+      titles[1].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(rows[1]?.getAttribute("data-selected")).toBe("true");
+    expect(onActiveTaskIdChange).toHaveBeenLastCalledWith("2");
+
+    cleanup();
+  });
+
   it("handles multi expansion logic", () => {
     const tasks = [mockTask({ id: "1" }), mockTask({ id: "2" })];
     const { container, cleanup } = renderTasksPanel({ tasks });
