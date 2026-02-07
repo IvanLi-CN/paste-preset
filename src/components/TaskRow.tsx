@@ -8,16 +8,26 @@ import { TaskDetails } from "./TaskDetails.tsx";
 interface TaskRowProps {
   task: ImageTask;
   isExpanded: boolean;
+  isActive?: boolean;
+  onActivate?: (taskId: string) => void;
   onToggleExpand: (event: React.MouseEvent) => void;
   onCopyResult: (taskId: string, blob: Blob, mimeType: string) => void;
 }
 
 export function TaskRow(props: TaskRowProps) {
-  const { task, isExpanded, onToggleExpand, onCopyResult } = props;
+  const {
+    task,
+    isExpanded,
+    isActive = false,
+    onActivate,
+    onToggleExpand,
+    onCopyResult,
+  } = props;
   const { t } = useTranslation();
 
   const result = task.result;
   const [isCopying, setIsCopying] = useState(false);
+  const [previewRotationDeg, setPreviewRotationDeg] = useState(0);
 
   const hasCurrentResult =
     Boolean(result) &&
@@ -85,11 +95,19 @@ export function TaskRow(props: TaskRowProps) {
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    onActivate?.(task.id);
     await copyResult();
   };
 
   const handleDownloadClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    onActivate?.(task.id);
+  };
+
+  const handleRotatePreview = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onActivate?.(task.id);
+    setPreviewRotationDeg((current) => (current + 90) % 360);
   };
 
   const getStatusBadge = () => {
@@ -148,10 +166,17 @@ export function TaskRow(props: TaskRowProps) {
 
   const thumbnailSrc = task.result?.url ?? task.source?.url;
 
+  const rowClassName = [
+    "collapse bg-base-100 border",
+    isActive ? "border-primary/50 ring-1 ring-primary/20" : "border-base-300",
+    isExpanded ? "collapse-open" : "collapse-close",
+  ].join(" ");
+
   return (
     <div
       data-testid="task-row"
-      className={`collapse bg-base-100 border border-base-300 ${isExpanded ? "collapse-open" : "collapse-close"}`}
+      data-active={isActive ? "true" : "false"}
+      className={rowClassName}
     >
       {/* biome-ignore lint/a11y/useSemanticElements: DaisyUI structure requires div or specifically styled element */}
       <div
@@ -218,6 +243,27 @@ export function TaskRow(props: TaskRowProps) {
           className="flex items-center gap-1 z-10"
           onClick={(e) => e.stopPropagation()}
         >
+          {(task.source || task.result) && (
+            <span
+              className="tooltip tooltip-bottom"
+              data-tip={t("preview.actions.rotate90Label")}
+            >
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm btn-square"
+                onClick={handleRotatePreview}
+                aria-label={t("preview.actions.rotate90Aria")}
+                data-testid="preview-rotate"
+                title={t("preview.actions.rotate90Label")}
+              >
+                <Icon
+                  icon="mdi:rotate-right"
+                  data-icon="mdi:rotate-right"
+                  className="w-5 h-5"
+                />
+              </button>
+            </span>
+          )}
           {result && (
             <>
               {!canExport ? (
@@ -328,6 +374,7 @@ export function TaskRow(props: TaskRowProps) {
             result={task.result ?? null}
             originalFileName={task.fileName}
             onCopyResult={() => copyResult()}
+            previewRotationDeg={previewRotationDeg}
             canExportResult={canExport}
             exportDisabledReason={canExport ? null : exportDisabledReason}
             isCopyingResult={isCopying}
