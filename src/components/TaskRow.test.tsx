@@ -172,4 +172,51 @@ describe("TaskRow export gating + stale overlay", () => {
 
     cleanup();
   });
+
+  it("rotates both source and result previews when clicking the rotate button", () => {
+    const task = mockTask({
+      status: "done",
+      desiredGeneration: 1,
+      resultGeneration: 1,
+      attemptGeneration: 1,
+      source: mockImageInfo({
+        url: "blob:source",
+        sourceName: "source.png",
+        width: 1200,
+        height: 900,
+      }),
+      result: mockImageInfo({
+        url: "blob:result",
+        sourceName: "result.png",
+        width: 800,
+        height: 600,
+      }),
+    });
+
+    const { container, cleanup } = renderTaskRow({ task, isExpanded: true });
+
+    const sourceImg = container.querySelector<HTMLImageElement>(
+      'img[alt="source.png"]',
+    );
+    const resultImg = container.querySelector<HTMLImageElement>(
+      'img[alt="result.png"]',
+    );
+
+    expect(sourceImg?.style.transform).toContain("rotate(0deg)");
+    expect(resultImg?.style.transform).toContain("rotate(0deg)");
+
+    const rotateBtn = container.querySelector<HTMLButtonElement>(
+      '[data-testid="preview-rotate"]',
+    );
+    expect(rotateBtn).toBeTruthy();
+
+    act(() => {
+      rotateBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(sourceImg?.style.transform).toContain("rotate(90deg)");
+    expect(resultImg?.style.transform).toContain("rotate(90deg)");
+
+    cleanup();
+  });
 });

@@ -284,6 +284,46 @@ describe("TasksPanel", () => {
     cleanup();
   });
 
+  it("updates active selection when clicking actions on a folded row", () => {
+    const onActiveTaskIdChange = vi.fn();
+    const tasks = [
+      mockTask({
+        id: "1",
+        status: "done",
+        desiredGeneration: 0,
+        attemptGeneration: 0,
+        resultGeneration: 0,
+        result: mockImageInfo(),
+      }),
+      mockTask({
+        id: "2",
+        status: "done",
+        desiredGeneration: 0,
+        attemptGeneration: 0,
+        resultGeneration: 0,
+        result: mockImageInfo(),
+      }),
+    ];
+
+    const { container, cleanup } = renderTasksPanel({
+      tasks,
+      onActiveTaskIdChange,
+    });
+
+    const copyButtons = container.querySelectorAll<HTMLButtonElement>(
+      '[data-testid="task-copy"]',
+    );
+    expect(copyButtons).toHaveLength(2);
+
+    act(() => {
+      copyButtons[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onActiveTaskIdChange).toHaveBeenLastCalledWith("2");
+
+    cleanup();
+  });
+
   it("calls onClearAll when clicking Clear all button", () => {
     const onClear = vi.fn();
     const tasks = [mockTask({ id: "1", status: "queued" })];
