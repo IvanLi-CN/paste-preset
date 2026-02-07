@@ -57,6 +57,10 @@ export function TasksPanel(props: TasksPanelProps) {
     setActiveTaskId(firstTask.id);
   }, []);
 
+  const handleActivateTask = useCallback((taskId: string) => {
+    setActiveTaskId(taskId);
+  }, []);
+
   // New batch behavior: collapse previous expansions and auto-expand first of the new batch.
   useEffect(() => {
     if (!hasTasks) {
@@ -105,8 +109,16 @@ export function TasksPanel(props: TasksPanelProps) {
       }
     }
 
-    if (isExpanded && task.id === activeTaskId) {
-      // If the active task is collapsed, pick the first remaining expanded task in list order.
+    if (!isExpanded) {
+      // Expanding always makes this the current selection.
+      nextActive = task.id;
+    } else if (nextExpanded.size === 0) {
+      // When everything is collapsed, keep a single "selected" task so keyboard
+      // shortcuts and settings can still target something predictable.
+      nextActive = task.id;
+    } else if (task.id === activeTaskId) {
+      // If the active task is collapsed but others remain expanded, pick the
+      // first remaining expanded task in list order.
       nextActive = null;
       for (const item of tasks) {
         if (nextExpanded.has(item.id)) {
@@ -114,10 +126,6 @@ export function TasksPanel(props: TasksPanelProps) {
           break;
         }
       }
-    }
-
-    if (nextExpanded.size === 0) {
-      nextActive = null;
     }
 
     setExpandedIds(nextExpanded);
@@ -168,6 +176,8 @@ export function TasksPanel(props: TasksPanelProps) {
                   key={task.id}
                   task={task}
                   isExpanded={expandedIds.has(task.id)}
+                  isActive={task.id === activeTaskId}
+                  onActivate={handleActivateTask}
                   onToggleExpand={(e) => handleToggleExpand(task, e)}
                   onCopyResult={onCopyResult}
                 />

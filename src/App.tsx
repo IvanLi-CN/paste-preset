@@ -242,7 +242,13 @@ function App() {
     [copyImage, resetClipboardError],
   );
 
-  const settingsAspectSource: ImageInfo | null = result ?? source;
+  const activeTask = useMemo(() => {
+    if (!activeTaskId) return null;
+    return tasks.find((task) => task.id === activeTaskId) ?? null;
+  }, [activeTaskId, tasks]);
+
+  const settingsAspectSource: ImageInfo | null =
+    activeTask?.result ?? activeTask?.source ?? result ?? source;
 
   useEffect(() => {
     const handleWindowPaste = (event: ClipboardEvent) => {

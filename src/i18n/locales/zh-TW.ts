@@ -120,6 +120,8 @@ export const zhTW: TranslationMessages = {
   "preview.actions.copyAria": "將結果圖片複製到剪貼簿",
   "preview.actions.downloadLabel": "下載",
   "preview.actions.downloadAria": "下載結果圖片",
+  "preview.actions.rotate90Label": "順時針旋轉 90°",
+  "preview.actions.rotate90Aria": "將預覽順時針旋轉 90 度",
 
   "export.gate.noResult": "尚無結果。",
   "export.gate.queued": "排隊中…",

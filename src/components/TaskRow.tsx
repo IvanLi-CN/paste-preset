@@ -8,16 +8,26 @@ import { TaskDetails } from "./TaskDetails.tsx";
 interface TaskRowProps {
   task: ImageTask;
   isExpanded: boolean;
+  isActive?: boolean;
+  onActivate?: (taskId: string) => void;
   onToggleExpand: (event: React.MouseEvent) => void;
   onCopyResult: (taskId: string, blob: Blob, mimeType: string) => void;
 }
 
 export function TaskRow(props: TaskRowProps) {
-  const { task, isExpanded, onToggleExpand, onCopyResult } = props;
+  const {
+    task,
+    isExpanded,
+    isActive = false,
+    onActivate,
+    onToggleExpand,
+    onCopyResult,
+  } = props;
   const { t } = useTranslation();
 
   const result = task.result;
   const [isCopying, setIsCopying] = useState(false);
+  const [previewRotationDeg, setPreviewRotationDeg] = useState(0);
 
   const hasCurrentResult =
     Boolean(result) &&
@@ -85,11 +95,19 @@ export function TaskRow(props: TaskRowProps) {
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    onActivate?.(task.id);
     await copyResult();
   };
 
   const handleDownloadClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    onActivate?.(task.id);
+  };
+
+  const handleRotatePreview = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onActivate?.(task.id);
+    setPreviewRotationDeg((current) => (current + 90) % 360);
   };
 
   const getStatusBadge = () => {
@@ -97,19 +115,19 @@ export function TaskRow(props: TaskRowProps) {
       switch (task.status) {
         case "processing":
           return (
-            <span className="badge badge-sm badge-info">
+            <span className="badge badge-sm badge-info whitespace-nowrap shrink-0">
               {t("export.gate.regenerating")}
             </span>
           );
         case "error":
           return (
-            <span className="badge badge-sm badge-error">
+            <span className="badge badge-sm badge-error whitespace-nowrap shrink-0">
               {t("preview.result.overlay.failed")}
             </span>
           );
         default:
           return (
-            <span className="badge badge-sm badge-warning">
+            <span className="badge badge-sm badge-warning whitespace-nowrap shrink-0">
               {t("status.regenerateQueued")}
             </span>
           );
@@ -119,25 +137,25 @@ export function TaskRow(props: TaskRowProps) {
     switch (task.status) {
       case "queued":
         return (
-          <span className="badge badge-sm badge-ghost">
+          <span className="badge badge-sm badge-ghost whitespace-nowrap shrink-0">
             {t("status.queued")}
           </span>
         );
       case "processing":
         return (
-          <span className="badge badge-sm badge-info">
+          <span className="badge badge-sm badge-info whitespace-nowrap shrink-0">
             {t("status.processing")}
           </span>
         );
       case "done":
         return (
-          <span className="badge badge-sm badge-success">
+          <span className="badge badge-sm badge-success whitespace-nowrap shrink-0">
             {t("status.done")}
           </span>
         );
       case "error":
         return (
-          <span className="badge badge-sm badge-error">
+          <span className="badge badge-sm badge-error whitespace-nowrap shrink-0">
             {t("status.error")}
           </span>
         );
@@ -148,10 +166,17 @@ export function TaskRow(props: TaskRowProps) {
 
   const thumbnailSrc = task.result?.url ?? task.source?.url;
 
+  const rowClassName = [
+    "collapse bg-base-100 border",
+    isActive ? "border-primary/50 ring-1 ring-primary/20" : "border-base-300",
+    isExpanded ? "collapse-open" : "collapse-close",
+  ].join(" ");
+
   return (
     <div
       data-testid="task-row"
-      className={`collapse bg-base-100 border border-base-300 ${isExpanded ? "collapse-open" : "collapse-close"}`}
+      data-active={isActive ? "true" : "false"}
+      className={rowClassName}
     >
       {/* biome-ignore lint/a11y/useSemanticElements: DaisyUI structure requires div or specifically styled element */}
       <div
@@ -189,7 +214,7 @@ export function TaskRow(props: TaskRowProps) {
           <div className="font-medium text-sm truncate" title={task.fileName}>
             {task.fileName || `Image #${task.id.slice(0, 4)}`}
           </div>
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
             {getStatusBadge()}
             {(task.result || task.source) && (
               <span className="text-base-content/60">
@@ -328,6 +353,8 @@ export function TaskRow(props: TaskRowProps) {
             result={task.result ?? null}
             originalFileName={task.fileName}
             onCopyResult={() => copyResult()}
+            onRotatePreview={handleRotatePreview}
+            previewRotationDeg={previewRotationDeg}
             canExportResult={canExport}
             exportDisabledReason={canExport ? null : exportDisabledReason}
             isCopyingResult={isCopying}
