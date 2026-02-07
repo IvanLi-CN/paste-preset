@@ -173,3 +173,43 @@ describe("TaskRow export gating + stale overlay", () => {
     cleanup();
   });
 });
+
+describe("TaskRow preview rotation", () => {
+  it("rotates both source and result previews by 90 degrees per click", () => {
+    const task = mockTask({
+      status: "done",
+      desiredGeneration: 0,
+      resultGeneration: 0,
+      source: mockImageInfo({ url: "blob:source", width: 200, height: 100 }),
+      result: mockImageInfo({ url: "blob:result", width: 200, height: 100 }),
+    });
+
+    const { container, cleanup } = renderTaskRow({ task, isExpanded: true });
+
+    const rotateBtn = container.querySelector<HTMLButtonElement>(
+      '[data-testid="preview-rotate"]',
+    );
+    expect(rotateBtn).toBeTruthy();
+
+    const sourceImg = container.querySelector<HTMLImageElement>(
+      'img[alt="preview.source.title"]',
+    );
+    const resultImg = container.querySelector<HTMLImageElement>(
+      'img[alt="preview.result.title"]',
+    );
+
+    expect(sourceImg).toBeTruthy();
+    expect(resultImg).toBeTruthy();
+    expect(sourceImg?.style.transform).toContain("rotate(0deg)");
+    expect(resultImg?.style.transform).toContain("rotate(0deg)");
+
+    act(() => {
+      rotateBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(sourceImg?.style.transform).toContain("rotate(90deg)");
+    expect(resultImg?.style.transform).toContain("rotate(90deg)");
+
+    cleanup();
+  });
+});

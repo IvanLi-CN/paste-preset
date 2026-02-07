@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useTranslation } from "../i18n";
 import type { ImageInfo } from "../lib/types.ts";
 import { useFullscreenImagePreview } from "./FullscreenImagePreviewProvider.tsx";
@@ -18,16 +19,34 @@ export interface ImageCardProps {
   title: string;
   image: ImageInfo;
   highlighted?: boolean;
+  rotationDeg?: number;
   overlay?: {
     label: string;
     tone?: "info" | "error";
   };
 }
 
+function normalizeRotation(deg: number): number {
+  const normalized = deg % 360;
+  return normalized < 0 ? normalized + 360 : normalized;
+}
+
 export function ImageCard(props: ImageCardProps) {
-  const { title, image, highlighted, overlay } = props;
+  const { title, image, highlighted, rotationDeg = 0, overlay } = props;
   const { t } = useTranslation();
   const { openImagePreview } = useFullscreenImagePreview();
+
+  const normalizedRotation = useMemo(
+    () => normalizeRotation(rotationDeg),
+    [rotationDeg],
+  );
+  const isQuarterTurn = normalizedRotation === 90 || normalizedRotation === 270;
+  // When rotating 90deg, the bounding box flips width/height and would overflow.
+  // This scale keeps the rotated image fitting in the same container.
+  const rotationScale = isQuarterTurn
+    ? Math.min(image.width / image.height, image.height / image.width)
+    : 1;
+
   const cardClassName = [
     "card bg-base-100 shadow-sm animate-fade-in-up",
     highlighted
@@ -52,7 +71,11 @@ export function ImageCard(props: ImageCardProps) {
           <img
             src={image.url}
             alt={image.sourceName ?? title}
-            className="max-h-64 max-w-full object-contain"
+            className="max-h-64 max-w-full object-contain transition-transform duration-300 ease-out"
+            style={{
+              transformOrigin: "center center",
+              transform: `rotate(${normalizedRotation}deg) scale(${rotationScale})`,
+            }}
           />
           {overlay && (
             <div

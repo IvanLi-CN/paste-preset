@@ -76,9 +76,18 @@ function App() {
     processingOptions,
     priorityHints,
   );
+  const selectedTask = useMemo(() => {
+    if (!activeTaskId) {
+      return null;
+    }
+    return tasks.find((task) => task.id === activeTaskId) ?? null;
+  }, [activeTaskId, tasks]);
   const lastCompleted = getLastCompletedTask(tasks);
-  const source = lastCompleted?.source ?? null;
-  const result = lastCompleted?.result ?? null;
+  // Prefer the selected task for UI (settings aspect ratio, etc), but keep a
+  // stable fallback so we can still show meaningful info when the selected task
+  // has not produced output yet.
+  const source = selectedTask?.source ?? lastCompleted?.source ?? null;
+  const result = selectedTask?.result ?? lastCompleted?.result ?? null;
   const hasProcessing = tasks.some((task) => task.status === "processing");
   const hasError = tasks.some((task) => task.status === "error");
 
@@ -109,7 +118,9 @@ function App() {
     resetError: resetClipboardError,
   } = useClipboard();
 
-  const hasImage = Boolean(source || result);
+  // Treat the task list as the source of truth: the UI should consider itself
+  // "having images" as soon as tasks exist (even before a result is produced).
+  const hasImage = tasks.length > 0;
   const previousHasImageRef = useRef(hasImage);
 
   const isXs = viewportWidth < 640;

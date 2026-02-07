@@ -124,6 +124,8 @@ export const en = {
   "preview.actions.copyAria": "Copy result image to clipboard",
   "preview.actions.downloadLabel": "Download",
   "preview.actions.downloadAria": "Download result image",
+  "preview.actions.rotate90Label": "Rotate 90°",
+  "preview.actions.rotate90Aria": "Rotate preview 90° clockwise",
 
   "export.gate.noResult": "No result available yet.",
   "export.gate.queued": "Waiting in queue…",
