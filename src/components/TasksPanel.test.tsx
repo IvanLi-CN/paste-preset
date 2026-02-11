@@ -36,12 +36,14 @@ const mockImageInfo = (overrides: Partial<ImageInfo> = {}): ImageInfo => ({
 function renderTasksPanel({
   tasks = [],
   onCopyResult = vi.fn(),
+  onRotateTask90,
   onClearAll = vi.fn(),
   onExpandedIdsChange,
   onActiveTaskIdChange,
 }: {
   tasks?: ImageTask[];
   onCopyResult?: (taskId: string, blob: Blob, mimeType: string) => void;
+  onRotateTask90?: (taskId: string) => void;
   onClearAll?: () => void;
   onExpandedIdsChange?: (expandedIds: ReadonlySet<string>) => void;
   onActiveTaskIdChange?: (taskId: string | null) => void;
@@ -52,6 +54,7 @@ function renderTasksPanel({
 
   const baseProps = {
     onCopyResult,
+    onRotateTask90,
     onClearAll,
     onExpandedIdsChange,
     onActiveTaskIdChange,
@@ -66,6 +69,7 @@ function renderTasksPanel({
           <TasksPanel
             tasks={override.tasks ?? tasks}
             onCopyResult={override.onCopyResult ?? baseProps.onCopyResult}
+            onRotateTask90={override.onRotateTask90 ?? baseProps.onRotateTask90}
             onClearAll={override.onClearAll ?? baseProps.onClearAll}
             onExpandedIdsChange={
               override.onExpandedIdsChange ?? baseProps.onExpandedIdsChange
@@ -280,6 +284,32 @@ describe("TasksPanel", () => {
       tasks[0].result?.blob,
       "image/png",
     );
+
+    cleanup();
+  });
+
+  it("calls onRotateTask90 when clicking rotate button without toggling expansion", () => {
+    const onRotate = vi.fn();
+    const tasks = [mockTask({ id: "1", status: "queued" })];
+    const { container, cleanup } = renderTasksPanel({
+      tasks,
+      onRotateTask90: onRotate,
+    });
+
+    const collapse = container.querySelector(".collapse");
+    expect(collapse?.classList.contains("collapse-open")).toBe(true);
+
+    const rotateBtn = container.querySelector(
+      'button[title="preview.actions.rotate90Label"]',
+    );
+    expect(rotateBtn).toBeTruthy();
+
+    act(() => {
+      rotateBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onRotate).toHaveBeenCalledWith("1");
+    expect(collapse?.classList.contains("collapse-open")).toBe(true);
 
     cleanup();
   });

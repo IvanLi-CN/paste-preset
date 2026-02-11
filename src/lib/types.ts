@@ -4,6 +4,12 @@ export type ResizeMode = "fit" | "fill" | "stretch";
 
 export type OutputFormat = "auto" | "image/jpeg" | "image/png" | "image/webp";
 
+/**
+ * Clockwise rotation in degrees. Limited to quarter turns so the pipeline can
+ * stay lossless in intent (but still requires re-encoding when applied).
+ */
+export type RotateDegrees = 0 | 90 | 180 | 270;
+
 export interface ProcessingOptions {
   presetId: PresetId;
   targetWidth: number | null;
@@ -17,6 +23,11 @@ export interface ProcessingOptions {
    */
   quality: number | null;
   stripMetadata: boolean;
+  /**
+   * Optional per-request rotation override. This is intentionally NOT persisted
+   * in UserSettings because it is driven by per-task UI actions.
+   */
+  rotateDegrees?: RotateDegrees;
 }
 
 /**
@@ -105,8 +116,23 @@ export interface ImageTask {
    */
   attemptGeneration?: number;
   /**
+   * Rotation degrees most recently attempted for {@link attemptGeneration}.
+   * Used to avoid retry loops within the same generation+rotation combo.
+   */
+  attemptRotateDegrees?: RotateDegrees;
+  /**
    * The generation that produced the currently stored result (if any).
    * When this differs from the current generation, the visible result is stale.
    */
   resultGeneration?: number;
+  /**
+   * Rotation degrees that produced the currently stored result (if any).
+   * When this differs from {@link rotateDegrees}, the visible result is stale.
+   */
+  resultRotateDegrees?: RotateDegrees;
+  /**
+   * Desired rotation for this task. This is a runtime-only override, defaulting
+   * to 0 (no rotation).
+   */
+  rotateDegrees?: RotateDegrees;
 }

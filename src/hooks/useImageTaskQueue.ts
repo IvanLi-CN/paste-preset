@@ -5,11 +5,17 @@ import {
   resetImageWorker,
 } from "../lib/imageWorkerClient.ts";
 import { translateProcessingError } from "../lib/processingErrors.ts";
-import type { ImageInfo, ImageTask, ProcessingOptions } from "../lib/types.ts";
+import type {
+  ImageInfo,
+  ImageTask,
+  ProcessingOptions,
+  RotateDegrees,
+} from "../lib/types.ts";
 
 export interface UseImageTaskQueueResult {
   tasks: ImageTask[];
   enqueueFiles: (files: File[]) => void;
+  rotateTask90: (taskId: string) => void;
   clearAll: () => void;
 }
 
@@ -21,6 +27,30 @@ export interface TaskQueuePriorityHints {
 const DEFAULT_SOURCE_READ_TIMEOUT_MS = 30_000;
 const DEFAULT_PROCESSING_TIMEOUT_MS = 120_000;
 
+function normalizeRotateDegrees(value: number | undefined): RotateDegrees {
+  switch (value) {
+    case 90:
+    case 180:
+    case 270:
+      return value;
+    default:
+      return 0;
+  }
+}
+
+function nextRotateDegrees(value: RotateDegrees): RotateDegrees {
+  switch (value) {
+    case 0:
+      return 90;
+    case 90:
+      return 180;
+    case 180:
+      return 270;
+    default:
+      return 0;
+  }
+}
+
 export function useImageTaskQueue(
   options: ProcessingOptions,
   priorityHints?: TaskQueuePriorityHints,
@@ -29,6 +59,7 @@ export function useImageTaskQueue(
   const [tasks, setTasks] = useState<ImageTask[]>([]);
 
   const fileMapRef = useRef<Map<string, File>>(new Map());
+  const rotateMapRef = useRef<Map<string, RotateDegrees>>(new Map());
   const activeProcessingIdRef = useRef<string | null>(null);
   const generationRef = useRef(0);
   const lastOptionsKeyRef = useRef<string | null>(null);
@@ -74,6 +105,7 @@ export function useImageTaskQueue(
       const newTasks: ImageTask[] = files.map((file) => {
         const id = createId();
         fileMapRef.current.set(id, file);
+        rotateMapRef.current.set(id, 0);
         return {
           id,
           batchId,
@@ -82,11 +114,37 @@ export function useImageTaskQueue(
           status: "queued",
           createdAt: now,
           desiredGeneration,
+          rotateDegrees: 0,
         } satisfies ImageTask;
       });
       // Newest batch first; preserve in-batch file order.
       return [...newTasks, ...previous];
     });
+  }, []);
+
+  const rotateTask90 = useCallback((taskId: string) => {
+    setTasks((previous) =>
+      previous.map((task) => {
+        if (task.id !== taskId) {
+          return task;
+        }
+
+        const current = normalizeRotateDegrees(task.rotateDegrees);
+        const next = nextRotateDegrees(current);
+        rotateMapRef.current.set(taskId, next);
+
+        const shouldClearCompletion =
+          task.status === "done" || task.status === "error";
+
+        return {
+          ...task,
+          rotateDegrees: next,
+          status: "queued",
+          errorMessage: task.status === "error" ? undefined : task.errorMessage,
+          completedAt: shouldClearCompletion ? undefined : task.completedAt,
+        };
+      }),
+    );
   }, []);
 
   const clearAll = useCallback(() => {
@@ -102,6 +160,7 @@ export function useImageTaskQueue(
     });
 
     fileMapRef.current.clear();
+    rotateMapRef.current.clear();
   }, []);
 
   useEffect(() => {
@@ -145,6 +204,7 @@ export function useImageTaskQueue(
         errorMessage: t("status.error.unknown"),
         completedAt: Date.now(),
         attemptGeneration: currentGeneration,
+        attemptRotateDegrees: rotateMapRef.current.get(id) ?? 0,
       }));
       return;
     }
@@ -179,13 +239,20 @@ export function useImageTaskQueue(
           ? globalWithTestHook.__processingTimeoutMsForTest
           : DEFAULT_PROCESSING_TIMEOUT_MS;
 
+      const attemptedRotateDegrees = rotateMapRef.current.get(id) ?? 0;
+      const optionsWithRotation =
+        attemptedRotateDegrees === 0
+          ? options
+          : { ...options, rotateDegrees: attemptedRotateDegrees };
+
       try {
         await probeFileReadable(file, sourceReadTimeoutMs);
 
         let didTimeout = false;
+
         const processingPromise = processImageViaWorker(
           file,
-          options,
+          optionsWithRotation,
           file.name,
         ).then((value) => {
           if (didTimeout) {
@@ -208,7 +275,8 @@ export function useImageTaskQueue(
 
         const cancelled =
           generationRef.current !== currentGeneration ||
-          activeProcessingIdRef.current !== id;
+          activeProcessingIdRef.current !== id ||
+          (rotateMapRef.current.get(id) ?? 0) !== attemptedRotateDegrees;
         if (cancelled) {
           revokeImageInfo(source);
           revokeImageInfo(result);
@@ -229,7 +297,9 @@ export function useImageTaskQueue(
           errorMessage: undefined,
           completedAt: Date.now(),
           attemptGeneration: currentGeneration,
+          attemptRotateDegrees: attemptedRotateDegrees,
           resultGeneration: currentGeneration,
+          resultRotateDegrees: attemptedRotateDegrees,
         }));
       } catch (error) {
         if (generationRef.current !== currentGeneration) {
@@ -243,6 +313,13 @@ export function useImageTaskQueue(
           resetImageWorker(error);
         }
 
+        if (
+          activeProcessingIdRef.current !== id ||
+          (rotateMapRef.current.get(id) ?? 0) !== attemptedRotateDegrees
+        ) {
+          return;
+        }
+
         const message =
           error instanceof Error
             ? translateProcessingError(error, t)
@@ -253,6 +330,7 @@ export function useImageTaskQueue(
           errorMessage: message,
           completedAt: Date.now(),
           attemptGeneration: currentGeneration,
+          attemptRotateDegrees: attemptedRotateDegrees,
         }));
       } finally {
         if (activeProcessingIdRef.current === id) {
@@ -276,8 +354,8 @@ export function useImageTaskQueue(
   ]);
 
   const result = useMemo<UseImageTaskQueueResult>(
-    () => ({ tasks, enqueueFiles, clearAll }),
-    [tasks, enqueueFiles, clearAll],
+    () => ({ tasks, enqueueFiles, rotateTask90, clearAll }),
+    [tasks, enqueueFiles, rotateTask90, clearAll],
   );
 
   return result;
@@ -361,7 +439,13 @@ function selectNextTaskForProcessing(params: {
       continue;
     }
 
-    if (task.attemptGeneration === currentGeneration) {
+    const desiredRotation = normalizeRotateDegrees(task.rotateDegrees);
+    const attemptedRotation = normalizeRotateDegrees(task.attemptRotateDegrees);
+
+    if (
+      task.attemptGeneration === currentGeneration &&
+      attemptedRotation === desiredRotation
+    ) {
       continue;
     }
 

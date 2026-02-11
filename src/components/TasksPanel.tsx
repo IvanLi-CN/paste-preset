@@ -7,13 +7,14 @@ import { TaskRow } from "./TaskRow.tsx";
 interface TasksPanelProps {
   tasks: ImageTask[];
   onCopyResult: (taskId: string, blob: Blob, mimeType: string) => void;
+  onRotateTask90?: (taskId: string) => void;
   onClearAll: () => void;
   onExpandedIdsChange?: (expandedIds: ReadonlySet<string>) => void;
   onActiveTaskIdChange?: (taskId: string | null) => void;
 }
 
 export function TasksPanel(props: TasksPanelProps) {
-  const { tasks, onCopyResult, onClearAll } = props;
+  const { tasks, onCopyResult, onClearAll, onRotateTask90 } = props;
   const { t } = useTranslation();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -86,14 +87,13 @@ export function TasksPanel(props: TasksPanelProps) {
     const isExpanded = expandedIds.has(task.id);
 
     const nextExpanded = new Set(expandedIds);
-    let nextActive = activeTaskId;
+    const nextActive = task.id;
 
     if (isMultiSelect) {
       if (isExpanded) {
         nextExpanded.delete(task.id);
       } else {
         nextExpanded.add(task.id);
-        nextActive = task.id;
       }
     } else {
       if (isExpanded) {
@@ -101,23 +101,7 @@ export function TasksPanel(props: TasksPanelProps) {
       } else {
         nextExpanded.clear();
         nextExpanded.add(task.id);
-        nextActive = task.id;
       }
-    }
-
-    if (isExpanded && task.id === activeTaskId) {
-      // If the active task is collapsed, pick the first remaining expanded task in list order.
-      nextActive = null;
-      for (const item of tasks) {
-        if (nextExpanded.has(item.id)) {
-          nextActive = item.id;
-          break;
-        }
-      }
-    }
-
-    if (nextExpanded.size === 0) {
-      nextActive = null;
     }
 
     setExpandedIds(nextExpanded);
@@ -168,8 +152,13 @@ export function TasksPanel(props: TasksPanelProps) {
                   key={task.id}
                   task={task}
                   isExpanded={expandedIds.has(task.id)}
+                  isActive={task.id === activeTaskId}
                   onToggleExpand={(e) => handleToggleExpand(task, e)}
                   onCopyResult={onCopyResult}
+                  onRotate90={() => {
+                    setActiveTaskId(task.id);
+                    onRotateTask90?.(task.id);
+                  }}
                 />
               ))}
             </div>

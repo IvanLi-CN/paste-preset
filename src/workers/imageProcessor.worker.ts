@@ -19,6 +19,7 @@ import type {
   ImageMetadataSummary,
   ProcessingOptions,
   ResizeMode,
+  RotateDegrees,
 } from "../lib/types.ts";
 
 const ctx: DedicatedWorkerGlobalScope =
@@ -95,7 +96,7 @@ interface OffscreenProcessResult {
 }
 
 function drawToOffscreenCanvas(
-  image: ImageBitmap,
+  image: ImageBitmap | OffscreenCanvas,
   sourceWidth: number,
   sourceHeight: number,
   targetWidth: number,
@@ -170,6 +171,56 @@ function drawToOffscreenCanvas(
   return canvas;
 }
 
+function normalizeRotateDegrees(value: number | undefined): RotateDegrees {
+  switch (value) {
+    case 90:
+    case 180:
+    case 270:
+      return value;
+    default:
+      return 0;
+  }
+}
+
+function rotateToOffscreenCanvas(
+  image: ImageBitmap,
+  sourceWidth: number,
+  sourceHeight: number,
+  rotateDegrees: RotateDegrees,
+): { image: ImageBitmap | OffscreenCanvas; width: number; height: number } {
+  if (rotateDegrees === 0) {
+    return { image, width: sourceWidth, height: sourceHeight };
+  }
+
+  const swap = rotateDegrees === 90 || rotateDegrees === 270;
+  const canvas = new OffscreenCanvas(
+    swap ? sourceHeight : sourceWidth,
+    swap ? sourceWidth : sourceHeight,
+  );
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("image.canvasContext");
+  }
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+
+  if (rotateDegrees === 90) {
+    ctx.translate(canvas.width, 0);
+    ctx.rotate(Math.PI / 2);
+  } else if (rotateDegrees === 180) {
+    ctx.translate(canvas.width, canvas.height);
+    ctx.rotate(Math.PI);
+  } else if (rotateDegrees === 270) {
+    ctx.translate(0, canvas.height);
+    ctx.rotate(-Math.PI / 2);
+  }
+
+  ctx.drawImage(image, 0, 0);
+
+  return { image: canvas, width: canvas.width, height: canvas.height };
+}
+
 async function decodeImageBitmap(blob: Blob): Promise<{
   bitmap: ImageBitmap;
   width: number;
@@ -231,105 +282,118 @@ async function processImageBlobOffscreen(
     height: sourceHeight,
   } = await decodeImageBitmap(normalized.blob);
 
-  const target = computeTargetSize(sourceWidth, sourceHeight, options);
-
-  if (
-    target.width <= 0 ||
-    target.height <= 0 ||
-    target.width > MAX_TARGET_SIDE ||
-    target.height > MAX_TARGET_SIDE ||
-    target.width * target.height > MAX_TARGET_PIXELS
-  ) {
-    throw new Error("image.tooLarge");
-  }
-
-  const mime = getOutputMimeType(
-    normalized.originalMimeType,
-    options.outputFormat,
-  );
-
-  const canPassThrough =
-    !normalized.wasConverted &&
-    !options.stripMetadata &&
-    target.width === sourceWidth &&
-    target.height === sourceHeight &&
-    mime === normalized.originalMimeType;
-
-  let resultBlob: Blob;
-  let didEmbedMetadata = false;
-
-  if (canPassThrough) {
-    resultBlob = blob;
-  } else {
-    const canvas = drawToOffscreenCanvas(
-      bitmap,
-      sourceWidth,
-      sourceHeight,
-      target.width,
-      target.height,
-      options.resizeMode,
-    );
-
-    const exifString = buildExifFromEmbedding(exifEmbedding);
-
-    const quality =
-      mime === "image/jpeg" || mime === "image/webp"
-        ? (options.quality ?? 0.8)
-        : undefined;
-
-    resultBlob = await canvasToBlob(canvas, mime, quality).then(
-      async (exportedBlob) => {
-        if (
-          !options.stripMetadata &&
-          exifString &&
-          (mime === "image/jpeg" ||
-            mime === "image/png" ||
-            mime === "image/webp")
-        ) {
-          try {
-            const patched = await embedExifIntoImageBlob(
-              exportedBlob,
-              mime,
-              exifString,
-            );
-            if (patched) {
-              didEmbedMetadata = true;
-              return patched;
-            }
-          } catch (error) {
-            console.error(
-              "[PastePreset] Failed to embed metadata in worker:",
-              error,
-            );
-          }
-        }
-        return exportedBlob;
-      },
-    );
-  }
-
-  const metadataStripped = canPassThrough ? false : !didEmbedMetadata;
-
-  const resultBuffer = await resultBlob.arrayBuffer();
-
-  const normalizedBuffer = normalized.wasConverted
-    ? await normalized.blob.arrayBuffer()
-    : undefined;
-
-  return {
-    resultBuffer,
-    resultMimeType: resultBlob.type || mime,
-    width: target.width,
-    height: target.height,
+  const rotateDegrees = normalizeRotateDegrees(options.rotateDegrees);
+  const rotated = rotateToOffscreenCanvas(
+    bitmap,
     sourceWidth,
     sourceHeight,
-    metadata: metadata ?? undefined,
-    metadataStripped,
-    normalizedBuffer,
-    normalizedMimeType: normalized.wasConverted
-      ? normalized.blob.type
-      : undefined,
-  };
+    rotateDegrees,
+  );
+
+  try {
+    const target = computeTargetSize(rotated.width, rotated.height, options);
+
+    if (
+      target.width <= 0 ||
+      target.height <= 0 ||
+      target.width > MAX_TARGET_SIDE ||
+      target.height > MAX_TARGET_SIDE ||
+      target.width * target.height > MAX_TARGET_PIXELS
+    ) {
+      throw new Error("image.tooLarge");
+    }
+
+    const mime = getOutputMimeType(
+      normalized.originalMimeType,
+      options.outputFormat,
+    );
+
+    const canPassThrough =
+      rotateDegrees === 0 &&
+      !normalized.wasConverted &&
+      !options.stripMetadata &&
+      target.width === sourceWidth &&
+      target.height === sourceHeight &&
+      mime === normalized.originalMimeType;
+
+    let resultBlob: Blob;
+    let didEmbedMetadata = false;
+
+    if (canPassThrough) {
+      resultBlob = blob;
+    } else {
+      const canvas = drawToOffscreenCanvas(
+        rotated.image,
+        rotated.width,
+        rotated.height,
+        target.width,
+        target.height,
+        options.resizeMode,
+      );
+
+      const exifString = buildExifFromEmbedding(exifEmbedding);
+
+      const quality =
+        mime === "image/jpeg" || mime === "image/webp"
+          ? (options.quality ?? 0.8)
+          : undefined;
+
+      resultBlob = await canvasToBlob(canvas, mime, quality).then(
+        async (exportedBlob) => {
+          if (
+            !options.stripMetadata &&
+            exifString &&
+            (mime === "image/jpeg" ||
+              mime === "image/png" ||
+              mime === "image/webp")
+          ) {
+            try {
+              const patched = await embedExifIntoImageBlob(
+                exportedBlob,
+                mime,
+                exifString,
+              );
+              if (patched) {
+                didEmbedMetadata = true;
+                return patched;
+              }
+            } catch (error) {
+              console.error(
+                "[PastePreset] Failed to embed metadata in worker:",
+                error,
+              );
+            }
+          }
+          return exportedBlob;
+        },
+      );
+    }
+
+    const metadataStripped = canPassThrough ? false : !didEmbedMetadata;
+
+    const resultBuffer = await resultBlob.arrayBuffer();
+
+    const normalizedBuffer = normalized.wasConverted
+      ? await normalized.blob.arrayBuffer()
+      : undefined;
+
+    return {
+      resultBuffer,
+      resultMimeType: resultBlob.type || mime,
+      width: target.width,
+      height: target.height,
+      sourceWidth,
+      sourceHeight,
+      metadata: metadata ?? undefined,
+      metadataStripped,
+      normalizedBuffer,
+      normalizedMimeType: normalized.wasConverted
+        ? normalized.blob.type
+        : undefined,
+    };
+  } finally {
+    bitmap.close();
+  }
 }
 
 async function processImageBitmapOffscreen(
@@ -343,7 +407,15 @@ async function processImageBitmapOffscreen(
     const sourceWidth = bitmap.width;
     const sourceHeight = bitmap.height;
 
-    const target = computeTargetSize(sourceWidth, sourceHeight, options);
+    const rotateDegrees = normalizeRotateDegrees(options.rotateDegrees);
+    const rotated = rotateToOffscreenCanvas(
+      bitmap,
+      sourceWidth,
+      sourceHeight,
+      rotateDegrees,
+    );
+
+    const target = computeTargetSize(rotated.width, rotated.height, options);
 
     if (
       target.width <= 0 ||
@@ -358,9 +430,9 @@ async function processImageBitmapOffscreen(
     const mime = getOutputMimeType(sourceMimeType, options.outputFormat);
 
     const canvas = drawToOffscreenCanvas(
-      bitmap,
-      sourceWidth,
-      sourceHeight,
+      rotated.image,
+      rotated.width,
+      rotated.height,
       target.width,
       target.height,
       options.resizeMode,

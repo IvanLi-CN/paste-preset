@@ -122,6 +122,8 @@ export const en = {
 
   "preview.actions.copyLabel": "Copy to clipboard",
   "preview.actions.copyAria": "Copy result image to clipboard",
+  "preview.actions.rotate90Label": "Rotate 90°",
+  "preview.actions.rotate90Aria": "Rotate image 90 degrees clockwise",
   "preview.actions.downloadLabel": "Download",
   "preview.actions.downloadAria": "Download result image",
 
