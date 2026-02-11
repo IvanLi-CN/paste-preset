@@ -358,29 +358,79 @@ export async function processImageBlob(
   // stripped unless we explicitly re-insert a best-effort EXIF payload.
   const metadataStripped = canPassThrough ? false : !didEmbedMetadata;
 
-  const sourceInfo: ImageInfo = normalized.wasConverted
-    ? // For formats like HEIC/HEIF we keep the original blob for
-      // metadata/size, but use the converted blob for preview so
-      // the browser can display the image without errors. The original
-      // file's metadata is never modified by the pipeline.
-      {
-        ...createImageInfo(
-          blob,
-          sourceWidth,
-          sourceHeight,
-          sourceName,
-          normalized.blob,
-        ),
-        metadataStripped: false,
-        metadata,
+  let rotatedSourcePreviewBlob: Blob | undefined;
+  if (rotateDegrees !== 0 && rotated.image instanceof HTMLCanvasElement) {
+    const rotatedCanvas = rotated.image;
+    const previewMime = (() => {
+      const candidate =
+        normalized.blob.type || normalized.originalMimeType || "image/png";
+      if (
+        candidate === "image/jpeg" ||
+        candidate === "image/png" ||
+        candidate === "image/webp"
+      ) {
+        return candidate;
       }
-    : {
-        // For the source image we always keep the original blob untouched,
-        // so from the pipeline's perspective its metadata is preserved.
-        ...createImageInfo(blob, sourceWidth, sourceHeight, sourceName),
-        metadataStripped: false,
-        metadata,
-      };
+      return "image/png";
+    })();
+
+    const previewQuality =
+      previewMime === "image/jpeg" || previewMime === "image/webp"
+        ? (options.quality ?? 0.92)
+        : undefined;
+
+    try {
+      rotatedSourcePreviewBlob = await new Promise<Blob>((resolve, reject) => {
+        rotatedCanvas.toBlob(
+          (preview: Blob | null) => {
+            if (!preview) {
+              reject(new Error("image.exportFailed"));
+              return;
+            }
+            resolve(preview);
+          },
+          previewMime,
+          previewQuality,
+        );
+      });
+    } catch (error) {
+      // Rotation should still produce a valid result image even if creating an
+      // extra preview blob fails for some reason.
+      console.error(
+        "[PastePreset] Failed to create rotated source preview blob:",
+        error,
+      );
+    }
+  }
+
+  const sourcePreviewWidth = rotateDegrees !== 0 ? rotated.width : sourceWidth;
+  const sourcePreviewHeight =
+    rotateDegrees !== 0 ? rotated.height : sourceHeight;
+
+  const sourceInfo: ImageInfo =
+    normalized.wasConverted || rotateDegrees !== 0
+      ? // For formats like HEIC/HEIF we keep the original blob for
+        // metadata/size, but use the converted blob for preview so
+        // the browser can display the image without errors. The original
+        // file's metadata is never modified by the pipeline.
+        {
+          ...createImageInfo(
+            blob,
+            sourcePreviewWidth,
+            sourcePreviewHeight,
+            sourceName,
+            rotatedSourcePreviewBlob ?? normalized.blob,
+          ),
+          metadataStripped: false,
+          metadata,
+        }
+      : {
+          // For the source image we always keep the original blob untouched,
+          // so from the pipeline's perspective its metadata is preserved.
+          ...createImageInfo(blob, sourceWidth, sourceHeight, sourceName),
+          metadataStripped: false,
+          metadata,
+        };
   const resultInfo: ImageInfo = {
     ...createImageInfo(resultBlob, target.width, target.height, sourceName),
     metadataStripped,

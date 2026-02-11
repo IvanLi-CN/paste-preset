@@ -373,23 +373,59 @@ async function processImageBlobOffscreen(
 
     const resultBuffer = await resultBlob.arrayBuffer();
 
-    const normalizedBuffer = normalized.wasConverted
-      ? await normalized.blob.arrayBuffer()
-      : undefined;
+    let normalizedBuffer: ArrayBuffer | undefined;
+    let normalizedMimeType: string | undefined;
+
+    if (rotateDegrees !== 0) {
+      const previewMime = (() => {
+        const candidate = normalized.wasConverted
+          ? normalized.blob.type
+          : mimeType;
+        if (
+          candidate === "image/jpeg" ||
+          candidate === "image/png" ||
+          candidate === "image/webp"
+        ) {
+          return candidate;
+        }
+        return "image/png";
+      })();
+
+      const previewQuality =
+        previewMime === "image/jpeg" || previewMime === "image/webp"
+          ? (options.quality ?? 0.92)
+          : undefined;
+
+      try {
+        const previewBlob = await canvasToBlob(
+          rotated.image as OffscreenCanvas,
+          previewMime,
+          previewQuality,
+        );
+        normalizedBuffer = await previewBlob.arrayBuffer();
+        normalizedMimeType = previewBlob.type || previewMime;
+      } catch (error) {
+        console.error(
+          "[PastePreset] Failed to export rotated source preview in worker:",
+          error,
+        );
+      }
+    } else if (normalized.wasConverted) {
+      normalizedBuffer = await normalized.blob.arrayBuffer();
+      normalizedMimeType = normalized.blob.type;
+    }
 
     return {
       resultBuffer,
       resultMimeType: resultBlob.type || mime,
       width: target.width,
       height: target.height,
-      sourceWidth,
-      sourceHeight,
+      sourceWidth: rotated.width,
+      sourceHeight: rotated.height,
       metadata: metadata ?? undefined,
       metadataStripped,
       normalizedBuffer,
-      normalizedMimeType: normalized.wasConverted
-        ? normalized.blob.type
-        : undefined,
+      normalizedMimeType,
     };
   } finally {
     bitmap.close();
@@ -479,15 +515,53 @@ async function processImageBitmapOffscreen(
     const resultBuffer = await resultBlob.arrayBuffer();
     const metadataStripped = !didEmbedMetadata;
 
+    let normalizedBuffer: ArrayBuffer | undefined;
+    let normalizedMimeType: string | undefined;
+
+    if (rotateDegrees !== 0) {
+      const previewMime = (() => {
+        if (
+          sourceMimeType === "image/jpeg" ||
+          sourceMimeType === "image/png" ||
+          sourceMimeType === "image/webp"
+        ) {
+          return sourceMimeType;
+        }
+        return "image/png";
+      })();
+
+      const previewQuality =
+        previewMime === "image/jpeg" || previewMime === "image/webp"
+          ? (options.quality ?? 0.92)
+          : undefined;
+
+      try {
+        const previewBlob = await canvasToBlob(
+          rotated.image as OffscreenCanvas,
+          previewMime,
+          previewQuality,
+        );
+        normalizedBuffer = await previewBlob.arrayBuffer();
+        normalizedMimeType = previewBlob.type || previewMime;
+      } catch (error) {
+        console.error(
+          "[PastePreset] Failed to export rotated source preview in worker:",
+          error,
+        );
+      }
+    }
+
     return {
       resultBuffer,
       resultMimeType: resultBlob.type || mime,
       width: target.width,
       height: target.height,
-      sourceWidth,
-      sourceHeight,
+      sourceWidth: rotated.width,
+      sourceHeight: rotated.height,
       metadata: metadata ?? undefined,
       metadataStripped,
+      normalizedBuffer,
+      normalizedMimeType,
     };
   } finally {
     bitmap.close();

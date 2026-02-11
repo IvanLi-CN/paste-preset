@@ -35,8 +35,10 @@ export interface ProcessSuccess {
   metadata?: ImageMetadataSummary;
   metadataStripped: boolean;
   /**
-   * Optional preview-friendly copy of the decoded source when the
-   * original format is not natively displayable (e.g. HEIC).
+   * Optional preview-friendly copy of the decoded source when the original
+   * payload is not natively displayable (e.g. HEIC) or when the pipeline
+   * applied a rotation and the UI needs a rotated preview without mutating
+   * the original source blob.
    */
   normalizedBuffer?: ArrayBuffer;
   normalizedMimeType?: string;
