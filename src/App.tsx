@@ -72,7 +72,7 @@ function App() {
     [activeTaskId, expandedIds],
   );
 
-  const { tasks, enqueueFiles, clearAll } = useImageTaskQueue(
+  const { tasks, enqueueFiles, rotateTask90, clearAll } = useImageTaskQueue(
     processingOptions,
     priorityHints,
   );
@@ -319,7 +319,8 @@ function App() {
       const task = tasks.find((item) => item.id === activeTaskId);
       const hasUpToDateResult =
         Boolean(task?.result) &&
-        task?.resultGeneration === task?.desiredGeneration;
+        task?.resultGeneration === task?.desiredGeneration &&
+        (task?.resultRotateDegrees ?? 0) === (task?.rotateDegrees ?? 0);
 
       if (!task || !hasUpToDateResult || !task.result) {
         setShortcutCopyError(t("shortcut.copy.noUpToDateResult"));
@@ -406,6 +407,7 @@ function App() {
                 <TasksPanel
                   tasks={tasks}
                   onCopyResult={(_, blob, mime) => handleCopyResult(blob, mime)}
+                  onRotateTask90={rotateTask90}
                   onClearAll={clearAll}
                   onActiveTaskIdChange={handleActiveTaskIdChange}
                   onExpandedIdsChange={handleExpandedIdsChange}
@@ -469,6 +471,7 @@ function App() {
                 <TasksPanel
                   tasks={tasks}
                   onCopyResult={(_, blob, mime) => handleCopyResult(blob, mime)}
+                  onRotateTask90={rotateTask90}
                   onClearAll={clearAll}
                   onActiveTaskIdChange={handleActiveTaskIdChange}
                   onExpandedIdsChange={handleExpandedIdsChange}

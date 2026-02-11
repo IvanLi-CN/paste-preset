@@ -8,7 +8,12 @@ import {
   MAX_TARGET_PIXELS,
   MAX_TARGET_SIDE,
 } from "./imageProcessingCommon.ts";
-import type { ImageInfo, ProcessingOptions, ResizeMode } from "./types.ts";
+import type {
+  ImageInfo,
+  ProcessingOptions,
+  ResizeMode,
+  RotateDegrees,
+} from "./types.ts";
 
 export interface ProcessResult {
   source: ImageInfo;
@@ -23,7 +28,7 @@ interface DecodeResult {
 }
 
 function drawToCanvas(
-  image: ImageBitmap | HTMLImageElement,
+  image: CanvasImageSource,
   sourceWidth: number,
   sourceHeight: number,
   targetWidth: number,
@@ -99,6 +104,58 @@ function drawToCanvas(
 
   ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
   return canvas;
+}
+
+function normalizeRotateDegrees(value: number | undefined): RotateDegrees {
+  switch (value) {
+    case 90:
+    case 180:
+    case 270:
+      return value;
+    default:
+      return 0;
+  }
+}
+
+function rotateToCanvas(
+  image: CanvasImageSource,
+  sourceWidth: number,
+  sourceHeight: number,
+  rotateDegrees: RotateDegrees,
+): { image: CanvasImageSource; width: number; height: number } {
+  if (rotateDegrees === 0) {
+    return { image, width: sourceWidth, height: sourceHeight };
+  }
+
+  const swap = rotateDegrees === 90 || rotateDegrees === 270;
+  const canvas = document.createElement("canvas");
+  canvas.width = swap ? sourceHeight : sourceWidth;
+  canvas.height = swap ? sourceWidth : sourceHeight;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("image.canvasContext");
+  }
+
+  // No interpolation is needed for a 90-degree rotation, but keep the settings
+  // aligned with the rest of the pipeline.
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+
+  if (rotateDegrees === 90) {
+    ctx.translate(canvas.width, 0);
+    ctx.rotate(Math.PI / 2);
+  } else if (rotateDegrees === 180) {
+    ctx.translate(canvas.width, canvas.height);
+    ctx.rotate(Math.PI);
+  } else if (rotateDegrees === 270) {
+    ctx.translate(0, canvas.height);
+    ctx.rotate(-Math.PI / 2);
+  }
+
+  ctx.drawImage(image, 0, 0);
+
+  return { image: canvas, width: canvas.width, height: canvas.height };
 }
 
 async function decodeImage(blob: Blob): Promise<DecodeResult> {
@@ -201,7 +258,15 @@ export async function processImageBlob(
     } = await decodeImage(normalized.blob));
   }
 
-  const target = computeTargetSize(sourceWidth, sourceHeight, options);
+  const rotateDegrees = normalizeRotateDegrees(options.rotateDegrees);
+  const rotated = rotateToCanvas(
+    bitmap,
+    sourceWidth,
+    sourceHeight,
+    rotateDegrees,
+  );
+
+  const target = computeTargetSize(rotated.width, rotated.height, options);
 
   if (
     target.width <= 0 ||
@@ -219,6 +284,7 @@ export async function processImageBlob(
   );
 
   const canPassThrough =
+    rotateDegrees === 0 &&
     !normalized.wasConverted &&
     !options.stripMetadata &&
     target.width === sourceWidth &&
@@ -232,9 +298,9 @@ export async function processImageBlob(
     resultBlob = blob;
   } else {
     const canvas = drawToCanvas(
-      bitmap,
-      sourceWidth,
-      sourceHeight,
+      rotated.image,
+      rotated.width,
+      rotated.height,
       target.width,
       target.height,
       options.resizeMode,
@@ -292,29 +358,79 @@ export async function processImageBlob(
   // stripped unless we explicitly re-insert a best-effort EXIF payload.
   const metadataStripped = canPassThrough ? false : !didEmbedMetadata;
 
-  const sourceInfo: ImageInfo = normalized.wasConverted
-    ? // For formats like HEIC/HEIF we keep the original blob for
-      // metadata/size, but use the converted blob for preview so
-      // the browser can display the image without errors. The original
-      // file's metadata is never modified by the pipeline.
-      {
-        ...createImageInfo(
-          blob,
-          sourceWidth,
-          sourceHeight,
-          sourceName,
-          normalized.blob,
-        ),
-        metadataStripped: false,
-        metadata,
+  let rotatedSourcePreviewBlob: Blob | undefined;
+  if (rotateDegrees !== 0 && rotated.image instanceof HTMLCanvasElement) {
+    const rotatedCanvas = rotated.image;
+    const previewMime = (() => {
+      const candidate =
+        normalized.blob.type || normalized.originalMimeType || "image/png";
+      if (
+        candidate === "image/jpeg" ||
+        candidate === "image/png" ||
+        candidate === "image/webp"
+      ) {
+        return candidate;
       }
-    : {
-        // For the source image we always keep the original blob untouched,
-        // so from the pipeline's perspective its metadata is preserved.
-        ...createImageInfo(blob, sourceWidth, sourceHeight, sourceName),
-        metadataStripped: false,
-        metadata,
-      };
+      return "image/png";
+    })();
+
+    const previewQuality =
+      previewMime === "image/jpeg" || previewMime === "image/webp"
+        ? (options.quality ?? 0.92)
+        : undefined;
+
+    try {
+      rotatedSourcePreviewBlob = await new Promise<Blob>((resolve, reject) => {
+        rotatedCanvas.toBlob(
+          (preview: Blob | null) => {
+            if (!preview) {
+              reject(new Error("image.exportFailed"));
+              return;
+            }
+            resolve(preview);
+          },
+          previewMime,
+          previewQuality,
+        );
+      });
+    } catch (error) {
+      // Rotation should still produce a valid result image even if creating an
+      // extra preview blob fails for some reason.
+      console.error(
+        "[PastePreset] Failed to create rotated source preview blob:",
+        error,
+      );
+    }
+  }
+
+  const sourcePreviewWidth = rotateDegrees !== 0 ? rotated.width : sourceWidth;
+  const sourcePreviewHeight =
+    rotateDegrees !== 0 ? rotated.height : sourceHeight;
+
+  const sourceInfo: ImageInfo =
+    normalized.wasConverted || rotateDegrees !== 0
+      ? // For formats like HEIC/HEIF we keep the original blob for
+        // metadata/size, but use the converted blob for preview so
+        // the browser can display the image without errors. The original
+        // file's metadata is never modified by the pipeline.
+        {
+          ...createImageInfo(
+            blob,
+            sourcePreviewWidth,
+            sourcePreviewHeight,
+            sourceName,
+            rotatedSourcePreviewBlob ?? normalized.blob,
+          ),
+          metadataStripped: false,
+          metadata,
+        }
+      : {
+          // For the source image we always keep the original blob untouched,
+          // so from the pipeline's perspective its metadata is preserved.
+          ...createImageInfo(blob, sourceWidth, sourceHeight, sourceName),
+          metadataStripped: false,
+          metadata,
+        };
   const resultInfo: ImageInfo = {
     ...createImageInfo(resultBlob, target.width, target.height, sourceName),
     metadataStripped,

@@ -118,6 +118,8 @@ export const zhHK: TranslationMessages = {
 
   "preview.actions.copyLabel": "複製到剪貼簿",
   "preview.actions.copyAria": "將結果圖片複製到剪貼簿",
+  "preview.actions.rotate90Label": "旋轉 90°",
+  "preview.actions.rotate90Aria": "將圖片順時針旋轉 90 度",
   "preview.actions.downloadLabel": "下載",
   "preview.actions.downloadAria": "下載結果圖片",
 

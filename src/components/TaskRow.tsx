@@ -8,21 +8,34 @@ import { TaskDetails } from "./TaskDetails.tsx";
 interface TaskRowProps {
   task: ImageTask;
   isExpanded: boolean;
+  isActive?: boolean;
   onToggleExpand: (event: React.MouseEvent) => void;
   onCopyResult: (taskId: string, blob: Blob, mimeType: string) => void;
+  onRotate90?: () => void;
 }
 
 export function TaskRow(props: TaskRowProps) {
-  const { task, isExpanded, onToggleExpand, onCopyResult } = props;
+  const {
+    task,
+    isExpanded,
+    isActive,
+    onToggleExpand,
+    onCopyResult,
+    onRotate90,
+  } = props;
   const { t } = useTranslation();
 
   const result = task.result;
   const [isCopying, setIsCopying] = useState(false);
 
+  const desiredRotation = task.rotateDegrees ?? 0;
+  const resultRotation = task.resultRotateDegrees ?? 0;
+
   const hasCurrentResult =
     Boolean(result) &&
     typeof task.resultGeneration === "number" &&
-    task.resultGeneration === task.desiredGeneration;
+    task.resultGeneration === task.desiredGeneration &&
+    resultRotation === desiredRotation;
   const canExport = task.status === "done" && hasCurrentResult;
   const isResultStale = Boolean(result) && !hasCurrentResult;
 
@@ -151,7 +164,7 @@ export function TaskRow(props: TaskRowProps) {
   return (
     <div
       data-testid="task-row"
-      className={`collapse bg-base-100 border border-base-300 ${isExpanded ? "collapse-open" : "collapse-close"}`}
+      className={`collapse bg-base-100 border ${isActive ? "border-primary/50 ring-1 ring-primary/25" : "border-base-300"} ${isExpanded ? "collapse-open" : "collapse-close"}`}
     >
       {/* biome-ignore lint/a11y/useSemanticElements: DaisyUI structure requires div or specifically styled element */}
       <div
@@ -218,6 +231,23 @@ export function TaskRow(props: TaskRowProps) {
           className="flex items-center gap-1 z-10"
           onClick={(e) => e.stopPropagation()}
         >
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm btn-square"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRotate90?.();
+            }}
+            aria-label={t("preview.actions.rotate90Aria")}
+            data-testid="task-rotate-90"
+            title={t("preview.actions.rotate90Label")}
+          >
+            <Icon
+              icon="mdi:rotate-right"
+              data-icon="mdi:rotate-right"
+              className="w-5 h-5"
+            />
+          </button>
           {result && (
             <>
               {!canExport ? (

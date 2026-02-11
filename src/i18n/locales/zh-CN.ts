@@ -118,6 +118,8 @@ export const zhCN: TranslationMessages = {
 
   "preview.actions.copyLabel": "复制到剪贴板",
   "preview.actions.copyAria": "将结果图片复制到剪贴板",
+  "preview.actions.rotate90Label": "旋转 90°",
+  "preview.actions.rotate90Aria": "将图片顺时针旋转 90 度",
   "preview.actions.downloadLabel": "下载",
   "preview.actions.downloadAria": "下载结果图片",
 

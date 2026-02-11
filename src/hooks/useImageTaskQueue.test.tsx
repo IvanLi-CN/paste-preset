@@ -274,6 +274,41 @@ describe("useImageTaskQueue", () => {
     expect(task?.result?.url).toBe("blob:x.png-second-result");
   });
 
+  it("reprocesses a single task when rotating 90 degrees", async () => {
+    const file = createFile("rotate.png");
+
+    processImageViaWorkerMock
+      .mockImplementationOnce(async () => createProcessResult("first"))
+      .mockImplementationOnce(async () => createProcessResult("second"));
+
+    await act(async () => {
+      ref.current?.enqueueFiles([file]);
+    });
+
+    await waitForCondition(() => ref.current?.tasks[0]?.status === "done");
+    const id = ref.current?.tasks[0]?.id;
+    if (!id) {
+      throw new Error("Missing task id");
+    }
+
+    expect(ref.current?.tasks[0]?.resultRotateDegrees ?? 0).toBe(0);
+
+    await act(async () => {
+      ref.current?.rotateTask90(id);
+    });
+
+    await waitForCondition(
+      () => processImageViaWorkerMock.mock.calls.length === 2,
+      2_000,
+    );
+
+    const secondCallOptions = processImageViaWorkerMock.mock.calls[1]?.[1];
+    expect(secondCallOptions?.rotateDegrees).toBe(90);
+
+    await waitForCondition(() => ref.current?.tasks[0]?.status === "done");
+    expect(ref.current?.tasks[0]?.resultRotateDegrees).toBe(90);
+  });
+
   it("continues after a failed task", async () => {
     const files = [
       createFile("a.png"),
