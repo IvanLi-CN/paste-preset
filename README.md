@@ -21,6 +21,7 @@ PastePreset is a browser-based single-page application for quickly processing sc
 - 100% client-side image processing (no backend server)
 - Crop and resize images
 - Format conversion (including HEIC/HEIF to more common formats)
+- Animated image conversion (GIF / animated WebP / APNG)
 - Control over output quality and size
 - Metadata stripping (EXIF, GPS, etc.)
 - Copy processed image to clipboard
