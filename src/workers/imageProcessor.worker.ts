@@ -1,4 +1,14 @@
 /// <reference lib="webworker" />
+
+import type { CanvasBackend } from "../lib/animated/animatedTypes.ts";
+import { decodeAnimatedImage } from "../lib/animated/decode.ts";
+import {
+  encodeAnimatedWebp,
+  encodeApng,
+  encodeGif,
+} from "../lib/animated/encode.ts";
+import { sniffImage } from "../lib/animated/sniff.ts";
+import { transformAnimation } from "../lib/animated/transform.ts";
 import { isHeicMimeType, normalizeImageBlobForCanvas } from "../lib/heic.ts";
 import type { ExifEmbeddingData } from "../lib/imageProcessingCommon.ts";
 import {
@@ -254,12 +264,26 @@ async function canvasToBlob(
   }
 }
 
+function toArrayBuffer(view: Uint8Array): ArrayBuffer {
+  if (view.buffer instanceof ArrayBuffer) {
+    return view.buffer.slice(
+      view.byteOffset,
+      view.byteOffset + view.byteLength,
+    );
+  }
+  const copy = new Uint8Array(view.byteLength);
+  copy.set(view);
+  return copy.buffer;
+}
+
 async function processImageBlobOffscreen(
   buffer: ArrayBuffer,
   mimeType: string,
   options: ProcessingOptions,
 ): Promise<OffscreenProcessResult> {
   const blob = new Blob([buffer], { type: mimeType });
+  const bytes = new Uint8Array(buffer);
+  const sniffed = sniffImage(bytes, mimeType);
 
   // heic2any relies on DOM APIs that are unavailable in dedicated workers,
   // so when a HEIC/HEIF payload is detected we surface a clear error to let
@@ -275,6 +299,211 @@ async function processImageBlobOffscreen(
 
   const metadata = parsedMetadata?.summary;
   const exifEmbedding = parsedMetadata?.exif;
+
+  const mime = getOutputMimeType(
+    sniffed.effectiveMimeType,
+    options.outputFormat,
+  );
+  const wantsAnimatedOutput =
+    mime === "image/gif" ||
+    mime === "image/apng" ||
+    (sniffed.isAnimated && mime === "image/webp");
+
+  if (wantsAnimatedOutput) {
+    const backend: CanvasBackend<OffscreenCanvas> = {
+      createCanvas: (width, height) => new OffscreenCanvas(width, height),
+      getContext2D: (canvas) => {
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          throw new Error("image.canvasContext");
+        }
+        return ctx;
+      },
+      canvasToBlob: async (canvas, type, quality) =>
+        canvas.convertToBlob({ type, quality }),
+    };
+
+    const rotateDegrees = normalizeRotateDegrees(options.rotateDegrees);
+
+    if (sniffed.isAnimated) {
+      const decoded = await decodeAnimatedImage(bytes, sniffed, backend);
+
+      const rotatedSourceWidth =
+        rotateDegrees === 90 || rotateDegrees === 270
+          ? decoded.height
+          : decoded.width;
+      const rotatedSourceHeight =
+        rotateDegrees === 90 || rotateDegrees === 270
+          ? decoded.width
+          : decoded.height;
+
+      const target = computeTargetSize(
+        rotatedSourceWidth,
+        rotatedSourceHeight,
+        options,
+      );
+
+      // Pass-through fast-path: if nothing changes and output matches the source,
+      // keep the original bytes to preserve quality and speed.
+      if (
+        rotateDegrees === 0 &&
+        !normalized.wasConverted &&
+        !options.stripMetadata &&
+        mime === sniffed.effectiveMimeType &&
+        target.width === decoded.width &&
+        target.height === decoded.height
+      ) {
+        return {
+          resultBuffer: buffer,
+          resultMimeType: mime,
+          width: decoded.width,
+          height: decoded.height,
+          sourceWidth: decoded.width,
+          sourceHeight: decoded.height,
+          metadata: metadata ?? undefined,
+          metadataStripped: false,
+        };
+      }
+
+      const transformed = await transformAnimation(decoded, options, backend);
+
+      const resultBytes = await (async () => {
+        if (mime === "image/gif") {
+          return await encodeGif(
+            transformed.frames,
+            transformed.width,
+            transformed.height,
+            transformed.delaysMs,
+          );
+        }
+        if (mime === "image/apng") {
+          const ab = await encodeApng(
+            transformed.frames,
+            transformed.width,
+            transformed.height,
+            transformed.delaysMs,
+          );
+          return new Uint8Array(ab);
+        }
+        // image/webp (animated)
+        return await encodeAnimatedWebp(
+          transformed.frames,
+          transformed.width,
+          transformed.height,
+          transformed.delaysMs,
+        );
+      })();
+
+      const resultBuffer = toArrayBuffer(resultBytes);
+
+      const normalizedBuffer =
+        rotateDegrees !== 0
+          ? transformed.rotatedSourcePreviewPng
+          : normalized.wasConverted
+            ? await normalized.blob.arrayBuffer()
+            : undefined;
+
+      const normalizedMimeType =
+        rotateDegrees !== 0
+          ? "image/png"
+          : normalized.wasConverted
+            ? normalized.blob.type
+            : undefined;
+
+      return {
+        resultBuffer,
+        resultMimeType: mime,
+        width: transformed.width,
+        height: transformed.height,
+        sourceWidth: transformed.rotatedSourceWidth,
+        sourceHeight: transformed.rotatedSourceHeight,
+        metadata: metadata ?? undefined,
+        metadataStripped: true,
+        normalizedBuffer,
+        normalizedMimeType,
+      };
+    }
+
+    // Static source -> encode as a single-frame "animation" (GIF/APNG).
+    const {
+      bitmap,
+      width: sourceWidth,
+      height: sourceHeight,
+    } = await decodeImageBitmap(normalized.blob);
+
+    try {
+      const tmp = new OffscreenCanvas(sourceWidth, sourceHeight);
+      const ctx = tmp.getContext("2d");
+      if (!ctx) {
+        throw new Error("image.canvasContext");
+      }
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(bitmap, 0, 0);
+      const data = ctx.getImageData(0, 0, sourceWidth, sourceHeight);
+
+      const decoded = {
+        width: sourceWidth,
+        height: sourceHeight,
+        frames: [{ rgba: new Uint8Array(data.data.buffer), delayMs: 0 }],
+      };
+
+      const transformed = await transformAnimation(decoded, options, backend);
+
+      const resultBytes = await (async () => {
+        if (mime === "image/gif") {
+          return await encodeGif(
+            transformed.frames,
+            transformed.width,
+            transformed.height,
+            transformed.delaysMs,
+          );
+        }
+        if (mime === "image/apng") {
+          const ab = await encodeApng(
+            transformed.frames,
+            transformed.width,
+            transformed.height,
+            transformed.delaysMs,
+          );
+          return new Uint8Array(ab);
+        }
+        // Static sources never reach animated WebP output.
+        throw new Error("image.animatedCodecUnavailable");
+      })();
+
+      const resultBuffer = toArrayBuffer(resultBytes);
+
+      const normalizedBuffer =
+        rotateDegrees !== 0
+          ? transformed.rotatedSourcePreviewPng
+          : normalized.wasConverted
+            ? await normalized.blob.arrayBuffer()
+            : undefined;
+
+      const normalizedMimeType =
+        rotateDegrees !== 0
+          ? "image/png"
+          : normalized.wasConverted
+            ? normalized.blob.type
+            : undefined;
+
+      return {
+        resultBuffer,
+        resultMimeType: mime,
+        width: transformed.width,
+        height: transformed.height,
+        sourceWidth: transformed.rotatedSourceWidth,
+        sourceHeight: transformed.rotatedSourceHeight,
+        metadata: metadata ?? undefined,
+        metadataStripped: true,
+        normalizedBuffer,
+        normalizedMimeType,
+      };
+    } finally {
+      bitmap.close();
+    }
+  }
 
   const {
     bitmap,
@@ -303,12 +532,8 @@ async function processImageBlobOffscreen(
       throw new Error("image.tooLarge");
     }
 
-    const mime = getOutputMimeType(
-      normalized.originalMimeType,
-      options.outputFormat,
-    );
-
     const canPassThrough =
+      !sniffed.isAnimated &&
       rotateDegrees === 0 &&
       !normalized.wasConverted &&
       !options.stripMetadata &&

@@ -58,7 +58,9 @@ function normalizeOutputFormat(value: unknown): OutputFormat {
     value === "auto" ||
     value === "image/jpeg" ||
     value === "image/png" ||
-    value === "image/webp"
+    value === "image/webp" ||
+    value === "image/gif" ||
+    value === "image/apng"
   ) {
     return value;
   }

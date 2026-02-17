@@ -183,6 +183,10 @@ function App() {
         return t("settings.output.format.png");
       case "image/webp":
         return t("settings.output.format.webp");
+      case "image/gif":
+        return t("settings.output.format.gif");
+      case "image/apng":
+        return t("settings.output.format.apng");
       default:
         return settings.outputFormat;
     }
