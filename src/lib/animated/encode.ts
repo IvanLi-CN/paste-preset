@@ -151,6 +151,10 @@ export async function encodeGif(
       repeat: index === 0 ? 0 : undefined,
       transparent: hasTransparency,
       transparentIndex: 0,
+      // We always encode full-frame bitmaps; when transparency is present,
+      // disposing to background avoids "trails" from previous frames showing
+      // through transparent pixels.
+      dispose: hasTransparency ? 2 : undefined,
     });
   }
 
