@@ -1,3 +1,4 @@
+import { sniffImage } from "./animated/sniff.ts";
 import { getEffectiveMimeType, isHeicMimeType } from "./heic.ts";
 import type { ProcessResult } from "./imageProcessing.ts";
 import { createImageInfo, processImageBlob } from "./imageProcessing.ts";
@@ -10,10 +11,38 @@ type PendingRequest = {
   reject: (reason?: unknown) => void;
   sourceBlob: Blob;
   sourceName?: string;
+  effectiveMimeType?: string;
+  displayBlob?: Blob;
 };
 
 const pending = new Map<string, PendingRequest>();
 let workerInstance: Worker | null = null;
+
+function shouldOverrideBlobMimeTypeForPreview(
+  declaredMimeType: string,
+  effectiveMimeType: string,
+): boolean {
+  const declared = declaredMimeType.trim().toLowerCase();
+  const effective = effectiveMimeType.trim().toLowerCase();
+
+  if (!effective.startsWith("image/")) {
+    return false;
+  }
+  if (!declared) {
+    return true;
+  }
+  if (declared === effective) {
+    return false;
+  }
+
+  // APNG is a PNG container, and most environments already decode it fine when
+  // served as `image/png`. Avoid changing it just for preview.
+  if (effective === "image/apng" && declared === "image/png") {
+    return false;
+  }
+
+  return true;
+}
 
 function supportsOffscreenProcessing(): boolean {
   return (
@@ -99,7 +128,8 @@ function handleWorkerMessage(event: MessageEvent<ProcessResponse>): void {
     return;
   }
 
-  const { sourceBlob, sourceName, resolve, reject: _reject } = pendingRequest;
+  const { sourceBlob, sourceName, resolve, effectiveMimeType, displayBlob } =
+    pendingRequest;
 
   try {
     const resultBlob = new Blob([data.resultBuffer], {
@@ -111,30 +141,38 @@ function handleWorkerMessage(event: MessageEvent<ProcessResponse>): void {
         ? new Blob([data.normalizedBuffer], {
             type: data.normalizedMimeType ?? "image/png",
           })
-        : undefined;
+        : displayBlob
+          ? displayBlob
+          : undefined;
 
-    const sourceInfo = normalizedBlob
-      ? {
-          ...createImageInfo(
-            sourceBlob,
-            data.sourceWidth,
-            data.sourceHeight,
-            sourceName,
-            normalizedBlob,
-          ),
-          metadata: data.metadata,
-          metadataStripped: false,
-        }
-      : {
-          ...createImageInfo(
-            sourceBlob,
-            data.sourceWidth,
-            data.sourceHeight,
-            sourceName,
-          ),
-          metadata: data.metadata,
-          metadataStripped: false,
-        };
+    const baseSourceInfo = normalizedBlob
+      ? createImageInfo(
+          sourceBlob,
+          data.sourceWidth,
+          data.sourceHeight,
+          sourceName,
+          normalizedBlob,
+        )
+      : createImageInfo(
+          sourceBlob,
+          data.sourceWidth,
+          data.sourceHeight,
+          sourceName,
+        );
+
+    const effectiveImageMimeType = effectiveMimeType
+      ?.trim()
+      .toLowerCase()
+      .startsWith("image/")
+      ? effectiveMimeType
+      : undefined;
+
+    const sourceInfo = {
+      ...baseSourceInfo,
+      mimeType: effectiveImageMimeType ?? baseSourceInfo.mimeType,
+      metadata: data.metadata,
+      metadataStripped: false,
+    };
 
     const resultInfo = {
       ...createImageInfo(
@@ -172,24 +210,45 @@ async function runWithWorker(
 
   const id = generateRequestId();
   const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
   const headerBytes = new Uint8Array(
     buffer,
     0,
     Math.min(buffer.byteLength, 32),
   );
-  const mimeType = await getEffectiveMimeType(blob, sourceName, headerBytes);
+  const declaredMimeType = await getEffectiveMimeType(
+    blob,
+    sourceName,
+    headerBytes,
+  );
+  const sniffed = sniffImage(bytes, declaredMimeType);
+  const effectiveMimeType = sniffed.effectiveMimeType;
+
+  const displayBlob = shouldOverrideBlobMimeTypeForPreview(
+    blob.type || "",
+    effectiveMimeType,
+  )
+    ? new Blob([blob], { type: effectiveMimeType })
+    : undefined;
 
   const request: ProcessRequest = {
     type: "process",
     id,
     buffer,
-    mimeType,
+    mimeType: effectiveMimeType,
     sourceName,
     options,
   };
 
   return new Promise<ProcessResult>((resolve, reject) => {
-    pending.set(id, { resolve, reject, sourceBlob: blob, sourceName });
+    pending.set(id, {
+      resolve,
+      reject,
+      sourceBlob: blob,
+      sourceName,
+      effectiveMimeType,
+      displayBlob,
+    });
     worker.postMessage(request, [request.buffer]);
   });
 }

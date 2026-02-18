@@ -210,6 +210,32 @@ async function decodeImage(blob: Blob): Promise<DecodeResult> {
   };
 }
 
+function shouldOverrideBlobMimeTypeForPreview(
+  declaredMimeType: string,
+  effectiveMimeType: string,
+): boolean {
+  const declared = declaredMimeType.trim().toLowerCase();
+  const effective = effectiveMimeType.trim().toLowerCase();
+
+  if (!effective.startsWith("image/")) {
+    return false;
+  }
+  if (!declared) {
+    return true;
+  }
+  if (declared === effective) {
+    return false;
+  }
+
+  // APNG is a PNG container, and most environments already decode it fine when
+  // served as `image/png`. Avoid changing it just for preview.
+  if (effective === "image/apng" && declared === "image/png") {
+    return false;
+  }
+
+  return true;
+}
+
 function toArrayBuffer(view: Uint8Array): ArrayBuffer {
   if (view.buffer instanceof ArrayBuffer) {
     return view.buffer.slice(
@@ -258,6 +284,15 @@ export async function processImageBlob(
   const sourceBuffer = await blob.arrayBuffer();
   const sourceBytes = new Uint8Array(sourceBuffer);
   const sniffed = sniffImage(sourceBytes, normalized.originalMimeType);
+  const displayBlob =
+    !normalized.wasConverted &&
+    shouldOverrideBlobMimeTypeForPreview(
+      blob.type || "",
+      sniffed.effectiveMimeType,
+    )
+      ? new Blob([blob], { type: sniffed.effectiveMimeType })
+      : undefined;
+  const decodeBlob = displayBlob ?? normalized.blob;
 
   const mime = getOutputMimeType(
     sniffed.effectiveMimeType,
@@ -334,7 +369,14 @@ export async function processImageBlob(
 
         return {
           source: {
-            ...createImageInfo(blob, decoded.width, decoded.height, sourceName),
+            ...createImageInfo(
+              blob,
+              decoded.width,
+              decoded.height,
+              sourceName,
+              displayBlob,
+            ),
+            mimeType: sniffed.effectiveMimeType,
             metadataStripped: false,
             metadata,
           },
@@ -403,6 +445,7 @@ export async function processImageBlob(
                 sourceName,
                 rotatedSourcePreviewBlob ?? normalized.blob,
               ),
+              mimeType: sniffed.effectiveMimeType,
               metadataStripped: false,
               metadata,
             }
@@ -412,7 +455,9 @@ export async function processImageBlob(
                 decoded.width,
                 decoded.height,
                 sourceName,
+                displayBlob,
               ),
+              mimeType: sniffed.effectiveMimeType,
               metadataStripped: false,
               metadata,
             };
@@ -453,7 +498,7 @@ export async function processImageBlob(
         bitmap,
         width: sourceWidth,
         height: sourceHeight,
-      } = await decodeImage(normalized.blob));
+      } = await decodeImage(decodeBlob));
     }
 
     const sourceCanvas = document.createElement("canvas");
@@ -519,11 +564,19 @@ export async function processImageBlob(
               sourceName,
               rotatedSourcePreviewBlob ?? normalized.blob,
             ),
+            mimeType: sniffed.effectiveMimeType,
             metadataStripped: false,
             metadata,
           }
         : {
-            ...createImageInfo(blob, sourceWidth, sourceHeight, sourceName),
+            ...createImageInfo(
+              blob,
+              sourceWidth,
+              sourceHeight,
+              sourceName,
+              displayBlob,
+            ),
+            mimeType: sniffed.effectiveMimeType,
             metadataStripped: false,
             metadata,
           };
@@ -563,7 +616,7 @@ export async function processImageBlob(
       bitmap,
       width: sourceWidth,
       height: sourceHeight,
-    } = await decodeImage(normalized.blob));
+    } = await decodeImage(decodeBlob));
   }
 
   const rotateDegrees = normalizeRotateDegrees(options.rotateDegrees);
@@ -725,13 +778,21 @@ export async function processImageBlob(
             sourceName,
             rotatedSourcePreviewBlob ?? normalized.blob,
           ),
+          mimeType: sniffed.effectiveMimeType,
           metadataStripped: false,
           metadata,
         }
       : {
           // For the source image we always keep the original blob untouched,
           // so from the pipeline's perspective its metadata is preserved.
-          ...createImageInfo(blob, sourceWidth, sourceHeight, sourceName),
+          ...createImageInfo(
+            blob,
+            sourceWidth,
+            sourceHeight,
+            sourceName,
+            displayBlob,
+          ),
+          mimeType: sniffed.effectiveMimeType,
           metadataStripped: false,
           metadata,
         };

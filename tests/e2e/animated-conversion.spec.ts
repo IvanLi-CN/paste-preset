@@ -1,7 +1,9 @@
 import {
+  expandTaskRow,
   expect,
   getTaskDownloadLink,
   getTaskRows,
+  pasteFixtureImageFromClipboard,
   test,
   uploadFixtureViaFileInput,
   waitForProcessingToFinish,
@@ -132,4 +134,48 @@ test("E2E-072: animated GIF converts to APNG (PNG container)", async ({
     await getTaskDownloadLink(taskRow).getAttribute("download");
   expect(downloadName).not.toBeNull();
   expect(downloadName?.endsWith(".png")).toBe(true);
+});
+
+test("E2E-073: mislabelled animated WebP still previews and keeps WebP output", async ({
+  page,
+  testImagesDir,
+}) => {
+  await page.goto("/");
+
+  // Some sites (e.g. CDN-transcoded images) may be copied with a misleading
+  // MIME type (such as image/avif) even when the underlying bytes are WebP.
+  await pasteFixtureImageFromClipboard(
+    page,
+    testImagesDir,
+    "animated-2f.webp",
+    "image/avif",
+  );
+  await waitForProcessingToFinish(page);
+
+  const taskRow = getTaskRows(page).first();
+  await expect(taskRow.getByText("Done")).toBeVisible();
+
+  await expandTaskRow(taskRow);
+
+  const sourceCard = taskRow
+    .getByRole("heading", { name: "Source image" })
+    .locator("xpath=../..");
+  await expect(sourceCard.getByText("image/webp")).toBeVisible();
+
+  const sourceDecoded = await sourceCard.locator("img").evaluate((img) => {
+    const el = img as HTMLImageElement;
+    return el.complete && el.naturalWidth > 0;
+  });
+  expect(sourceDecoded).toBe(true);
+
+  const resultCard = taskRow
+    .getByRole("heading", { name: "Result image" })
+    .locator("xpath=../..");
+  await expect(resultCard.getByText("image/webp")).toBeVisible();
+
+  const resultDecoded = await resultCard.locator("img").evaluate((img) => {
+    const el = img as HTMLImageElement;
+    return el.complete && el.naturalWidth > 0;
+  });
+  expect(resultDecoded).toBe(true);
 });
