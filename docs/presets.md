@@ -73,8 +73,10 @@ Conceptually, the fields are:
 - `outputFormat: "auto"`  
   - Semantics: **“as close to the source format as possible”**.
   - Resolution rules:
-    - If the source MIME type is `image/jpeg`, `image/png`, or `image/webp`,
-      the output format is the same as the source MIME.
+    - If the source MIME type is `image/jpeg`, `image/png`, `image/webp`,
+      `image/gif`, or `image/apng`, the output format is the same as the
+      (effective) source MIME.
+      - Note: APNG is detected by scanning PNG chunks for `acTL`.
     - For other formats (including HEIC/HEIF and similar), the output format
       falls back to `image/jpeg`.
 

@@ -1,3 +1,12 @@
+import type { CanvasBackend } from "./animated/animatedTypes.ts";
+import { decodeAnimatedImage } from "./animated/decode.ts";
+import {
+  encodeAnimatedWebp,
+  encodeApng,
+  encodeGif,
+} from "./animated/encode.ts";
+import { sniffImage } from "./animated/sniff.ts";
+import { transformAnimation } from "./animated/transform.ts";
 import { normalizeImageBlobForCanvas } from "./heic.ts";
 import {
   buildExifFromEmbedding,
@@ -201,6 +210,44 @@ async function decodeImage(blob: Blob): Promise<DecodeResult> {
   };
 }
 
+function shouldOverrideBlobMimeTypeForPreview(
+  declaredMimeType: string,
+  effectiveMimeType: string,
+): boolean {
+  const declared = declaredMimeType.trim().toLowerCase();
+  const effective = effectiveMimeType.trim().toLowerCase();
+
+  if (!effective.startsWith("image/")) {
+    return false;
+  }
+  if (!declared) {
+    return true;
+  }
+  if (declared === effective) {
+    return false;
+  }
+
+  // APNG is a PNG container, and most environments already decode it fine when
+  // served as `image/png`. Avoid changing it just for preview.
+  if (effective === "image/apng" && declared === "image/png") {
+    return false;
+  }
+
+  return true;
+}
+
+function toArrayBuffer(view: Uint8Array): ArrayBuffer {
+  if (view.buffer instanceof ArrayBuffer) {
+    return view.buffer.slice(
+      view.byteOffset,
+      view.byteOffset + view.byteLength,
+    );
+  }
+  const copy = new Uint8Array(view.byteLength);
+  copy.set(view);
+  return copy.buffer;
+}
+
 export function createImageInfo(
   blob: Blob,
   width: number,
@@ -234,6 +281,320 @@ export async function processImageBlob(
   const metadata = parsedMetadata?.summary;
   const exifEmbedding = parsedMetadata?.exif;
 
+  const sourceBuffer = await blob.arrayBuffer();
+  const sourceBytes = new Uint8Array(sourceBuffer);
+  const sniffed = sniffImage(sourceBytes, normalized.originalMimeType);
+  const displayBlob =
+    !normalized.wasConverted &&
+    shouldOverrideBlobMimeTypeForPreview(
+      blob.type || "",
+      sniffed.effectiveMimeType,
+    )
+      ? new Blob([blob], { type: sniffed.effectiveMimeType })
+      : undefined;
+  const decodeBlob = displayBlob ?? normalized.blob;
+
+  const mime = getOutputMimeType(
+    sniffed.effectiveMimeType,
+    options.outputFormat,
+  );
+  const wantsAnimatedOutput =
+    mime === "image/gif" ||
+    mime === "image/apng" ||
+    (sniffed.isAnimated && mime === "image/webp");
+
+  if (wantsAnimatedOutput) {
+    const backend: CanvasBackend<HTMLCanvasElement> = {
+      createCanvas: (width, height) => {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        return canvas;
+      },
+      getContext2D: (canvas) => {
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          throw new Error("image.canvasContext");
+        }
+        return ctx;
+      },
+      canvasToBlob: (canvas, mimeType, quality) =>
+        new Promise<Blob>((resolve, reject) => {
+          canvas.toBlob(
+            (b) => {
+              if (!b) {
+                reject(new Error("image.exportFailed"));
+                return;
+              }
+              resolve(b);
+            },
+            mimeType,
+            quality,
+          );
+        }),
+    };
+
+    const rotateDegrees = normalizeRotateDegrees(options.rotateDegrees);
+
+    if (sniffed.isAnimated) {
+      const decoded = await decodeAnimatedImage(sourceBytes, sniffed, backend);
+
+      const rotatedSourceWidth =
+        rotateDegrees === 90 || rotateDegrees === 270
+          ? decoded.height
+          : decoded.width;
+      const rotatedSourceHeight =
+        rotateDegrees === 90 || rotateDegrees === 270
+          ? decoded.width
+          : decoded.height;
+
+      const target = computeTargetSize(
+        rotatedSourceWidth,
+        rotatedSourceHeight,
+        options,
+      );
+
+      // Pass-through fast-path: if nothing changes and output matches the source,
+      // keep the original bytes to preserve quality and speed.
+      if (
+        rotateDegrees === 0 &&
+        !normalized.wasConverted &&
+        !options.stripMetadata &&
+        mime === sniffed.effectiveMimeType &&
+        target.width === decoded.width &&
+        target.height === decoded.height
+      ) {
+        const resultBlob =
+          blob.type === mime ? blob : new Blob([sourceBuffer], { type: mime });
+
+        return {
+          source: {
+            ...createImageInfo(
+              blob,
+              decoded.width,
+              decoded.height,
+              sourceName,
+              displayBlob,
+            ),
+            mimeType: sniffed.effectiveMimeType,
+            metadataStripped: false,
+            metadata,
+          },
+          result: {
+            ...createImageInfo(
+              resultBlob,
+              decoded.width,
+              decoded.height,
+              sourceName,
+            ),
+            metadataStripped: false,
+            metadata,
+          },
+        };
+      }
+
+      const transformed = await transformAnimation(decoded, options, backend);
+
+      const resultBlob = await (async () => {
+        if (mime === "image/gif") {
+          const out = await encodeGif(
+            transformed.frames,
+            transformed.width,
+            transformed.height,
+            transformed.delaysMs,
+          );
+          return new Blob([toArrayBuffer(out)], { type: mime });
+        }
+        if (mime === "image/apng") {
+          const out = await encodeApng(
+            transformed.frames,
+            transformed.width,
+            transformed.height,
+            transformed.delaysMs,
+          );
+          return new Blob([out], { type: mime });
+        }
+        const out = await encodeAnimatedWebp(
+          transformed.frames,
+          transformed.width,
+          transformed.height,
+          transformed.delaysMs,
+        );
+        return new Blob([toArrayBuffer(out)], { type: mime });
+      })();
+
+      const rotatedSourcePreviewBlob =
+        rotateDegrees !== 0 && transformed.rotatedSourcePreviewPng
+          ? new Blob([transformed.rotatedSourcePreviewPng], {
+              type: "image/png",
+            })
+          : undefined;
+
+      const sourcePreviewWidth =
+        rotateDegrees !== 0 ? transformed.rotatedSourceWidth : decoded.width;
+      const sourcePreviewHeight =
+        rotateDegrees !== 0 ? transformed.rotatedSourceHeight : decoded.height;
+
+      const sourceInfo: ImageInfo =
+        normalized.wasConverted || rotateDegrees !== 0
+          ? {
+              ...createImageInfo(
+                blob,
+                sourcePreviewWidth,
+                sourcePreviewHeight,
+                sourceName,
+                rotatedSourcePreviewBlob ?? normalized.blob,
+              ),
+              mimeType: sniffed.effectiveMimeType,
+              metadataStripped: false,
+              metadata,
+            }
+          : {
+              ...createImageInfo(
+                blob,
+                decoded.width,
+                decoded.height,
+                sourceName,
+                displayBlob,
+              ),
+              mimeType: sniffed.effectiveMimeType,
+              metadataStripped: false,
+              metadata,
+            };
+
+      const resultInfo: ImageInfo = {
+        ...createImageInfo(
+          resultBlob,
+          transformed.width,
+          transformed.height,
+          sourceName,
+        ),
+        metadataStripped: true,
+        metadata: undefined,
+      };
+
+      return { source: sourceInfo, result: resultInfo };
+    }
+
+    // Static source -> encode as a single-frame "animation" (GIF/APNG).
+    const decodedBitmap = normalized.decoded;
+    const decodedWidth = normalized.decodedWidth;
+    const decodedHeight = normalized.decodedHeight;
+
+    let bitmap: ImageBitmap | HTMLImageElement;
+    let sourceWidth: number;
+    let sourceHeight: number;
+
+    if (
+      decodedBitmap &&
+      typeof decodedWidth === "number" &&
+      typeof decodedHeight === "number"
+    ) {
+      bitmap = decodedBitmap;
+      sourceWidth = decodedWidth;
+      sourceHeight = decodedHeight;
+    } else {
+      ({
+        bitmap,
+        width: sourceWidth,
+        height: sourceHeight,
+      } = await decodeImage(decodeBlob));
+    }
+
+    const sourceCanvas = document.createElement("canvas");
+    sourceCanvas.width = sourceWidth;
+    sourceCanvas.height = sourceHeight;
+    const sourceCtx = sourceCanvas.getContext("2d");
+    if (!sourceCtx) {
+      throw new Error("image.canvasContext");
+    }
+    sourceCtx.imageSmoothingEnabled = true;
+    sourceCtx.imageSmoothingQuality = "high";
+    sourceCtx.drawImage(bitmap, 0, 0);
+
+    const data = sourceCtx.getImageData(0, 0, sourceWidth, sourceHeight);
+
+    const decoded = {
+      width: sourceWidth,
+      height: sourceHeight,
+      frames: [{ rgba: new Uint8Array(data.data.buffer), delayMs: 0 }],
+    };
+
+    const transformed = await transformAnimation(decoded, options, backend);
+
+    const resultBlob = await (async () => {
+      if (mime === "image/gif") {
+        const out = await encodeGif(
+          transformed.frames,
+          transformed.width,
+          transformed.height,
+          transformed.delaysMs,
+        );
+        return new Blob([toArrayBuffer(out)], { type: mime });
+      }
+      if (mime === "image/apng") {
+        const out = await encodeApng(
+          transformed.frames,
+          transformed.width,
+          transformed.height,
+          transformed.delaysMs,
+        );
+        return new Blob([out], { type: mime });
+      }
+      throw new Error("image.animatedCodecUnavailable");
+    })();
+
+    const rotatedSourcePreviewBlob =
+      rotateDegrees !== 0 && transformed.rotatedSourcePreviewPng
+        ? new Blob([transformed.rotatedSourcePreviewPng], { type: "image/png" })
+        : undefined;
+
+    const sourcePreviewWidth =
+      rotateDegrees !== 0 ? transformed.rotatedSourceWidth : sourceWidth;
+    const sourcePreviewHeight =
+      rotateDegrees !== 0 ? transformed.rotatedSourceHeight : sourceHeight;
+
+    const sourceInfo: ImageInfo =
+      normalized.wasConverted || rotateDegrees !== 0
+        ? {
+            ...createImageInfo(
+              blob,
+              sourcePreviewWidth,
+              sourcePreviewHeight,
+              sourceName,
+              rotatedSourcePreviewBlob ?? normalized.blob,
+            ),
+            mimeType: sniffed.effectiveMimeType,
+            metadataStripped: false,
+            metadata,
+          }
+        : {
+            ...createImageInfo(
+              blob,
+              sourceWidth,
+              sourceHeight,
+              sourceName,
+              displayBlob,
+            ),
+            mimeType: sniffed.effectiveMimeType,
+            metadataStripped: false,
+            metadata,
+          };
+
+    const resultInfo: ImageInfo = {
+      ...createImageInfo(
+        resultBlob,
+        transformed.width,
+        transformed.height,
+        sourceName,
+      ),
+      metadataStripped: true,
+      metadata: undefined,
+    };
+
+    return { source: sourceInfo, result: resultInfo };
+  }
+
   const decodedBitmap = normalized.decoded;
   const decodedWidth = normalized.decodedWidth;
   const decodedHeight = normalized.decodedHeight;
@@ -255,7 +616,7 @@ export async function processImageBlob(
       bitmap,
       width: sourceWidth,
       height: sourceHeight,
-    } = await decodeImage(normalized.blob));
+    } = await decodeImage(decodeBlob));
   }
 
   const rotateDegrees = normalizeRotateDegrees(options.rotateDegrees);
@@ -278,12 +639,8 @@ export async function processImageBlob(
     throw new Error("image.tooLarge");
   }
 
-  const mime = getOutputMimeType(
-    normalized.originalMimeType,
-    options.outputFormat,
-  );
-
   const canPassThrough =
+    !sniffed.isAnimated &&
     rotateDegrees === 0 &&
     !normalized.wasConverted &&
     !options.stripMetadata &&
@@ -421,13 +778,21 @@ export async function processImageBlob(
             sourceName,
             rotatedSourcePreviewBlob ?? normalized.blob,
           ),
+          mimeType: sniffed.effectiveMimeType,
           metadataStripped: false,
           metadata,
         }
       : {
           // For the source image we always keep the original blob untouched,
           // so from the pipeline's perspective its metadata is preserved.
-          ...createImageInfo(blob, sourceWidth, sourceHeight, sourceName),
+          ...createImageInfo(
+            blob,
+            sourceWidth,
+            sourceHeight,
+            sourceName,
+            displayBlob,
+          ),
+          mimeType: sniffed.effectiveMimeType,
           metadataStripped: false,
           metadata,
         };

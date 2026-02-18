@@ -526,6 +526,12 @@ export function SettingsPanel(props: SettingsPanelProps) {
                     <option value="image/webp">
                       {t("settings.output.format.webp")}
                     </option>
+                    <option value="image/gif">
+                      {t("settings.output.format.gif")}
+                    </option>
+                    <option value="image/apng">
+                      {t("settings.output.format.apng")}
+                    </option>
                   </select>
                 </label>
 

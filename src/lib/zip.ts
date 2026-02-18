@@ -42,6 +42,8 @@ export async function buildResultsZip(
     if (mimeType === "image/jpeg") extension = ".jpg";
     else if (mimeType === "image/png") extension = ".png";
     else if (mimeType === "image/webp") extension = ".webp";
+    else if (mimeType === "image/gif") extension = ".gif";
+    else if (mimeType === "image/apng") extension = ".png";
     // If unknown mime type, we might want to default or skip extension.
     // Keeping empty string if unknown for now, or could default to .bin if really needed.
 

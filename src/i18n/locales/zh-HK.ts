@@ -70,6 +70,8 @@ export const zhHK: TranslationMessages = {
   "settings.output.format.jpeg": "JPEG",
   "settings.output.format.png": "PNG",
   "settings.output.format.webp": "WebP",
+  "settings.output.format.gif": "GIF",
+  "settings.output.format.apng": "APNG",
   "settings.output.quality.label": "質素",
   "settings.output.stripMetadata": "移除中繼資料（EXIF 等）",
 
@@ -183,5 +185,11 @@ export const zhHK: TranslationMessages = {
     "圖片處理逾時。請稍後再試（先將檔案儲存到本機可能會有所幫助）。",
   "error.processing.tooLarge":
     "要求的輸出尺寸過大，無法安全處理。請減小闊度與高度或選擇較低解像度的預設後再試一次。",
+  "error.processing.tooManyFrames":
+    "此動圖的影格數過多，無法安全處理。請改用較短的動圖，或改為輸出靜態首幀。",
+  "error.processing.animationTooLarge":
+    "此動圖所需記憶體過大，無法安全處理。請選擇更小的預設/解像度，或改為輸出靜態首幀。",
+  "error.processing.animatedCodecUnavailable":
+    "目前環境不支援動圖處理。請改用靜態輸出格式。",
   "error.processing.exportFailed": "匯出圖片失敗。",
 };

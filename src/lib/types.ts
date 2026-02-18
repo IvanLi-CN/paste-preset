@@ -2,7 +2,13 @@ export type PresetId = "original" | "large" | "medium" | "small" | null;
 
 export type ResizeMode = "fit" | "fill" | "stretch";
 
-export type OutputFormat = "auto" | "image/jpeg" | "image/png" | "image/webp";
+export type OutputFormat =
+  | "auto"
+  | "image/jpeg"
+  | "image/png"
+  | "image/webp"
+  | "image/gif"
+  | "image/apng";
 
 /**
  * Clockwise rotation in degrees. Limited to quarter turns so the pipeline can

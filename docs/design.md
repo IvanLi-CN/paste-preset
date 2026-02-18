@@ -43,23 +43,27 @@ Target usage:
     - PNG (`image/png`).
     - WebP (`image/webp`) – often used by Android devices and some apps when saving images.
   - Other still-image formats:
-    - GIF (`image/gif`) – only the first frame is processed as a static image.
+    - GIF (`image/gif`) – supports animated GIFs. When exporting to GIF/APNG/animated WebP, frames are processed and animation is preserved; when exporting to static formats, only the first frame is used.
     - BMP (`image/bmp`) – supported but not a primary target.
   - Unsupported in v1:
     - RAW/ProRAW/DNG and other camera-specific RAW formats.
-    - Multi-frame/sequence content beyond the first frame (animated GIF/WebP, HEIF image sequences).
+    - Multi-frame/sequence content beyond the formats listed above (e.g. HEIF image sequences).
   - Error handling:
     - If the browser cannot decode an image, or HEIC/HEIF conversion fails, the app must show a clear error message and suggest converting the file to JPEG or PNG on the device before using PastePreset.
 
 - Supported output formats:
   - `Auto (same as source)`:
-    - If the source is JPEG/PNG/WebP, keep the same MIME type.
+    - If the source is JPEG/PNG/WebP/GIF/APNG, keep the same MIME type.
     - If the source is HEIC/HEIF, default the output to JPEG.
   - Explicit choices:
     - JPEG (`image/jpeg`) – lossy, good for general sharing and small file sizes.
     - PNG (`image/png`) – lossless, supports transparency, ideal for UI screenshots and graphics.
     - WebP (`image/webp`) – modern web format with good quality/size characteristics.
-  - Animated inputs are always exported as a single static frame image; preserving animation is out of scope for v1.
+    - GIF (`image/gif`) – supports animated output.
+    - APNG (`image/apng`) – supports animated output (stored in a PNG container; uses `.png` file extension for compatibility).
+  - Animated inputs:
+    - When exporting to GIF/APNG/animated WebP, frames are processed and animation is preserved.
+    - When exporting to static formats (JPEG/PNG/static WebP), only the first frame is used.
 
 - Single active image in v1:
   - Each paste/load replaces the current source image and result.

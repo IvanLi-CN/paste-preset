@@ -721,17 +721,21 @@ export async function embedExifIntoImageBlob(
 export function getOutputMimeType(
   sourceMime: string,
   format: OutputFormat,
-): OutputFormat | "image/jpeg" | "image/png" | "image/webp" {
+): Exclude<OutputFormat, "auto"> {
   if (format !== "auto") {
     return format;
   }
 
+  const normalized = sourceMime.trim().toLowerCase();
+
   if (
-    sourceMime === "image/jpeg" ||
-    sourceMime === "image/png" ||
-    sourceMime === "image/webp"
+    normalized === "image/jpeg" ||
+    normalized === "image/png" ||
+    normalized === "image/webp" ||
+    normalized === "image/gif" ||
+    normalized === "image/apng"
   ) {
-    return sourceMime;
+    return normalized as Exclude<OutputFormat, "auto">;
   }
 
   // Fallback for other formats (including HEIC once supported): use JPEG.

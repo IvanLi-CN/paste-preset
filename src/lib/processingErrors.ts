@@ -25,6 +25,12 @@ export function translateProcessingError(
       return t("error.processing.timeout");
     case "image.tooLarge":
       return t("error.processing.tooLarge");
+    case "image.tooManyFrames":
+      return t("error.processing.tooManyFrames");
+    case "image.animationTooLarge":
+      return t("error.processing.animationTooLarge");
+    case "image.animatedCodecUnavailable":
+      return t("error.processing.animatedCodecUnavailable");
     case "image.exportFailed":
       return t("error.processing.exportFailed");
     default:

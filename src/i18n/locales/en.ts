@@ -70,6 +70,8 @@ export const en = {
   "settings.output.format.jpeg": "JPEG",
   "settings.output.format.png": "PNG",
   "settings.output.format.webp": "WebP",
+  "settings.output.format.gif": "GIF",
+  "settings.output.format.apng": "APNG",
   "settings.output.quality.label": "Quality",
   "settings.output.stripMetadata": "Strip metadata (EXIF, etc.)",
 
@@ -188,5 +190,11 @@ export const en = {
     "Image processing timed out. Please try again (downloading the file locally may help).",
   "error.processing.tooLarge":
     "The requested output size is too large to process safely. Please choose smaller dimensions or a lower-resolution preset and try again.",
+  "error.processing.tooManyFrames":
+    "This animated image has too many frames to process safely. Please choose a shorter animation or export a still frame instead.",
+  "error.processing.animationTooLarge":
+    "This animated image would require too much memory to process safely. Please choose a smaller preset or export a still frame instead.",
+  "error.processing.animatedCodecUnavailable":
+    "Animated image processing is not available in this environment. Please try a static output format instead.",
   "error.processing.exportFailed": "Failed to export image.",
 } as const;
