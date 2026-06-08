@@ -1,5 +1,9 @@
 # PWA Offline Support (L2) – Requirements & High-Level Design
 
+> Legacy draft note: the canonical topic spec now lives at
+> `docs/specs/sz94c-offline-pwa/SPEC.md`. This file is retained as a migration
+> source until delete approval is explicit.
+
 ## 1. Background
 
 PastePreset is a privacy-first, fully client-side image processing SPA. Today it requires a working network connection to load the app shell (HTML/CSS/JS) even though all image processing happens locally. Users want the app to be **installable** and **usable when offline** after installation.
@@ -270,4 +274,3 @@ Add Playwright E2E scenarios that:
 3. **Offline UX indicator**
    - Should the UI show an explicit “Offline” status badge?
    - This is not a degradation but introduces an offline-only visual element; decide with product preference.
-

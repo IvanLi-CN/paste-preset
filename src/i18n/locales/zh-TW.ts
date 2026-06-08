@@ -35,6 +35,11 @@ export const zhTW: TranslationMessages = {
   "status.done": "已完成",
   "status.error": "錯誤",
   "status.error.unknown": "未知處理錯誤",
+  "pwa.offline.notice": "目前處於離線模式，已快取的功能仍可使用。",
+  "pwa.update.available": "新版本已準備就緒。",
+  "pwa.update.activating": "正在套用更新…",
+  "pwa.update.reloadNow": "立即重新整理",
+  "pwa.update.later": "稍後",
 
   // Settings panel
   "settings.title": "設定",

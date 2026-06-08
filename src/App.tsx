@@ -25,12 +25,15 @@ import { type TranslationKey, useTranslation } from "./i18n";
 import { preloadHeicConverter } from "./lib/heic.ts";
 import { PRESETS } from "./lib/presets.ts";
 import type { ImageInfo } from "./lib/types.ts";
+import { usePwaRuntime } from "./pwa/pwaRuntime.ts";
 
 function App() {
   const { t } = useTranslation();
   const { presets, activePresetId } = useUserPresets();
   const { settings, processingOptions } = useUserSettings();
   const { version } = useAppVersion();
+  const { isOffline, updateStatus, applyWaitingUpdate, dismissWaitingUpdate } =
+    usePwaRuntime();
   const [uiError, setUiError] = useState<string | null>(null);
   const [viewportWidth, setViewportWidth] = useState<number>(() =>
     typeof window === "undefined" ? 0 : window.innerWidth,
@@ -559,6 +562,12 @@ function App() {
           status={status}
           processingError={processingError ?? uiError}
           clipboardError={clipboardError ?? shortcutCopyError}
+          isOffline={isOffline}
+          updateStatus={updateStatus}
+          onReloadNow={() => {
+            applyWaitingUpdate();
+          }}
+          onLater={dismissWaitingUpdate}
         />
       </div>
     </div>

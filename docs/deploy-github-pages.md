@@ -1,7 +1,16 @@
-PastePreset – GitHub Pages Deployment Guide
-===========================================
+PastePreset – Root-Path Deployment Guide
+=======================================
 
-This document describes how to deploy the PastePreset Vite + React + TypeScript app to GitHub Pages.
+This document describes how PastePreset is deployed from GitHub Actions to a
+root-path host. The current production contract is:
+
+- production URL: `https://paste-preset.ivanli.cc/`
+- Vite `base`: `/`
+- PWA `start_url` / `scope`: `/`
+
+The app must not be deployed as a project subpath such as `/paste-preset/`,
+because that breaks the current service worker, manifest, and offline shell
+contract.
 
 Assumptions
 -----------
@@ -32,39 +41,20 @@ Assumptions
 
    Adjust the branch name if you prefer `master`.
 
-2. Configure Vite base path
----------------------------
+2. Keep the app on the root path
+--------------------------------
 
-For GitHub Pages, the app usually lives under a path like:
+`vite.config.ts` must keep:
 
+```ts
+export default defineConfig({
+  base: "/",
+  // ...
+});
 ```
-https://<your-username>.github.io/paste-preset/
-```
 
-Vite needs to know this base path at build time.
-
-1. In `vite.config.ts`, set the `base` option to the repository name:
-
-   ```ts
-   import { defineConfig } from "vite";
-   import react from "@vitejs/plugin-react-swc";
-
-   export default defineConfig({
-     base: "/paste-preset/",
-     server: {
-       port: 25119,
-     },
-     plugins: [react()],
-   });
-   ```
-
-2. Commit the config change:
-
-   ```bash
-   git add vite.config.ts
-   git commit -m "chore: configure vite base for GitHub Pages" --signoff
-   git push
-   ```
+Do not change the build to `/paste-preset/` or any other project subpath unless
+the entire PWA contract is intentionally redesigned.
 
 3. Build the app
 ----------------
@@ -78,109 +68,40 @@ bun run build
 
 The compiled static files will be in the `dist/` directory.
 
-4. Option A: Deploy using GitHub Actions (recommended)
-------------------------------------------------------
+4. Deploy using GitHub Actions
+------------------------------
 
-This approach automatically builds and deploys on every push to the main branch.
+The repository already contains `.github/workflows/deploy.yml`. It builds the
+production bundle and publishes `dist/` to GitHub Pages on every push to
+`main`.
 
-1. Ensure your repository is on GitHub with the latest changes.
-2. Create the workflow file `.github/workflows/deploy.yml` with a configuration similar to:
-
-   ```yaml
-   name: Deploy to GitHub Pages
-
-   on:
-     push:
-       branches:
-         - main
-
-   permissions:
-     contents: read
-     pages: write
-     id-token: write
-
-   jobs:
-     build:
-       runs-on: ubuntu-latest
-       steps:
-         - uses: actions/checkout@v4
-         - uses: oven-sh/setup-bun@v2
-           with:
-             bun-version: "1.3.3"
-         - run: bun install
-         - run: bun run build
-         - uses: actions/upload-pages-artifact@v3
-           with:
-             path: ./dist
-
-     deploy:
-       needs: build
-       runs-on: ubuntu-latest
-       environment:
-         name: github-pages
-         url: ${{ steps.deployment.outputs.page_url }}
-       steps:
-         - id: deployment
-           uses: actions/deploy-pages@v4
-   ```
-
-3. Commit and push the workflow:
-
-   ```bash
-   git add .github/workflows/deploy.yml
-   git commit -m "chore: add GitHub Pages deployment workflow" --signoff
-   git push
-   ```
-
-4. In the GitHub repository settings:
+1. Ensure the repository has the latest `main` branch changes.
+2. In the GitHub repository settings:
    - Go to **Settings → Pages**.
    - Set **Source** to “GitHub Actions”.
+3. Point the Pages site at a root-path host:
+   - recommended: custom domain `paste-preset.ivanli.cc`
+   - acceptable alternative: a user or organization Pages root site
 
-GitHub will then build and deploy your app each time you push to `main`. The deployed URL will be shown in the Pages settings and in the workflow logs.
-
-5. Option B: Manual deploy to `gh-pages` branch
-----------------------------------------------
-
-If you prefer not to use GitHub Actions, you can push the `dist/` directory to a `gh-pages` branch.
-
-1. Build the app:
-
-   ```bash
-   bun run build
-   ```
-
-2. Use `git subtree` to push the `dist/` directory:
-
-   ```bash
-   git subtree push --prefix dist origin gh-pages
-   ```
-
-   Alternatively, create and manage the `gh-pages` branch manually (for example by using the `gh-pages` npm package).
-
-3. In the GitHub repository settings:
-   - Go to **Settings → Pages**.
-   - Set **Source** to the `gh-pages` branch and the root directory.
-
-GitHub will serve the static files from the `gh-pages` branch at:
-
-```
-https://<your-username>.github.io/paste-preset/
-```
+Manual `gh-pages` branch deployment is not the maintained path for this repo.
 
 6. Verify the deployment
 ------------------------
 
 After the first deployment completes:
 
-1. Open the GitHub Pages URL in your browser.
+1. Open the production URL in your browser.
 2. Confirm:
-   - The app loads without 404 errors (if you see 404s on assets, re-check the `base` setting in `vite.config.ts`).
+   - The app loads without 404 errors.
+   - The service worker is registered at `/sw.js`.
+   - `manifest.webmanifest` resolves from `/manifest.webmanifest`.
    - The dev-only features (like using port 25119) are not required in production; the app should work from the GitHub Pages path.
 3. Test:
    - Pasting or dropping an image.
    - Seeing the processed result.
    - Downloading the image.
    - Copying the result image to the clipboard if your browser supports it.
+   - Reloading or revisiting while offline after one successful online visit.
 
 7. Local preview on the production build
 ----------------------------------------
@@ -200,3 +121,5 @@ To approximate how the app will behave on GitHub Pages:
    ```
 
 3. Open `http://localhost:25119/paste-preset/` (or the root URL printed by Vite, adjusted for the `base` path) to test the built version locally.
+3. Open `http://localhost:25119/` to test the root-path production build
+   locally.

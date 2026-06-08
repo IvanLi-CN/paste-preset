@@ -14,6 +14,11 @@
 
 PastePreset is a browser-based single-page application for quickly processing screenshots and mobile photos. It lets you crop, resize, transcode, and strip metadata entirely in the browser, then either copy the result to the clipboard or download it locally. No image data ever leaves your machine.
 
+The production app is deployed at the root path
+[paste-preset.ivanli.cc](https://paste-preset.ivanli.cc/) and is installable as
+a PWA. After at least one successful online visit, the cached app shell can be
+revisited offline for the core import -> process -> download flow.
+
 ![PastePreset main UI](docs/assets/app-screenshot.png)
 
 ## Features
@@ -78,7 +83,8 @@ On a successful merge to `main`, CI will create a tag + GitHub Release when `typ
 
 ## Deployment
 
-See `docs/deploy-github-pages.md` for instructions on deploying to GitHub Pages.
+See `docs/deploy-github-pages.md` for the root-path GitHub Pages/custom-domain
+deployment contract used by production.
 
 ## License
 
