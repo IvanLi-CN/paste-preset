@@ -35,6 +35,11 @@ export const zhCN: TranslationMessages = {
   "status.done": "已完成",
   "status.error": "错误",
   "status.error.unknown": "未知处理错误",
+  "pwa.offline.notice": "当前处于离线模式，已缓存的功能仍可使用。",
+  "pwa.update.available": "新版本已准备就绪。",
+  "pwa.update.activating": "正在应用更新…",
+  "pwa.update.reloadNow": "立即刷新",
+  "pwa.update.later": "稍后",
 
   // Settings panel
   "settings.title": "设置",

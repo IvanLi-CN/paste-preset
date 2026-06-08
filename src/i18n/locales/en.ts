@@ -34,6 +34,11 @@ export const en = {
   "status.done": "Done",
   "status.error": "Error",
   "status.error.unknown": "Unknown processing error",
+  "pwa.offline.notice": "Offline mode: cached features remain available.",
+  "pwa.update.available": "A new version is ready.",
+  "pwa.update.activating": "Applying update…",
+  "pwa.update.reloadNow": "Reload now",
+  "pwa.update.later": "Later",
 
   // Settings panel
   "settings.title": "Settings",

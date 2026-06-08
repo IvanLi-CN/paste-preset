@@ -1,16 +1,17 @@
 // Service worker template.
 // The build step injects a precache manifest into the `__WB_MANIFEST` placeholder.
 //
-// Update policy: "immediate"
-// - New SW activates as soon as it's installed.
-// - Clients reload once on controller change to avoid mixed asset versions.
+// Update policy: "waiting with explicit user action"
+// - New SW waits after install until the current session opts into activation.
+// - Clients are not auto-claimed; a controlled page refreshes only after the
+//   app explicitly requests SKIP_WAITING and receives controllerchange.
 //
 // Offline L2:
 // - Precache app shell + build assets (incl. HEIC chunks, worker assets, version.json).
 // - SPA navigation fallback to cached `index.html` when offline.
 
 const CACHE_NAME_PREFIX = "paste-preset-precache-";
-const CACHE_NAME = `${CACHE_NAME_PREFIX}v2`;
+const CACHE_NAME = `${CACHE_NAME_PREFIX}v3`;
 
 /** @type {Array<{url: string, revision?: string}>} */
 const manifest = self.__WB_MANIFEST;
@@ -51,8 +52,6 @@ self.addEventListener("install", (event) => {
         return new Request(cacheKey, { cache: "reload" });
       });
       await cache.addAll(requests);
-      // Take over ASAP so users don't stay pinned to an older cached app shell.
-      await self.skipWaiting();
     })(),
   );
 });
@@ -80,8 +79,6 @@ self.addEventListener("activate", (event) => {
           }
         }),
       );
-
-      await self.clients.claim();
     })(),
   );
 });

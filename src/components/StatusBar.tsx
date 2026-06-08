@@ -1,21 +1,50 @@
 import { useTranslation } from "../i18n";
 import type { AppStatus } from "../lib/types.ts";
+import type { PwaUpdateStatus } from "../pwa/pwaRuntime.ts";
 
 interface StatusBarProps {
   status: AppStatus;
   processingError: string | null;
   clipboardError: string | null;
+  isOffline: boolean;
+  updateStatus: PwaUpdateStatus;
+  onReloadNow: () => void;
+  onLater: () => void;
 }
 
 export function StatusBar(props: StatusBarProps) {
-  const { status, processingError, clipboardError } = props;
+  const {
+    status,
+    processingError,
+    clipboardError,
+    isOffline,
+    updateStatus,
+    onReloadNow,
+    onLater,
+  } = props;
   const { t } = useTranslation();
 
-  if (!processingError && !clipboardError && status === "idle") {
+  if (
+    !processingError &&
+    !clipboardError &&
+    status === "idle" &&
+    !isOffline &&
+    updateStatus === "idle"
+  ) {
     return null;
   }
 
-  const messages: { id: string; type: "error" | "info"; text: string }[] = [];
+  const messages: {
+    id: string;
+    type: "error" | "info" | "warning";
+    text: string;
+    actions?: {
+      id: string;
+      label: string;
+      onClick: () => void;
+      tone: "primary" | "ghost";
+    }[];
+  }[] = [];
 
   if (status === "processing") {
     messages.push({
@@ -38,6 +67,41 @@ export function StatusBar(props: StatusBarProps) {
       text: clipboardError,
     });
   }
+  if (isOffline) {
+    messages.push({
+      id: "offline",
+      type: "warning",
+      text: t("pwa.offline.notice"),
+    });
+  }
+  if (updateStatus === "available") {
+    messages.push({
+      id: "update-available",
+      type: "warning",
+      text: t("pwa.update.available"),
+      actions: [
+        {
+          id: "reload-now",
+          label: t("pwa.update.reloadNow"),
+          onClick: onReloadNow,
+          tone: "primary",
+        },
+        {
+          id: "later",
+          label: t("pwa.update.later"),
+          onClick: onLater,
+          tone: "ghost",
+        },
+      ],
+    });
+  }
+  if (updateStatus === "activating") {
+    messages.push({
+      id: "update-activating",
+      type: "info",
+      text: t("pwa.update.activating"),
+    });
+  }
 
   return (
     <div className="fixed inset-x-0 bottom-4 flex justify-center px-4">
@@ -47,12 +111,35 @@ export function StatusBar(props: StatusBarProps) {
             key={message.id}
             className={[
               "alert shadow",
-              message.type === "error" ? "alert-error" : "alert-info",
+              message.type === "error"
+                ? "alert-error"
+                : message.type === "warning"
+                  ? "alert-warning"
+                  : "alert-info",
             ].join(" ")}
             role={message.type === "error" ? "alert" : "status"}
             aria-live={message.type === "error" ? "assertive" : "polite"}
           >
-            <span className="text-sm">{message.text}</span>
+            <div className="flex w-full items-center justify-between gap-3">
+              <span className="text-sm">{message.text}</span>
+              {message.actions && message.actions.length > 0 ? (
+                <div className="flex shrink-0 items-center gap-2">
+                  {message.actions.map((action) => (
+                    <button
+                      key={action.id}
+                      type="button"
+                      className={[
+                        "btn btn-xs",
+                        action.tone === "primary" ? "btn-primary" : "btn-ghost",
+                      ].join(" ")}
+                      onClick={action.onClick}
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
         ))}
       </div>
