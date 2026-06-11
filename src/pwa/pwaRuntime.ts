@@ -1,10 +1,45 @@
 import { useEffect, useSyncExternalStore } from "react";
 
 export type PwaUpdateStatus = "idle" | "available" | "activating";
+export type OfflineReadiness =
+  | "shell-ready"
+  | "warming"
+  | "full-ready"
+  | "warmup-failed"
+  | "unsupported";
+
+export type StartOptionalWarmupMessage = {
+  type: "START_OPTIONAL_WARMUP";
+};
+
+export type OptionalWarmupProgressMessage = {
+  type: "OPTIONAL_WARMUP_PROGRESS";
+  completed?: number;
+  total?: number;
+};
+
+export type OptionalWarmupDoneMessage = {
+  type: "OPTIONAL_WARMUP_DONE";
+  completed?: number;
+  total?: number;
+};
+
+export type OptionalWarmupFailedMessage = {
+  type: "OPTIONAL_WARMUP_FAILED";
+  completed?: number;
+  total?: number;
+  error?: string;
+};
+
+type ServiceWorkerRuntimeMessage =
+  | OptionalWarmupProgressMessage
+  | OptionalWarmupDoneMessage
+  | OptionalWarmupFailedMessage;
 
 export interface PwaRuntimeSnapshot {
   isOffline: boolean;
   updateStatus: PwaUpdateStatus;
+  offlineReadiness: OfflineReadiness;
 }
 
 type Listener = () => void;
@@ -16,13 +51,46 @@ let serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
 let waitingWorker: ServiceWorker | null = null;
 let dismissedWorker: ServiceWorker | null = null;
 let reloadOnControllerChange = false;
+let offlineReadiness: OfflineReadiness = "unsupported";
+let warmupScheduleRequested = false;
+
 let snapshot: PwaRuntimeSnapshot = {
-  isOffline:
-    typeof navigator !== "undefined" && "onLine" in navigator
-      ? !navigator.onLine
-      : false,
+  isOffline: false,
   updateStatus: "idle",
+  offlineReadiness,
 };
+
+function syncSnapshotForTest() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  (
+    window as typeof window & {
+      __pastePresetPwaSnapshot?: PwaRuntimeSnapshot;
+    }
+  ).__pastePresetPwaSnapshot = snapshot;
+}
+
+function supportsServiceWorker() {
+  return typeof window !== "undefined" && "serviceWorker" in navigator;
+}
+
+function readOfflineState() {
+  return typeof navigator !== "undefined" && "onLine" in navigator
+    ? !navigator.onLine
+    : false;
+}
+
+function readUpdateStatus(): PwaUpdateStatus {
+  if (reloadOnControllerChange) {
+    return "activating";
+  }
+  if (waitingWorker && waitingWorker !== dismissedWorker) {
+    return "available";
+  }
+  return "idle";
+}
 
 function emit() {
   for (const listener of listeners) {
@@ -32,25 +100,150 @@ function emit() {
 
 function recomputeSnapshot() {
   snapshot = {
-    isOffline:
-      typeof navigator !== "undefined" && "onLine" in navigator
-        ? !navigator.onLine
-        : false,
-    updateStatus: reloadOnControllerChange
-      ? "activating"
-      : waitingWorker && waitingWorker !== dismissedWorker
-        ? "available"
-        : "idle",
+    isOffline: readOfflineState(),
+    updateStatus: readUpdateStatus(),
+    offlineReadiness,
   };
+  syncSnapshotForTest();
   emit();
 }
 
-function setOfflineState(isOffline: boolean) {
-  snapshot = {
-    ...snapshot,
-    isOffline,
+function setOfflineReadiness(next: OfflineReadiness) {
+  if (offlineReadiness === next) {
+    return;
+  }
+  offlineReadiness = next;
+  recomputeSnapshot();
+}
+
+function markShellReady() {
+  if (offlineReadiness === "full-ready" || offlineReadiness === "warming") {
+    recomputeSnapshot();
+    return;
+  }
+
+  setOfflineReadiness(supportsServiceWorker() ? "shell-ready" : "unsupported");
+}
+
+function setOfflineState() {
+  recomputeSnapshot();
+}
+
+function waitForVisibleDocument() {
+  if (
+    typeof document === "undefined" ||
+    document.visibilityState === "visible"
+  ) {
+    return Promise.resolve();
+  }
+
+  return new Promise<void>((resolve) => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        document.removeEventListener("visibilitychange", onVisibilityChange);
+        resolve();
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+  });
+}
+
+function waitForBrowserIdle() {
+  if (typeof window === "undefined") {
+    return Promise.resolve();
+  }
+
+  type IdleWindow = typeof window & {
+    requestIdleCallback?: (callback: IdleRequestCallback) => number;
   };
-  emit();
+
+  const idleWindow = window as IdleWindow;
+  if (typeof idleWindow.requestIdleCallback === "function") {
+    return new Promise<void>((resolve) => {
+      idleWindow.requestIdleCallback?.(() => resolve());
+    });
+  }
+
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, 1200);
+  });
+}
+
+function getWarmupMessageTarget(
+  registration: ServiceWorkerRegistration,
+): ServiceWorker | null {
+  return (
+    registration.active ??
+    registration.installing ??
+    registration.waiting ??
+    navigator.serviceWorker.controller
+  );
+}
+
+export async function requestOptionalWarmup(
+  registration: ServiceWorkerRegistration | null = serviceWorkerRegistration,
+) {
+  if (!registration || !supportsServiceWorker()) {
+    return false;
+  }
+
+  let target = getWarmupMessageTarget(registration);
+  if (!target) {
+    try {
+      const readyRegistration = await navigator.serviceWorker.ready;
+      target = getWarmupMessageTarget(readyRegistration);
+      serviceWorkerRegistration = readyRegistration;
+    } catch {
+      target = null;
+    }
+  }
+
+  if (!target) {
+    return false;
+  }
+
+  warmupScheduleRequested = true;
+  if (offlineReadiness !== "full-ready") {
+    setOfflineReadiness("warming");
+  }
+
+  try {
+    const message: StartOptionalWarmupMessage = {
+      type: "START_OPTIONAL_WARMUP",
+    };
+    target.postMessage(message);
+    return true;
+  } catch {
+    warmupScheduleRequested = false;
+    setOfflineReadiness("warmup-failed");
+    return false;
+  }
+}
+
+export function scheduleOptionalWarmup(
+  registration: ServiceWorkerRegistration | null = serviceWorkerRegistration,
+) {
+  if (
+    !registration ||
+    !supportsServiceWorker() ||
+    offlineReadiness === "full-ready" ||
+    warmupScheduleRequested
+  ) {
+    return;
+  }
+
+  warmupScheduleRequested = true;
+
+  void (async () => {
+    await waitForVisibleDocument();
+    await waitForBrowserIdle();
+
+    const started = await requestOptionalWarmup(registration);
+    if (!started) {
+      warmupScheduleRequested = false;
+    }
+  })();
 }
 
 export function initializePwaRuntime() {
@@ -59,13 +252,27 @@ export function initializePwaRuntime() {
   }
 
   initialized = true;
+
+  if (!supportsServiceWorker()) {
+    offlineReadiness = "unsupported";
+    recomputeSnapshot();
+    return;
+  }
+
   const syncOfflineState = () => {
-    setOfflineState(!navigator.onLine);
+    setOfflineState();
+    if (navigator.onLine && offlineReadiness !== "full-ready") {
+      scheduleOptionalWarmup();
+    }
   };
 
   syncOfflineState();
   window.addEventListener("online", syncOfflineState);
   window.addEventListener("offline", syncOfflineState);
+
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    handleServiceWorkerRuntimeMessage(event.data);
+  });
 }
 
 export function attachServiceWorkerRegistration(
@@ -76,7 +283,7 @@ export function attachServiceWorkerRegistration(
     waitingWorker = registration.waiting;
     dismissedWorker = null;
   }
-  recomputeSnapshot();
+  markShellReady();
 }
 
 export function notifyWaitingWorker(worker: ServiceWorker | null | undefined) {
@@ -134,6 +341,30 @@ export function handleServiceWorkerControllerChange() {
   return true;
 }
 
+export function handleServiceWorkerRuntimeMessage(data: unknown) {
+  if (!data || typeof data !== "object" || !("type" in data)) {
+    return false;
+  }
+
+  const message = data as ServiceWorkerRuntimeMessage;
+
+  switch (message.type) {
+    case "OPTIONAL_WARMUP_PROGRESS":
+      setOfflineReadiness("warming");
+      return true;
+    case "OPTIONAL_WARMUP_DONE":
+      warmupScheduleRequested = true;
+      setOfflineReadiness("full-ready");
+      return true;
+    case "OPTIONAL_WARMUP_FAILED":
+      warmupScheduleRequested = false;
+      setOfflineReadiness("warmup-failed");
+      return true;
+    default:
+      return false;
+  }
+}
+
 export function requestServiceWorkerUpdateCheck() {
   if (!serviceWorkerRegistration) {
     return;
@@ -177,12 +408,13 @@ export function __resetPwaRuntimeForTest() {
   waitingWorker = null;
   dismissedWorker = null;
   reloadOnControllerChange = false;
+  offlineReadiness = "unsupported";
+  warmupScheduleRequested = false;
   snapshot = {
-    isOffline:
-      typeof navigator !== "undefined" && "onLine" in navigator
-        ? !navigator.onLine
-        : false,
+    isOffline: readOfflineState(),
     updateStatus: "idle",
+    offlineReadiness,
   };
+  syncSnapshotForTest();
   listeners.clear();
 }

@@ -3,10 +3,11 @@
 ## Summary
 
 PastePreset ships as a root-path Progressive Web App that remains usable after
-at least one successful online visit. The offline contract covers browser
-revisit and hard reload for desktop Chromium, with an additional manual smoke
-path for installed desktop app launch. The app shell, version footer, icons,
-and local image-processing flow must continue working without network access.
+at least one successful online visit. Return visits must prefer the cached app
+shell so the interface appears immediately while update checks and optional
+heavy-codec warmup continue in the background. The offline contract covers
+browser revisit and hard reload for desktop Chromium, with an additional manual
+smoke path for installed desktop app launch.
 
 ## Goals
 
@@ -21,10 +22,15 @@ and local image-processing flow must continue working without network access.
 
 ### 2. Offline revisit and hard reload
 
-- After a successful online visit, reopening `/` while offline must render the
-  full UI without missing styles, icons, or version metadata.
-- The core flow remains available offline:
+- After a successful online visit, reopening `/` while offline or on a weak
+  network must render the cached shell immediately without waiting on a
+  navigation network round-trip.
+- The cached shell must show the full UI without missing styles, icons, or
+  version metadata.
+- The common offline flow remains available after the cached shell loads:
   import image -> process locally -> download result.
+- Advanced offline formats (HEIC and animated codec helpers) may finish in a
+  second phase after background warmup succeeds online once.
 - Desktop Chromium is the strict automated target. Installed standalone launch
   on desktop remains a manual smoke requirement tied to the same artifact set.
 
@@ -45,6 +51,8 @@ and local image-processing flow must continue working without network access.
 
 - A subtle offline status is visible while the browser is offline so users can
   distinguish cached-mode behavior from failures.
+- The offline status distinguishes between cached shell readiness and full
+  offline readiness for advanced formats.
 - External links remain clickable; the offline signal is informational and does
   not alter footer link behavior.
 
@@ -68,10 +76,12 @@ and local image-processing flow must continue working without network access.
 
 ### Service worker contract
 
-- The service worker precaches the built app shell, `version.json`, icons, and
-  heavy emitted assets such as HEIC-related chunks, worker files, and WASM.
-- SPA navigation requests fall back to cached `index.html` when the network is
-  unavailable.
+- The service worker precaches the built cached app shell, `version.json`,
+  icons, the main worker, and common processing assets.
+- Optional heavy codec assets are listed in `offline-warm-manifest.json` and
+  cached later through background warmup.
+- Once a cached shell exists, SPA navigation requests prefer cached
+  `index.html` immediately instead of waiting for the network.
 - Automatic `skipWaiting()` during install and automatic `clients.claim()` are
   forbidden for this topic.
 - The worker may still honor a `SKIP_WAITING` message that originates from an
@@ -90,15 +100,22 @@ and local image-processing flow must continue working without network access.
 
 ### Observable behavior
 
-- Offline revisit or hard reload of `/` shows the full shell and version footer.
+- Offline revisit or hard reload of `/` shows the cached shell and version
+  footer, with `app-shell-visible <= 1s` and `app-interactive <= 2s` in the
+  controlled preview environment.
 - Offline processing and download succeed for a representative fixture image.
+- The runtime can reach `full offline-ready` online without blocking startup.
+- Offline HEIC without completed warmup explains that one successful online
+  warmup is still required.
 - A waiting service worker does not interrupt the current session until the user
   clicks `Reload now`.
 - The status UI can represent:
   - idle hidden state
   - processing
   - errors
-  - offline informational state
+  - offline shell-ready state
+  - offline full-ready state
+  - warmup retry hint
   - update available with actions
   - update applying state
 

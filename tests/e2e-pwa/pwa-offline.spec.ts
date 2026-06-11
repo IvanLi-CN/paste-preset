@@ -14,15 +14,56 @@ async function waitForServiceWorkerReady(
   await page.evaluate(() => navigator.serviceWorker.ready);
 }
 
-async function assertSwBuildArtifact(page: import("@playwright/test").Page) {
-  const response = await page.request.get("/sw.js");
-  expect(response.ok()).toBe(true);
+async function getPwaSnapshot(page: import("@playwright/test").Page) {
+  return await page.evaluate(() => {
+    const globalWindow = window as unknown as {
+      __pastePresetPwaSnapshot?: {
+        isOffline: boolean;
+        updateStatus: string;
+        offlineReadiness: string;
+      };
+    };
 
-  const text = await response.text();
-  expect(text).toContain("version.json");
-  expect(text).toContain("heic2any-");
-  expect(text).not.toContain("clients.claim");
-  expect(text).toContain("SKIP_WAITING");
+    return globalWindow.__pastePresetPwaSnapshot ?? null;
+  });
+}
+
+async function getStartupMetrics(page: import("@playwright/test").Page) {
+  return await page.evaluate(() => {
+    const globalWindow = window as unknown as {
+      __pastePresetMetrics?: {
+        appShellVisible?: number;
+        appInteractive?: number;
+      };
+    };
+
+    return globalWindow.__pastePresetMetrics ?? {};
+  });
+}
+
+async function assertSwBuildArtifact(page: import("@playwright/test").Page) {
+  const swResponse = await page.request.get("/sw.js");
+  expect(swResponse.ok()).toBe(true);
+
+  const swText = await swResponse.text();
+  expect(swText).toContain("offline-warm-manifest.json");
+  expect(swText).toContain("START_OPTIONAL_WARMUP");
+  expect(swText).not.toContain("clients.claim");
+  expect(swText).not.toContain("heic2any-");
+
+  const warmManifestResponse = await page.request.get(
+    "/offline-warm-manifest.json",
+  );
+  expect(warmManifestResponse.ok()).toBe(true);
+  const warmManifest = (await warmManifestResponse.json()) as Array<{
+    url?: string;
+  }>;
+  expect(warmManifest.some((entry) => entry.url?.includes("heic2any-"))).toBe(
+    true,
+  );
+  expect(warmManifest.some((entry) => entry.url?.includes("webp-wasm-"))).toBe(
+    true,
+  );
 }
 
 async function ensurePageIsControlledByServiceWorker(
@@ -58,7 +99,9 @@ async function waitForWaitingWorker(
     .toBe("waiting");
 }
 
-test("PWA-001 offline hard reload loads app shell", async ({ page }) => {
+test("PWA-001 offline hard reload loads cached app shell within the startup budget", async ({
+  page,
+}) => {
   await page.goto("/");
 
   await assertSwBuildArtifact(page);
@@ -70,17 +113,21 @@ test("PWA-001 offline hard reload loads app shell", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "PastePreset", level: 1 }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("status").filter({
-      hasText: "Offline mode: cached features remain available.",
-    }),
-  ).toBeVisible();
+  await expect(page.getByRole("status").first()).toContainText(/Offline mode:/);
 
   const footer = page.getByRole("contentinfo");
   await expect(footer.getByText(/^v\d/)).toBeVisible();
+
+  const metrics = await getStartupMetrics(page);
+  expect(
+    metrics.appShellVisible ?? Number.POSITIVE_INFINITY,
+  ).toBeLessThanOrEqual(1000);
+  expect(
+    metrics.appInteractive ?? Number.POSITIVE_INFINITY,
+  ).toBeLessThanOrEqual(2000);
 });
 
-test("PWA-002 offline processing + download works", async ({
+test("PWA-002 offline processing + download still works for common formats", async ({
   page,
   testImagesDir,
 }) => {
@@ -106,7 +153,58 @@ test("PWA-002 offline processing + download works", async ({
   expect(download.suggestedFilename()).not.toBe("");
 });
 
-test("PWA-003 waiting update is user-prompted and survives reload until applied", async ({
+test("PWA-003 optional warm assets are split out and reach full-ready online", async ({
+  page,
+}) => {
+  await page.goto("/");
+
+  await ensurePageIsControlledByServiceWorker(page);
+
+  await expect
+    .poll(async () => {
+      const snapshot = await getPwaSnapshot(page);
+      return snapshot?.offlineReadiness ?? "missing";
+    })
+    .toBe("full-ready");
+});
+
+test("PWA-004 offline HEIC without completed warmup explains the recovery path", async ({
+  page,
+  testImagesDir,
+}) => {
+  await page.addInitScript(() => {
+    const globalWindow = window as unknown as {
+      __heic2anyOverride?: "unavailable";
+    };
+    globalWindow.__heic2anyOverride = "unavailable";
+
+    window.requestIdleCallback = ((callback: IdleRequestCallback) =>
+      window.setTimeout(
+        () =>
+          callback({
+            didTimeout: false,
+            timeRemaining: () => 0,
+          } as IdleDeadline),
+        5000,
+      )) as typeof window.requestIdleCallback;
+  });
+
+  await page.goto("/");
+  await ensurePageIsControlledByServiceWorker(page);
+
+  await page.context().setOffline(true);
+  await page.reload({ waitUntil: "domcontentloaded" });
+
+  await uploadFixtureViaFileInput(page, testImagesDir, "heic-photo.heic");
+
+  const statusError = page.getByRole("alert").filter({
+    hasText:
+      "This HEIC/HEIF file needs one successful online warmup before it can be processed offline. Reconnect once, wait for offline extras to finish preparing, then try again.",
+  });
+  await expect(statusError).toBeVisible();
+});
+
+test("PWA-005 waiting update is user-prompted and survives reload until applied", async ({
   page,
 }) => {
   await page.goto("/");

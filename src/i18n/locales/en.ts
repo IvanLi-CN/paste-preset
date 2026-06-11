@@ -35,6 +35,16 @@ export const en = {
   "status.error": "Error",
   "status.error.unknown": "Unknown processing error",
   "pwa.offline.notice": "Offline mode: cached features remain available.",
+  "pwa.offline.shellReady":
+    "Offline mode: cached shell is ready, and common formats remain available.",
+  "pwa.offline.warming":
+    "Offline mode: cached shell is ready. Reconnect once to finish warming advanced formats.",
+  "pwa.offline.fullReady":
+    "Offline mode: full cached processing features remain available.",
+  "pwa.offline.warmupFailed":
+    "Offline mode: cached shell is ready, but advanced formats still need one successful online warmup.",
+  "pwa.warmup.failed":
+    "Offline extras could not be prepared in the background. Advanced formats will retry on the next online visit.",
   "pwa.update.available": "A new version is ready.",
   "pwa.update.activating": "Applying update…",
   "pwa.update.reloadNow": "Reload now",
@@ -181,6 +191,8 @@ export const en = {
   // Processing / HEIC errors
   "error.heic.unavailable":
     "HEIC/HEIF conversion is not available in this environment. Please convert the image to JPEG or PNG and try again.",
+  "error.heic.offlineWarmupRequired":
+    "This HEIC/HEIF file needs one successful online warmup before it can be processed offline. Reconnect once, wait for offline extras to finish preparing, then try again.",
   "error.heic.libraryFailed":
     "HEIC/HEIF conversion library failed to load correctly. Please convert the image to JPEG or PNG and try again.",
   "error.heic.convertFailed":

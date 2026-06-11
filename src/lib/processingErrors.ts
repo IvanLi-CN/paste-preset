@@ -1,11 +1,20 @@
 import type { TranslationKey } from "../i18n";
+import { getPwaRuntimeSnapshot } from "../pwa/pwaRuntime.ts";
 
 export function translateProcessingError(
   error: Error,
   t: (key: TranslationKey) => string,
 ): string {
+  const pwaRuntime = getPwaRuntimeSnapshot();
+
   switch (error.message) {
     case "heic.unavailable":
+      if (
+        pwaRuntime.isOffline &&
+        pwaRuntime.offlineReadiness !== "full-ready"
+      ) {
+        return t("error.heic.offlineWarmupRequired");
+      }
       return t("error.heic.unavailable");
     case "heic.libraryFailed":
       return t("error.heic.libraryFailed");

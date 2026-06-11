@@ -13,6 +13,7 @@ export function useAppVersion(): AppVersionState {
 
   useEffect(() => {
     let cancelled = false;
+    let fallbackTimer: number | null = null;
 
     const load = async () => {
       try {
@@ -58,10 +59,39 @@ export function useAppVersion(): AppVersionState {
       }
     };
 
-    void load();
+    const scheduleLoad = () => {
+      void load();
+    };
+
+    if (typeof window !== "undefined") {
+      type IdleWindow = typeof window & {
+        requestIdleCallback?: (callback: IdleRequestCallback) => number;
+      };
+
+      const idleWindow = window as IdleWindow;
+      if (typeof idleWindow.requestIdleCallback === "function") {
+        idleWindow.requestIdleCallback(() => {
+          if (!cancelled) {
+            scheduleLoad();
+          }
+        });
+      } else {
+        fallbackTimer = window.setTimeout(() => {
+          fallbackTimer = null;
+          if (!cancelled) {
+            scheduleLoad();
+          }
+        }, 1000);
+      }
+    } else {
+      scheduleLoad();
+    }
 
     return () => {
       cancelled = true;
+      if (fallbackTimer !== null) {
+        window.clearTimeout(fallbackTimer);
+      }
     };
   }, []);
 

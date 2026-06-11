@@ -1,12 +1,13 @@
 import { useTranslation } from "../i18n";
 import type { AppStatus } from "../lib/types.ts";
-import type { PwaUpdateStatus } from "../pwa/pwaRuntime.ts";
+import type { OfflineReadiness, PwaUpdateStatus } from "../pwa/pwaRuntime.ts";
 
 interface StatusBarProps {
   status: AppStatus;
   processingError: string | null;
   clipboardError: string | null;
   isOffline: boolean;
+  offlineReadiness: OfflineReadiness;
   updateStatus: PwaUpdateStatus;
   onReloadNow: () => void;
   onLater: () => void;
@@ -18,21 +19,12 @@ export function StatusBar(props: StatusBarProps) {
     processingError,
     clipboardError,
     isOffline,
+    offlineReadiness,
     updateStatus,
     onReloadNow,
     onLater,
   } = props;
   const { t } = useTranslation();
-
-  if (
-    !processingError &&
-    !clipboardError &&
-    status === "idle" &&
-    !isOffline &&
-    updateStatus === "idle"
-  ) {
-    return null;
-  }
 
   const messages: {
     id: string;
@@ -68,10 +60,31 @@ export function StatusBar(props: StatusBarProps) {
     });
   }
   if (isOffline) {
+    const offlineText = (() => {
+      switch (offlineReadiness) {
+        case "full-ready":
+          return t("pwa.offline.fullReady");
+        case "warming":
+          return t("pwa.offline.warming");
+        case "warmup-failed":
+          return t("pwa.offline.warmupFailed");
+        case "unsupported":
+          return t("pwa.offline.notice");
+        default:
+          return t("pwa.offline.shellReady");
+      }
+    })();
+
     messages.push({
       id: "offline",
       type: "warning",
-      text: t("pwa.offline.notice"),
+      text: offlineText,
+    });
+  } else if (offlineReadiness === "warmup-failed") {
+    messages.push({
+      id: "offline-warmup-failed",
+      type: "info",
+      text: t("pwa.warmup.failed"),
     });
   }
   if (updateStatus === "available") {
@@ -101,6 +114,10 @@ export function StatusBar(props: StatusBarProps) {
       type: "info",
       text: t("pwa.update.activating"),
     });
+  }
+
+  if (messages.length === 0) {
+    return null;
   }
 
   return (

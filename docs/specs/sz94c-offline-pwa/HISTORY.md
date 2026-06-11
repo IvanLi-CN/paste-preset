@@ -13,3 +13,13 @@
 - Tightened the runtime so passive tabs that already observed a waiting update
   also refresh on `controllerchange`, avoiding mixed asset sets after update
   activation.
+
+## 2026-06-11
+
+- Switched repeat-visit navigation from network-first fallback to cached
+  app-shell-first startup.
+- Split heavy optional offline codec assets out of the core precache into
+  `offline-warm-manifest.json`.
+- Added a shared offline readiness model that distinguishes cached shell,
+  background warmup, full offline readiness, and warmup failure.
+- Added startup timing marks for `app-shell-visible` and `app-interactive`.

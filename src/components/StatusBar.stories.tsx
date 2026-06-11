@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect, fn, userEvent, within } from "@storybook/test";
 import type { AppStatus } from "../lib/types.ts";
-import type { PwaUpdateStatus } from "../pwa/pwaRuntime.ts";
+import type { OfflineReadiness, PwaUpdateStatus } from "../pwa/pwaRuntime.ts";
 import { StatusBar } from "./StatusBar";
 
 const meta = {
@@ -13,6 +13,7 @@ const meta = {
     processingError: null,
     clipboardError: null,
     isOffline: false,
+    offlineReadiness: "unsupported",
     updateStatus: "idle",
     onReloadNow: fn(),
     onLater: fn(),
@@ -25,6 +26,16 @@ const meta = {
     updateStatus: {
       control: { type: "select" },
       options: ["idle", "available", "activating"] satisfies PwaUpdateStatus[],
+    },
+    offlineReadiness: {
+      control: { type: "select" },
+      options: [
+        "shell-ready",
+        "warming",
+        "full-ready",
+        "warmup-failed",
+        "unsupported",
+      ] satisfies OfflineReadiness[],
     },
   },
 } satisfies Meta<typeof StatusBar>;
@@ -63,6 +74,27 @@ export const ClipboardOnlyError: Story = {
 export const Offline: Story = {
   args: {
     isOffline: true,
+    offlineReadiness: "shell-ready",
+  },
+};
+
+export const OfflineFullReady: Story = {
+  args: {
+    isOffline: true,
+    offlineReadiness: "full-ready",
+  },
+};
+
+export const OfflineWarmupFailed: Story = {
+  args: {
+    isOffline: true,
+    offlineReadiness: "warmup-failed",
+  },
+};
+
+export const WarmupRetryHint: Story = {
+  args: {
+    offlineReadiness: "warmup-failed",
   },
 };
 
@@ -92,6 +124,7 @@ export const ApplyingUpdate: Story = {
 export const OfflineWithUpdate: Story = {
   args: {
     isOffline: true,
+    offlineReadiness: "shell-ready",
     updateStatus: "available",
   },
 };

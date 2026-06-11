@@ -31,9 +31,177 @@
       content="Clipboard-centric image presets that run entirely in your browser."
     />
     <meta property="og:image" content="/paste-preset-icon.svg" />
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+
+      body {
+        margin: 0;
+        font-family:
+          "Segoe UI", "Noto Sans", "Helvetica Neue", sans-serif;
+        background: #eef4f8;
+        color: #183153;
+      }
+
+      .app-shell {
+        min-height: 100vh;
+        box-sizing: border-box;
+        padding: 20px 16px;
+      }
+
+      .app-shell__frame {
+        max-width: 1120px;
+        min-height: calc(100vh - 40px);
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .app-shell__header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: flex-start;
+        padding-bottom: 16px;
+        border-bottom: 1px solid rgba(24, 49, 83, 0.12);
+      }
+
+      .app-shell__title {
+        font-size: clamp(1.75rem, 3vw, 2.25rem);
+        font-weight: 700;
+        line-height: 1.1;
+      }
+
+      .app-shell__tagline,
+      .app-shell__footer {
+        color: rgba(24, 49, 83, 0.66);
+      }
+
+      .app-shell__tagline {
+        margin-top: 8px;
+        max-width: 44rem;
+        font-size: 0.95rem;
+      }
+
+      .app-shell__chip {
+        width: 72px;
+        height: 32px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #d7e8f1, #c7dceb);
+      }
+
+      .app-shell__main {
+        flex: 1;
+        display: grid;
+        grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+        gap: 16px;
+        padding-top: 16px;
+      }
+
+      .app-shell__card {
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+        padding: 18px;
+      }
+
+      .app-shell__line,
+      .app-shell__block {
+        border-radius: 999px;
+        background: linear-gradient(90deg, #dce7f1 0%, #eef5fa 50%, #dce7f1 100%);
+        background-size: 220% 100%;
+        animation: app-shell-shimmer 1.4s ease-in-out infinite;
+      }
+
+      .app-shell__line {
+        height: 12px;
+        margin-bottom: 10px;
+      }
+
+      .app-shell__line--sm {
+        width: 38%;
+      }
+
+      .app-shell__line--md {
+        width: 60%;
+      }
+
+      .app-shell__line--lg {
+        width: 84%;
+      }
+
+      .app-shell__block {
+        height: 220px;
+        border-radius: 24px;
+        margin-top: 10px;
+      }
+
+      .app-shell__footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 0.78rem;
+        padding-top: 16px;
+      }
+
+      @keyframes app-shell-shimmer {
+        0% {
+          background-position: 100% 50%;
+        }
+        100% {
+          background-position: 0% 50%;
+        }
+      }
+
+      @media (max-width: 860px) {
+        .app-shell__main {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="app-shell" aria-hidden="true">
+        <div class="app-shell__frame">
+          <header class="app-shell__header">
+            <div>
+              <div class="app-shell__title">PastePreset</div>
+              <div class="app-shell__tagline">
+                Preparing the cached app shell for image paste and resize…
+              </div>
+            </div>
+            <div class="app-shell__chip"></div>
+          </header>
+          <main class="app-shell__main">
+            <section class="app-shell__card">
+              <div class="app-shell__line app-shell__line--md"></div>
+              <div class="app-shell__line app-shell__line--lg"></div>
+              <div class="app-shell__line app-shell__line--sm"></div>
+              <div class="app-shell__block"></div>
+            </section>
+            <section class="app-shell__card">
+              <div class="app-shell__line app-shell__line--lg"></div>
+              <div class="app-shell__line app-shell__line--md"></div>
+              <div class="app-shell__block"></div>
+            </section>
+          </main>
+          <footer class="app-shell__footer">
+            <span>Cached shell priority</span>
+            <span>Background warmup pending</span>
+          </footer>
+        </div>
+      </div>
+    </div>
+    <script>
+      window.__pastePresetMetrics = window.__pastePresetMetrics || {};
+      if (typeof window.__pastePresetMetrics.appShellVisible !== "number") {
+        window.__pastePresetMetrics.appShellVisible = window.performance.now();
+        window.performance.mark("app-shell-visible");
+        window.dispatchEvent(new Event("app-shell-visible"));
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
