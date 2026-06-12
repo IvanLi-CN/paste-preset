@@ -6,6 +6,8 @@ const swTemplateSource = readFileSync(
   join(process.cwd(), "scripts/sw-template.js"),
   "utf8",
 );
+const warmManifestUrl =
+  "https://example.test/offline-warm-manifest.json?cache=paste-preset-precache-v4";
 
 function normalizeRequestUrl(requestOrUrl: Request | string) {
   return typeof requestOrUrl === "string" ? requestOrUrl : requestOrUrl.url;
@@ -152,7 +154,7 @@ describe("sw-template", () => {
     const fetchMock = vi.fn(async (requestOrUrl: Request | string) => {
       const url = normalizeRequestUrl(requestOrUrl);
 
-      if (url === "https://example.test/offline-warm-manifest.json") {
+      if (url === warmManifestUrl) {
         manifestAttempts += 1;
         if (manifestAttempts === 1) {
           throw new Error("offline");
@@ -232,16 +234,14 @@ describe("sw-template", () => {
         total: 1,
       }),
     );
-    expect(
-      await coreCache.match("https://example.test/offline-warm-manifest.json"),
-    ).not.toBeNull();
+    expect(await coreCache.match(warmManifestUrl)).not.toBeNull();
   });
 
   it("skips optional cache cleanup when the warm manifest cannot be loaded", async () => {
     const fetchMock = vi.fn(async (requestOrUrl: Request | string) => {
       const url = normalizeRequestUrl(requestOrUrl);
 
-      if (url === "https://example.test/offline-warm-manifest.json") {
+      if (url === warmManifestUrl) {
         throw new Error("offline");
       }
 
@@ -272,7 +272,7 @@ describe("sw-template", () => {
       loadServiceWorker(fetchMock);
 
     await coreCache.put(
-      "https://example.test/offline-warm-manifest.json",
+      warmManifestUrl,
       new Response(
         JSON.stringify([
           { url: "assets/heic2any-abc123.js", revision: "asset-a" },
@@ -312,7 +312,7 @@ describe("sw-template", () => {
     const fetchMock = vi.fn(async (requestOrUrl: Request | string) => {
       const url = normalizeRequestUrl(requestOrUrl);
 
-      if (url === "https://example.test/offline-warm-manifest.json") {
+      if (url === warmManifestUrl) {
         throw new Error("offline");
       }
 

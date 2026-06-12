@@ -71,7 +71,9 @@ async function readCachedJson(cache, cacheKey) {
 }
 
 function getOptionalManifestUrl() {
-  return new URL(OFFLINE_WARM_MANIFEST_URL, self.registration.scope).toString();
+  const url = new URL(OFFLINE_WARM_MANIFEST_URL, self.registration.scope);
+  url.searchParams.set("cache", CORE_CACHE_NAME);
+  return url.toString();
 }
 
 function getWarmupErrorMessage(error, fallback) {
