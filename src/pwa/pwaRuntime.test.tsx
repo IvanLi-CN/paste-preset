@@ -232,6 +232,39 @@ describe("pwaRuntime", () => {
     hook.cleanup();
   });
 
+  it("warms the waiting worker when an updated service worker is pending", async () => {
+    const activeWorker = {
+      postMessage: vi.fn(),
+    } as unknown as ServiceWorker;
+    const waitingWorker = {
+      postMessage: vi.fn(),
+    } as unknown as ServiceWorker;
+    installServiceWorkerMocks({ activeWorker, waitingWorker });
+    const hook = renderHook();
+
+    act(() => {
+      attachServiceWorkerRegistration({
+        active: activeWorker,
+        waiting: waitingWorker,
+      } as ServiceWorkerRegistration);
+    });
+
+    await act(async () => {
+      await requestOptionalWarmup({
+        active: activeWorker,
+        waiting: waitingWorker,
+      } as ServiceWorkerRegistration);
+    });
+
+    expect(waitingWorker.postMessage).toHaveBeenCalledWith({
+      type: "START_OPTIONAL_WARMUP",
+    });
+    expect(activeWorker.postMessage).not.toHaveBeenCalledWith({
+      type: "START_OPTIONAL_WARMUP",
+    });
+    hook.cleanup();
+  });
+
   it("tracks waiting updates and dismisses them per session", () => {
     const hook = renderHook();
     const waitingWorker = {
