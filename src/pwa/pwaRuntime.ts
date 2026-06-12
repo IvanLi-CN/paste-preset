@@ -89,7 +89,10 @@ function syncSnapshotForTest() {
 }
 
 function supportsServiceWorker() {
-  return typeof window !== "undefined" && "serviceWorker" in navigator;
+  return (
+    typeof window !== "undefined" &&
+    typeof navigator.serviceWorker !== "undefined"
+  );
 }
 
 function readOfflineState() {
@@ -336,15 +339,13 @@ export function initializePwaRuntime() {
 
   initialized = true;
 
-  if (!supportsServiceWorker()) {
-    offlineReadiness = "unsupported";
-    recomputeSnapshot();
-    return;
-  }
-
   const syncOfflineState = () => {
     setOfflineState();
-    if (navigator.onLine && offlineReadiness !== "full-ready") {
+    if (
+      supportsServiceWorker() &&
+      navigator.onLine &&
+      offlineReadiness !== "full-ready"
+    ) {
       scheduleOptionalWarmup();
     }
   };
@@ -352,6 +353,12 @@ export function initializePwaRuntime() {
   syncOfflineState();
   window.addEventListener("online", syncOfflineState);
   window.addEventListener("offline", syncOfflineState);
+
+  if (!supportsServiceWorker()) {
+    offlineReadiness = "unsupported";
+    recomputeSnapshot();
+    return;
+  }
 
   navigator.serviceWorker.addEventListener("message", (event) => {
     handleServiceWorkerRuntimeMessage(event.data);

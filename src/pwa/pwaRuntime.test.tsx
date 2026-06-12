@@ -341,6 +341,34 @@ describe("pwaRuntime", () => {
     hook.cleanup();
   });
 
+  it("tracks offline state changes even when service workers are unsupported", () => {
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: undefined,
+    });
+
+    const hook = renderHook();
+
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      value: false,
+    });
+    act(() => {
+      window.dispatchEvent(new Event("offline"));
+    });
+    expect(hook.getLatest().isOffline).toBe(true);
+
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      value: true,
+    });
+    act(() => {
+      window.dispatchEvent(new Event("online"));
+    });
+    expect(hook.getLatest().isOffline).toBe(false);
+    hook.cleanup();
+  });
+
   it("tracks optional warmup progress and completion", async () => {
     const activeWorker = {
       postMessage: vi.fn(),
