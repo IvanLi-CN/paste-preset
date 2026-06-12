@@ -1,3 +1,5 @@
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import {
   expect,
   getTaskDownloadLink,
@@ -7,6 +9,8 @@ import {
   waitForProcessingToFinish,
 } from "../e2e/_helpers";
 
+const serviceWorkerBuildPath = join(process.cwd(), "dist", "sw.js");
+
 async function waitForServiceWorkerReady(
   page: import("@playwright/test").Page,
 ) {
@@ -14,15 +18,56 @@ async function waitForServiceWorkerReady(
   await page.evaluate(() => navigator.serviceWorker.ready);
 }
 
-async function assertSwBuildArtifact(page: import("@playwright/test").Page) {
-  const response = await page.request.get("/sw.js");
-  expect(response.ok()).toBe(true);
+async function getPwaSnapshot(page: import("@playwright/test").Page) {
+  return await page.evaluate(() => {
+    const globalWindow = window as unknown as {
+      __pastePresetPwaSnapshot?: {
+        isOffline: boolean;
+        updateStatus: string;
+        offlineReadiness: string;
+      };
+    };
 
-  const text = await response.text();
-  expect(text).toContain("version.json");
-  expect(text).toContain("heic2any-");
-  expect(text).not.toContain("clients.claim");
-  expect(text).toContain("SKIP_WAITING");
+    return globalWindow.__pastePresetPwaSnapshot ?? null;
+  });
+}
+
+async function getStartupMetrics(page: import("@playwright/test").Page) {
+  return await page.evaluate(() => {
+    const globalWindow = window as unknown as {
+      __pastePresetMetrics?: {
+        appShellVisible?: number;
+        appInteractive?: number;
+      };
+    };
+
+    return globalWindow.__pastePresetMetrics ?? {};
+  });
+}
+
+async function assertSwBuildArtifact(page: import("@playwright/test").Page) {
+  const swResponse = await page.request.get("/sw.js");
+  expect(swResponse.ok()).toBe(true);
+
+  const swText = await swResponse.text();
+  expect(swText).toContain("offline-warm-manifest.json");
+  expect(swText).toContain("START_OPTIONAL_WARMUP");
+  expect(swText).not.toContain("clients.claim");
+  expect(swText).not.toContain("heic2any-");
+
+  const warmManifestResponse = await page.request.get(
+    "/offline-warm-manifest.json",
+  );
+  expect(warmManifestResponse.ok()).toBe(true);
+  const warmManifest = (await warmManifestResponse.json()) as Array<{
+    url?: string;
+  }>;
+  expect(warmManifest.some((entry) => entry.url?.includes("heic2any-"))).toBe(
+    true,
+  );
+  expect(warmManifest.some((entry) => entry.url?.includes("webp-wasm-"))).toBe(
+    true,
+  );
 }
 
 async function ensurePageIsControlledByServiceWorker(
@@ -58,7 +103,9 @@ async function waitForWaitingWorker(
     .toBe("waiting");
 }
 
-test("PWA-001 offline hard reload loads app shell", async ({ page }) => {
+test("PWA-001 offline hard reload loads cached app shell within the startup budget", async ({
+  page,
+}) => {
   await page.goto("/");
 
   await assertSwBuildArtifact(page);
@@ -70,17 +117,21 @@ test("PWA-001 offline hard reload loads app shell", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "PastePreset", level: 1 }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("status").filter({
-      hasText: "Offline mode: cached features remain available.",
-    }),
-  ).toBeVisible();
+  await expect(page.getByRole("status").first()).toContainText(/Offline mode:/);
 
   const footer = page.getByRole("contentinfo");
   await expect(footer.getByText(/^v\d/)).toBeVisible();
+
+  const metrics = await getStartupMetrics(page);
+  expect(
+    metrics.appShellVisible ?? Number.POSITIVE_INFINITY,
+  ).toBeLessThanOrEqual(1000);
+  expect(
+    metrics.appInteractive ?? Number.POSITIVE_INFINITY,
+  ).toBeLessThanOrEqual(2000);
 });
 
-test("PWA-002 offline processing + download works", async ({
+test("PWA-002 offline processing + download still works for common formats", async ({
   page,
   testImagesDir,
 }) => {
@@ -106,63 +157,135 @@ test("PWA-002 offline processing + download works", async ({
   expect(download.suggestedFilename()).not.toBe("");
 });
 
-test("PWA-003 waiting update is user-prompted and survives reload until applied", async ({
+test("PWA-003 optional warm assets are split out and reach full-ready online", async ({
+  page,
+}) => {
+  await page.goto("/");
+
+  await ensurePageIsControlledByServiceWorker(page);
+
+  await expect
+    .poll(async () => {
+      const snapshot = await getPwaSnapshot(page);
+      return snapshot?.offlineReadiness ?? "missing";
+    })
+    .toBe("full-ready");
+
+  await page.context().setOffline(true);
+  await page.reload({ waitUntil: "domcontentloaded" });
+
+  await expect(
+    page.getByRole("heading", { name: "PastePreset", level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByRole("status").first()).toContainText(
+    "Offline mode: full cached processing features remain available.",
+  );
+  await expect
+    .poll(async () => {
+      const snapshot = await getPwaSnapshot(page);
+      return snapshot?.offlineReadiness ?? "missing";
+    })
+    .toBe("full-ready");
+});
+
+test("PWA-004 offline HEIC without completed warmup explains the recovery path", async ({
+  page,
+  testImagesDir,
+}) => {
+  await page.addInitScript(() => {
+    const globalWindow = window as unknown as {
+      __heic2anyOverride?: "unavailable";
+    };
+    globalWindow.__heic2anyOverride = "unavailable";
+
+    window.requestIdleCallback = ((callback: IdleRequestCallback) =>
+      window.setTimeout(
+        () =>
+          callback({
+            didTimeout: false,
+            timeRemaining: () => 0,
+          } as IdleDeadline),
+        5000,
+      )) as typeof window.requestIdleCallback;
+  });
+
+  await page.goto("/");
+  await ensurePageIsControlledByServiceWorker(page);
+
+  await page.context().setOffline(true);
+  await page.reload({ waitUntil: "domcontentloaded" });
+
+  await uploadFixtureViaFileInput(page, testImagesDir, "heic-photo.heic");
+
+  const statusError = page.getByRole("alert").filter({
+    hasText:
+      "This HEIC/HEIF file needs one successful online warmup before it can be processed offline. Reconnect once, wait for offline extras to finish preparing, then try again.",
+  });
+  await expect(statusError).toBeVisible();
+});
+
+test("PWA-005 waiting update is user-prompted and survives reload until applied", async ({
   page,
 }) => {
   await page.goto("/");
   await ensurePageIsControlledByServiceWorker(page);
 
-  await page.evaluate(async () => {
-    const registration = await navigator.serviceWorker.getRegistration();
-    if (!registration) {
-      throw new Error("service worker registration missing");
-    }
+  const originalServiceWorker = await readFile(serviceWorkerBuildPath, "utf8");
+  try {
+    await writeFile(
+      serviceWorkerBuildPath,
+      `${originalServiceWorker}\n// test-update-marker: ${Date.now()}\n`,
+      "utf8",
+    );
 
-    const scriptUrl = new URL("/sw.js", window.location.origin);
-    const nonce = String(Date.now());
-    scriptUrl.searchParams.set("test-update", nonce);
+    await page.evaluate(async () => {
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) {
+        throw new Error("service worker registration missing");
+      }
 
-    await navigator.serviceWorker.register(scriptUrl.toString(), {
-      scope: "/",
-      updateViaCache: "none",
-    });
-  });
-
-  await waitForWaitingWorker(page);
-
-  const updateStatus = page.getByRole("status").filter({
-    hasText: "A new version is ready.",
-  });
-  await expect(updateStatus).toBeVisible();
-
-  await page.getByRole("button", { name: "Later" }).click();
-  await expect(updateStatus).toHaveCount(0);
-
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await ensurePageIsControlledByServiceWorker(page);
-  await waitForWaitingWorker(page);
-  await expect(updateStatus).toBeVisible();
-
-  await page.getByRole("button", { name: "Reload now" }).click();
-
-  await expect
-    .poll(
-      () =>
-        page.evaluate(async () => {
-          const registration = await navigator.serviceWorker.getRegistration();
-          return {
-            hasController: navigator.serviceWorker.controller !== null,
-            hasWaiting: Boolean(registration?.waiting),
-          };
-        }),
-      { timeout: 15_000 },
-    )
-    .toEqual({
-      hasController: true,
-      hasWaiting: false,
+      await registration.update();
     });
 
-  await expect(
-    page.getByRole("status").filter({ hasText: "A new version is ready." }),
-  ).toHaveCount(0);
+    await waitForWaitingWorker(page);
+
+    const updateStatus = page.getByRole("status").filter({
+      hasText: "A new version is ready.",
+    });
+    await expect(updateStatus).toBeVisible();
+
+    await page.getByRole("button", { name: "Later" }).click();
+    await expect(updateStatus).toHaveCount(0);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await ensurePageIsControlledByServiceWorker(page);
+    await waitForWaitingWorker(page);
+    await expect(updateStatus).toBeVisible();
+
+    await page.getByRole("button", { name: "Reload now" }).click();
+
+    await expect
+      .poll(
+        () =>
+          page.evaluate(async () => {
+            const registration =
+              await navigator.serviceWorker.getRegistration();
+            return {
+              hasController: navigator.serviceWorker.controller !== null,
+              hasWaiting: Boolean(registration?.waiting),
+            };
+          }),
+        { timeout: 15_000 },
+      )
+      .toEqual({
+        hasController: true,
+        hasWaiting: false,
+      });
+
+    await expect(
+      page.getByRole("status").filter({ hasText: "A new version is ready." }),
+    ).toHaveCount(0);
+  } finally {
+    await writeFile(serviceWorkerBuildPath, originalServiceWorker, "utf8");
+  }
 });

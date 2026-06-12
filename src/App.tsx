@@ -22,18 +22,45 @@ import {
 import { useUserPresets } from "./hooks/useUserPresets.tsx";
 import { useUserSettings } from "./hooks/useUserSettings.tsx";
 import { type TranslationKey, useTranslation } from "./i18n";
-import { preloadHeicConverter } from "./lib/heic.ts";
 import { PRESETS } from "./lib/presets.ts";
 import type { ImageInfo } from "./lib/types.ts";
 import { usePwaRuntime } from "./pwa/pwaRuntime.ts";
+
+type WindowWithAppMetrics = typeof window & {
+  __pastePresetMetrics?: {
+    appInteractive?: number;
+  };
+};
+
+function markAppInteractive() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const metricWindow = window as WindowWithAppMetrics;
+  metricWindow.__pastePresetMetrics ??= {};
+  if (typeof metricWindow.__pastePresetMetrics.appInteractive === "number") {
+    return;
+  }
+
+  const now = window.performance.now();
+  metricWindow.__pastePresetMetrics.appInteractive = now;
+  window.performance.mark("app-interactive");
+  window.dispatchEvent(new Event("app-interactive"));
+}
 
 function App() {
   const { t } = useTranslation();
   const { presets, activePresetId } = useUserPresets();
   const { settings, processingOptions } = useUserSettings();
   const { version } = useAppVersion();
-  const { isOffline, updateStatus, applyWaitingUpdate, dismissWaitingUpdate } =
-    usePwaRuntime();
+  const {
+    isOffline,
+    updateStatus,
+    offlineReadiness,
+    applyWaitingUpdate,
+    dismissWaitingUpdate,
+  } = usePwaRuntime();
   const [uiError, setUiError] = useState<string | null>(null);
   const [viewportWidth, setViewportWidth] = useState<number>(() =>
     typeof window === "undefined" ? 0 : window.innerWidth,
@@ -120,34 +147,6 @@ function App() {
   const isMd = viewportWidth >= 768 && viewportWidth < 1024;
   const isSmOrMd = isSm || isMd;
   const isLgUp = viewportWidth >= 1024;
-
-  // Best-effort preload for the HEIC conversion bundle so the first HEIC paste
-  // does not have to wait on the dynamic import network round-trip.
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const schedulePreload = () => {
-      void preloadHeicConverter();
-    };
-
-    if ("requestIdleCallback" in window) {
-      // Prefer not to compete with initial rendering work.
-      (
-        window as typeof window & {
-          requestIdleCallback?:
-            | ((cb: IdleRequestCallback) => number)
-            | undefined;
-        }
-      ).requestIdleCallback?.(schedulePreload);
-    } else {
-      const timeoutId = setTimeout(schedulePreload, 1500);
-      return () => {
-        clearTimeout(timeoutId);
-      };
-    }
-  }, []);
 
   const activePreset = presets.find((preset) => preset.id === activePresetId);
 
@@ -385,6 +384,10 @@ function App() {
     previousHasImageRef.current = hasImage;
   }, [hasImage, isSmOrMd]);
 
+  useEffect(() => {
+    markAppInteractive();
+  }, []);
+
   return (
     <div className="relative min-h-screen bg-base-200 text-base-content">
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-4 lg:px-6 lg:py-6">
@@ -397,6 +400,19 @@ function App() {
             <p className="text-sm text-base-content/70">{t("app.tagline")}</p>
           </div>
         </header>
+
+        <StatusBar
+          status={status}
+          processingError={processingError ?? uiError}
+          clipboardError={clipboardError ?? shortcutCopyError}
+          isOffline={isOffline}
+          offlineReadiness={offlineReadiness}
+          updateStatus={updateStatus}
+          onReloadNow={() => {
+            applyWaitingUpdate();
+          }}
+          onLater={dismissWaitingUpdate}
+        />
 
         <main className="flex flex-1 flex-col gap-4">
           {isXs ? (
@@ -557,18 +573,6 @@ function App() {
             </a>
           </div>
         </footer>
-
-        <StatusBar
-          status={status}
-          processingError={processingError ?? uiError}
-          clipboardError={clipboardError ?? shortcutCopyError}
-          isOffline={isOffline}
-          updateStatus={updateStatus}
-          onReloadNow={() => {
-            applyWaitingUpdate();
-          }}
-          onLater={dismissWaitingUpdate}
-        />
       </div>
     </div>
   );

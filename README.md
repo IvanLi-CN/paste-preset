@@ -17,7 +17,10 @@ PastePreset is a browser-based single-page application for quickly processing sc
 The production app is deployed at the root path
 [paste-preset.ivanli.cc](https://paste-preset.ivanli.cc/) and is installable as
 a PWA. After at least one successful online visit, the cached app shell can be
-revisited offline for the core import -> process -> download flow.
+revisited offline for the core import -> process -> download flow. Heavy codec
+support such as HEIC and animated-format helpers now warms in the background, so
+return visits can show the shell immediately while advanced offline formats
+become available once warmup finishes.
 
 ![PastePreset main UI](docs/assets/app-screenshot.png)
 

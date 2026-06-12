@@ -1,23 +1,38 @@
 import { expect, test } from "./_helpers";
 
-test("E2E-090 preloads HEIC converter after initial render", async ({
+test("E2E-090 records cached-shell and interactive startup marks", async ({
   page,
 }) => {
   await page.goto("/");
 
   await page.waitForFunction(() => {
     const globalWindow = window as unknown as {
-      __heicPreloadTriggered?: boolean;
+      __pastePresetMetrics?: {
+        appShellVisible?: number;
+        appInteractive?: number;
+      };
     };
-    return globalWindow.__heicPreloadTriggered === true;
+
+    return (
+      typeof globalWindow.__pastePresetMetrics?.appShellVisible === "number" &&
+      typeof globalWindow.__pastePresetMetrics?.appInteractive === "number"
+    );
   });
 
-  const wasTriggered = await page.evaluate(() => {
+  const metrics = await page.evaluate(() => {
     const globalWindow = window as unknown as {
-      __heicPreloadTriggered?: boolean;
+      __pastePresetMetrics?: {
+        appShellVisible?: number;
+        appInteractive?: number;
+      };
     };
-    return Boolean(globalWindow.__heicPreloadTriggered);
+
+    return globalWindow.__pastePresetMetrics ?? {};
   });
 
-  await expect(wasTriggered).toBe(true);
+  await expect(typeof metrics.appShellVisible).toBe("number");
+  await expect(typeof metrics.appInteractive).toBe("number");
+  await expect(metrics.appInteractive).toBeGreaterThanOrEqual(
+    metrics.appShellVisible ?? 0,
+  );
 });

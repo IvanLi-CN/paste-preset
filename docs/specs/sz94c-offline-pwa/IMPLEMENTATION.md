@@ -2,9 +2,18 @@
 
 ## Current Status
 
-- Service worker lifecycle moved to waiting-update semantics.
-- Frontend runtime exposes offline and update state through a shared PWA store.
-- `StatusBar` owns the reusable UI for offline and update prompts.
+- Service worker lifecycle uses waiting-update semantics plus cached-shell-first
+  navigation for repeat visits.
+- The build now splits heavy optional offline codec assets into
+  `offline-warm-manifest.json` so the core shell stays light.
+- Frontend runtime exposes offline readiness and update state through a shared
+  PWA store.
+- `StatusBar` owns the reusable UI for offline readiness, warmup failure, and
+  update prompts, rendered inline below the app header as a sticky shell status
+  region instead of a floating footer toast.
+- The runtime rehydrates `full offline-ready` from service worker cache status
+  after reloads so offline revisit messaging stays accurate once warmup has
+  completed.
 - Storybook and automated tests cover the new reusable visual states.
 - Visual evidence for the waiting-update prompt and offline shell is stored
   under `assets/`.
@@ -20,8 +29,10 @@
 - Automated validation passed for `bun run check`, `bun run build`,
   `bun run test`, `bun run test-storybook`, and `bun run test:e2e:pwa`.
 - Browser proof covers:
-  - offline revisit and hard reload of `/`
+  - offline revisit and hard reload of `/` with cached-shell-first startup
   - offline import -> process -> download
+  - background optional warmup reaching `full offline-ready`
+  - offline HEIC recovery guidance before warmup completes
   - waiting-update prompt lifecycle with `Reload now` / `Later`
   - root-path footer version visibility
 - The PWA runtime also reloads passive tabs on `controllerchange` once those

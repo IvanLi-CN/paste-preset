@@ -1,12 +1,13 @@
 import { useTranslation } from "../i18n";
 import type { AppStatus } from "../lib/types.ts";
-import type { PwaUpdateStatus } from "../pwa/pwaRuntime.ts";
+import type { OfflineReadiness, PwaUpdateStatus } from "../pwa/pwaRuntime.ts";
 
 interface StatusBarProps {
   status: AppStatus;
   processingError: string | null;
   clipboardError: string | null;
   isOffline: boolean;
+  offlineReadiness: OfflineReadiness;
   updateStatus: PwaUpdateStatus;
   onReloadNow: () => void;
   onLater: () => void;
@@ -18,21 +19,12 @@ export function StatusBar(props: StatusBarProps) {
     processingError,
     clipboardError,
     isOffline,
+    offlineReadiness,
     updateStatus,
     onReloadNow,
     onLater,
   } = props;
   const { t } = useTranslation();
-
-  if (
-    !processingError &&
-    !clipboardError &&
-    status === "idle" &&
-    !isOffline &&
-    updateStatus === "idle"
-  ) {
-    return null;
-  }
 
   const messages: {
     id: string;
@@ -68,10 +60,31 @@ export function StatusBar(props: StatusBarProps) {
     });
   }
   if (isOffline) {
+    const offlineText = (() => {
+      switch (offlineReadiness) {
+        case "full-ready":
+          return t("pwa.offline.fullReady");
+        case "warming":
+          return t("pwa.offline.warming");
+        case "warmup-failed":
+          return t("pwa.offline.warmupFailed");
+        case "unsupported":
+          return t("pwa.offline.notice");
+        default:
+          return t("pwa.offline.shellReady");
+      }
+    })();
+
     messages.push({
       id: "offline",
       type: "warning",
-      text: t("pwa.offline.notice"),
+      text: offlineText,
+    });
+  } else if (offlineReadiness === "warmup-failed") {
+    messages.push({
+      id: "offline-warmup-failed",
+      type: "info",
+      text: t("pwa.warmup.failed"),
     });
   }
   if (updateStatus === "available") {
@@ -103,14 +116,21 @@ export function StatusBar(props: StatusBarProps) {
     });
   }
 
+  if (messages.length === 0) {
+    return null;
+  }
+
   return (
-    <div className="fixed inset-x-0 bottom-4 flex justify-center px-4">
-      <div className="flex max-w-xl flex-col gap-2">
+    <section
+      className="sticky top-4 z-20 mb-4 w-full"
+      data-status-layout="shell-sticky"
+    >
+      <div className="flex w-full flex-col gap-2">
         {messages.map((message) => (
           <div
             key={message.id}
             className={[
-              "alert shadow",
+              "alert w-full items-start rounded-2xl border border-base-300/70 px-4 py-3 text-sm shadow-sm backdrop-blur-sm sm:items-center",
               message.type === "error"
                 ? "alert-error"
                 : message.type === "warning"
@@ -120,10 +140,10 @@ export function StatusBar(props: StatusBarProps) {
             role={message.type === "error" ? "alert" : "status"}
             aria-live={message.type === "error" ? "assertive" : "polite"}
           >
-            <div className="flex w-full items-center justify-between gap-3">
-              <span className="text-sm">{message.text}</span>
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span>{message.text}</span>
               {message.actions && message.actions.length > 0 ? (
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
                   {message.actions.map((action) => (
                     <button
                       key={action.id}
@@ -143,6 +163,6 @@ export function StatusBar(props: StatusBarProps) {
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }

@@ -16,6 +16,7 @@ function renderStatusBar(
     processingError: null,
     clipboardError: null,
     isOffline: false,
+    offlineReadiness: "unsupported",
     updateStatus: "idle",
     onReloadNow: vi.fn(),
     onLater: vi.fn(),
@@ -52,9 +53,27 @@ describe("StatusBar", () => {
   it("shows offline informational state", () => {
     const { container, cleanup } = renderStatusBar({
       isOffline: true,
+      offlineReadiness: "shell-ready",
+    });
+    const shellStickyRegion = container.querySelector(
+      "[data-status-layout='shell-sticky']",
+    );
+    expect(shellStickyRegion).not.toBeNull();
+    expect(shellStickyRegion?.className).toContain("sticky");
+    expect(shellStickyRegion?.className).not.toContain("fixed");
+    expect(container.textContent).toContain(
+      "Offline mode: cached shell is ready, and common formats remain available.",
+    );
+    cleanup();
+  });
+
+  it("shows full offline readiness when all warm assets are cached", () => {
+    const { container, cleanup } = renderStatusBar({
+      isOffline: true,
+      offlineReadiness: "full-ready",
     });
     expect(container.textContent).toContain(
-      "Offline mode: cached features remain available.",
+      "Offline mode: full cached processing features remain available.",
     );
     cleanup();
   });

@@ -3,6 +3,7 @@ import {
   handleServiceWorkerControllerChange,
   notifyWaitingWorker,
   requestServiceWorkerUpdateCheck,
+  scheduleOptionalWarmup,
 } from "./pwaRuntime.ts";
 
 export async function registerServiceWorker() {
@@ -48,6 +49,7 @@ export async function registerServiceWorker() {
 
     // Proactively check for updates after startup.
     requestServiceWorkerUpdateCheck();
+    scheduleOptionalWarmup(registration);
   } catch (error) {
     // Avoid throwing during startup; SW is an enhancement.
     console.warn("[pwa] service worker registration failed", error);

@@ -36,6 +36,14 @@ export const zhCN: TranslationMessages = {
   "status.error": "错误",
   "status.error.unknown": "未知处理错误",
   "pwa.offline.notice": "当前处于离线模式，已缓存的功能仍可使用。",
+  "pwa.offline.shellReady": "当前处于离线模式，缓存界面和常见格式仍可使用。",
+  "pwa.offline.warming":
+    "当前处于离线模式，缓存界面已就绪。高级格式需要重新联网完成一次后台预热。",
+  "pwa.offline.fullReady": "当前处于离线模式，完整缓存的处理能力仍可使用。",
+  "pwa.offline.warmupFailed":
+    "当前处于离线模式，缓存界面已就绪，但高级格式仍需先完成一次在线预热。",
+  "pwa.warmup.failed":
+    "后台离线扩展资源准备失败。下次联网访问时会再次尝试准备高级格式所需资源。",
   "pwa.update.available": "新版本已准备就绪。",
   "pwa.update.activating": "正在应用更新…",
   "pwa.update.reloadNow": "立即刷新",
@@ -176,6 +184,8 @@ export const zhCN: TranslationMessages = {
   // Processing / HEIC errors
   "error.heic.unavailable":
     "当前环境不支持 HEIC/HEIF 转换。请先在设备上将图片转换为 JPEG 或 PNG 后再试。",
+  "error.heic.offlineWarmupRequired":
+    "这个 HEIC/HEIF 文件需要先完成一次在线预热，之后才能离线处理。请重新联网一次，等待离线扩展资源准备完成后再试。",
   "error.heic.libraryFailed":
     "HEIC/HEIF 转换库加载失败。请将图片转换为 JPEG 或 PNG 后再试。",
   "error.heic.convertFailed":
