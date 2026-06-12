@@ -12,6 +12,10 @@ export type StartOptionalWarmupMessage = {
   type: "START_OPTIONAL_WARMUP";
 };
 
+export type RequestOptionalWarmupStatusMessage = {
+  type: "GET_OPTIONAL_WARMUP_STATUS";
+};
+
 export type OptionalWarmupProgressMessage = {
   type: "OPTIONAL_WARMUP_PROGRESS";
   completed?: number;
@@ -31,10 +35,19 @@ export type OptionalWarmupFailedMessage = {
   error?: string;
 };
 
+export type OptionalWarmupStatusMessage = {
+  type: "OPTIONAL_WARMUP_STATUS";
+  offlineReadiness?: "shell-ready" | "full-ready";
+  completed?: number;
+  total?: number;
+  error?: string;
+};
+
 type ServiceWorkerRuntimeMessage =
   | OptionalWarmupProgressMessage
   | OptionalWarmupDoneMessage
-  | OptionalWarmupFailedMessage;
+  | OptionalWarmupFailedMessage
+  | OptionalWarmupStatusMessage;
 
 export interface PwaRuntimeSnapshot {
   isOffline: boolean;
@@ -53,6 +66,7 @@ let dismissedWorker: ServiceWorker | null = null;
 let reloadOnControllerChange = false;
 let offlineReadiness: OfflineReadiness = "unsupported";
 let warmupScheduleRequested = false;
+let warmupStatusRequestInFlight = false;
 
 let snapshot: PwaRuntimeSnapshot = {
   isOffline: false,
@@ -221,6 +235,42 @@ export async function requestOptionalWarmup(
   }
 }
 
+async function requestOptionalWarmupStatus(
+  registration: ServiceWorkerRegistration | null = serviceWorkerRegistration,
+) {
+  if (!registration || !supportsServiceWorker()) {
+    return false;
+  }
+
+  let target = getWarmupMessageTarget(registration);
+  if (!target) {
+    try {
+      const readyRegistration = await navigator.serviceWorker.ready;
+      target = getWarmupMessageTarget(readyRegistration);
+      serviceWorkerRegistration = readyRegistration;
+    } catch {
+      target = null;
+    }
+  }
+
+  if (!target) {
+    return false;
+  }
+
+  warmupStatusRequestInFlight = true;
+
+  try {
+    const message: RequestOptionalWarmupStatusMessage = {
+      type: "GET_OPTIONAL_WARMUP_STATUS",
+    };
+    target.postMessage(message);
+    return true;
+  } catch {
+    warmupStatusRequestInFlight = false;
+    return false;
+  }
+}
+
 export function scheduleOptionalWarmup(
   registration: ServiceWorkerRegistration | null = serviceWorkerRegistration,
 ) {
@@ -228,7 +278,8 @@ export function scheduleOptionalWarmup(
     !registration ||
     !supportsServiceWorker() ||
     offlineReadiness === "full-ready" ||
-    warmupScheduleRequested
+    warmupScheduleRequested ||
+    warmupStatusRequestInFlight
   ) {
     return;
   }
@@ -284,6 +335,7 @@ export function attachServiceWorkerRegistration(
     dismissedWorker = null;
   }
   markShellReady();
+  void requestOptionalWarmupStatus(registration);
 }
 
 export function notifyWaitingWorker(worker: ServiceWorker | null | undefined) {
@@ -360,6 +412,28 @@ export function handleServiceWorkerRuntimeMessage(data: unknown) {
       warmupScheduleRequested = false;
       setOfflineReadiness("warmup-failed");
       return true;
+    case "OPTIONAL_WARMUP_STATUS":
+      warmupStatusRequestInFlight = false;
+      if (message.offlineReadiness === "full-ready") {
+        warmupScheduleRequested = true;
+        setOfflineReadiness("full-ready");
+        return true;
+      }
+      if (
+        message.offlineReadiness === "shell-ready" &&
+        offlineReadiness !== "warming" &&
+        offlineReadiness !== "full-ready"
+      ) {
+        setOfflineReadiness("shell-ready");
+      }
+      if (
+        typeof navigator !== "undefined" &&
+        navigator.onLine &&
+        offlineReadiness !== "full-ready"
+      ) {
+        scheduleOptionalWarmup();
+      }
+      return true;
     default:
       return false;
   }
@@ -410,6 +484,7 @@ export function __resetPwaRuntimeForTest() {
   reloadOnControllerChange = false;
   offlineReadiness = "unsupported";
   warmupScheduleRequested = false;
+  warmupStatusRequestInFlight = false;
   snapshot = {
     isOffline: readOfflineState(),
     updateStatus: "idle",

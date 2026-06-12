@@ -128,9 +128,9 @@ PR: include
 
   ![Waiting update status bar](./assets/statusbar-update.png)
 
-- Root-path production preview rendered in desktop Chromium while offline,
-  showing the cached shell, offline notice, and footer version on the current
-  reviewed `HEAD`.
+- Root-path production preview rendered in desktop Chromium while offline after
+  optional warmup completed, showing the cached shell, `full offline-ready`
+  notice, and footer version on the current reviewed `HEAD`.
 
   ![Offline app shell](./assets/offline-app-shell.png)
 

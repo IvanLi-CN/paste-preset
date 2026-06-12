@@ -184,6 +184,14 @@ export const AppShellOfflineStatus: Story = {
   render: renderInAppShell,
 };
 
+export const AppShellOfflineFullReady: Story = {
+  args: {
+    isOffline: true,
+    offlineReadiness: "full-ready",
+  },
+  render: renderInAppShell,
+};
+
 export const AppShellUpdatePrompt: Story = {
   args: {
     updateStatus: "available",

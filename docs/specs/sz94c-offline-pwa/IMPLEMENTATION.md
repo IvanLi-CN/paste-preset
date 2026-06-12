@@ -11,6 +11,9 @@
 - `StatusBar` owns the reusable UI for offline readiness, warmup failure, and
   update prompts, rendered inline below the app header as a sticky shell status
   region instead of a floating footer toast.
+- The runtime rehydrates `full offline-ready` from service worker cache status
+  after reloads so offline revisit messaging stays accurate once warmup has
+  completed.
 - Storybook and automated tests cover the new reusable visual states.
 - Visual evidence for the waiting-update prompt and offline shell is stored
   under `assets/`.

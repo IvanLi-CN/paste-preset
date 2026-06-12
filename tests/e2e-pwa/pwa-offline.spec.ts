@@ -166,6 +166,22 @@ test("PWA-003 optional warm assets are split out and reach full-ready online", a
       return snapshot?.offlineReadiness ?? "missing";
     })
     .toBe("full-ready");
+
+  await page.context().setOffline(true);
+  await page.reload({ waitUntil: "domcontentloaded" });
+
+  await expect(
+    page.getByRole("heading", { name: "PastePreset", level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByRole("status").first()).toContainText(
+    "Offline mode: full cached processing features remain available.",
+  );
+  await expect
+    .poll(async () => {
+      const snapshot = await getPwaSnapshot(page);
+      return snapshot?.offlineReadiness ?? "missing";
+    })
+    .toBe("full-ready");
 });
 
 test("PWA-004 offline HEIC without completed warmup explains the recovery path", async ({

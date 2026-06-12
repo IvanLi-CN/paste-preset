@@ -32,3 +32,6 @@
 - Added Storybook app-shell scenarios for the offline and waiting-update
   states, and refreshed the spec-backed visual evidence to match the new
   placement.
+- Restored the `full offline-ready` state across offline reloads by syncing the
+  runtime from the cached optional warmup manifest and service worker cache
+  status.

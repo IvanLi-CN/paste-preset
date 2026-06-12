@@ -116,6 +116,33 @@ describe("pwaRuntime", () => {
     });
 
     expect(hook.getLatest().offlineReadiness).toBe("shell-ready");
+    expect(activeWorker.postMessage).toHaveBeenCalledWith({
+      type: "GET_OPTIONAL_WARMUP_STATUS",
+    });
+    hook.cleanup();
+  });
+
+  it("restores full offline readiness from the service worker status after reload", () => {
+    const activeWorker = {
+      postMessage: vi.fn(),
+    } as unknown as ServiceWorker;
+    installServiceWorkerMocks({ activeWorker });
+    const hook = renderHook();
+
+    act(() => {
+      attachServiceWorkerRegistration({
+        active: activeWorker,
+        waiting: null,
+      } as ServiceWorkerRegistration);
+      handleServiceWorkerRuntimeMessage({
+        type: "OPTIONAL_WARMUP_STATUS",
+        offlineReadiness: "full-ready",
+        completed: 4,
+        total: 4,
+      });
+    });
+
+    expect(hook.getLatest().offlineReadiness).toBe("full-ready");
     hook.cleanup();
   });
 
