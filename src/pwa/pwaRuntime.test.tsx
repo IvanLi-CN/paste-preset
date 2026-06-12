@@ -139,6 +139,17 @@ describe("pwaRuntime", () => {
     hook.cleanup();
   });
 
+  it("preserves the initial offline snapshot before the effect runs", () => {
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      value: false,
+    });
+
+    const hook = renderHook();
+    expect(hook.getLatest().isOffline).toBe(true);
+    hook.cleanup();
+  });
+
   it("prefers the newer worker when requesting optional warmup status", () => {
     const activeWorker = {
       postMessage: vi.fn(),

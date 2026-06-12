@@ -71,7 +71,7 @@ let warmupStatusRequestInFlight = false;
 let warmupStatusTimeoutId: number | null = null;
 
 let snapshot: PwaRuntimeSnapshot = {
-  isOffline: false,
+  isOffline: readOfflineState(),
   updateStatus: "idle",
   offlineReadiness,
 };
