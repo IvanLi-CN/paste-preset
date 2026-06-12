@@ -58,6 +58,7 @@ export interface PwaRuntimeSnapshot {
 type Listener = () => void;
 
 const listeners = new Set<Listener>();
+const OPTIONAL_WARMUP_STATUS_TIMEOUT_MS = 1_500;
 
 let initialized = false;
 let serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
@@ -67,6 +68,7 @@ let reloadOnControllerChange = false;
 let offlineReadiness: OfflineReadiness = "unsupported";
 let warmupScheduleRequested = false;
 let warmupStatusRequestInFlight = false;
+let warmupStatusTimeoutId: number | null = null;
 
 let snapshot: PwaRuntimeSnapshot = {
   isOffline: false,
@@ -184,6 +186,32 @@ function waitForBrowserIdle() {
   });
 }
 
+function clearWarmupStatusTimeout() {
+  if (typeof window === "undefined" || warmupStatusTimeoutId === null) {
+    warmupStatusTimeoutId = null;
+    return;
+  }
+
+  window.clearTimeout(warmupStatusTimeoutId);
+  warmupStatusTimeoutId = null;
+}
+
+function releaseWarmupStatusRequest(shouldScheduleFallback = false) {
+  const wasInFlight = warmupStatusRequestInFlight;
+  warmupStatusRequestInFlight = false;
+  clearWarmupStatusTimeout();
+
+  if (
+    wasInFlight &&
+    shouldScheduleFallback &&
+    typeof navigator !== "undefined" &&
+    navigator.onLine &&
+    offlineReadiness !== "full-ready"
+  ) {
+    scheduleOptionalWarmup();
+  }
+}
+
 function getWarmupMessageTarget(
   registration: ServiceWorkerRegistration,
 ): ServiceWorker | null {
@@ -191,6 +219,17 @@ function getWarmupMessageTarget(
     registration.active ??
     registration.installing ??
     registration.waiting ??
+    navigator.serviceWorker.controller
+  );
+}
+
+function getWarmupStatusMessageTarget(
+  registration: ServiceWorkerRegistration,
+): ServiceWorker | null {
+  return (
+    registration.waiting ??
+    registration.installing ??
+    registration.active ??
     navigator.serviceWorker.controller
   );
 }
@@ -242,11 +281,11 @@ async function requestOptionalWarmupStatus(
     return false;
   }
 
-  let target = getWarmupMessageTarget(registration);
+  let target = getWarmupStatusMessageTarget(registration);
   if (!target) {
     try {
       const readyRegistration = await navigator.serviceWorker.ready;
-      target = getWarmupMessageTarget(readyRegistration);
+      target = getWarmupStatusMessageTarget(readyRegistration);
       serviceWorkerRegistration = readyRegistration;
     } catch {
       target = null;
@@ -257,7 +296,11 @@ async function requestOptionalWarmupStatus(
     return false;
   }
 
+  clearWarmupStatusTimeout();
   warmupStatusRequestInFlight = true;
+  warmupStatusTimeoutId = window.setTimeout(() => {
+    releaseWarmupStatusRequest(true);
+  }, OPTIONAL_WARMUP_STATUS_TIMEOUT_MS);
 
   try {
     const message: RequestOptionalWarmupStatusMessage = {
@@ -266,7 +309,7 @@ async function requestOptionalWarmupStatus(
     target.postMessage(message);
     return true;
   } catch {
-    warmupStatusRequestInFlight = false;
+    releaseWarmupStatusRequest();
     return false;
   }
 }
@@ -402,18 +445,21 @@ export function handleServiceWorkerRuntimeMessage(data: unknown) {
 
   switch (message.type) {
     case "OPTIONAL_WARMUP_PROGRESS":
+      releaseWarmupStatusRequest();
       setOfflineReadiness("warming");
       return true;
     case "OPTIONAL_WARMUP_DONE":
+      releaseWarmupStatusRequest();
       warmupScheduleRequested = true;
       setOfflineReadiness("full-ready");
       return true;
     case "OPTIONAL_WARMUP_FAILED":
+      releaseWarmupStatusRequest();
       warmupScheduleRequested = false;
       setOfflineReadiness("warmup-failed");
       return true;
     case "OPTIONAL_WARMUP_STATUS":
-      warmupStatusRequestInFlight = false;
+      releaseWarmupStatusRequest();
       if (message.offlineReadiness === "full-ready") {
         warmupScheduleRequested = true;
         setOfflineReadiness("full-ready");
@@ -485,6 +531,7 @@ export function __resetPwaRuntimeForTest() {
   offlineReadiness = "unsupported";
   warmupScheduleRequested = false;
   warmupStatusRequestInFlight = false;
+  clearWarmupStatusTimeout();
   snapshot = {
     isOffline: readOfflineState(),
     updateStatus: "idle",

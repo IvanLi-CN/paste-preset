@@ -10,6 +10,7 @@ import {
   handleServiceWorkerRuntimeMessage,
   notifyWaitingWorker,
   requestOptionalWarmup,
+  scheduleOptionalWarmup,
   usePwaRuntime,
 } from "./pwaRuntime.ts";
 
@@ -46,6 +47,8 @@ function renderHook() {
 
 function installServiceWorkerMocks(params?: {
   activeWorker?: ServiceWorker | null;
+  installingWorker?: ServiceWorker | null;
+  waitingWorker?: ServiceWorker | null;
   controller?: ServiceWorker | null;
 }) {
   const serviceWorker = {
@@ -53,8 +56,8 @@ function installServiceWorkerMocks(params?: {
     controller: params?.controller ?? null,
     ready: Promise.resolve({
       active: params?.activeWorker ?? null,
-      installing: null,
-      waiting: null,
+      installing: params?.installingWorker ?? null,
+      waiting: params?.waitingWorker ?? null,
     }),
   };
 
@@ -69,10 +72,12 @@ function installServiceWorkerMocks(params?: {
 describe("pwaRuntime", () => {
   const originalNavigatorOnline = navigator.onLine;
   const originalServiceWorker = navigator.serviceWorker;
+  const originalRequestIdleCallback = window.requestIdleCallback;
 
   beforeEach(() => {
     __resetPwaRuntimeForTest();
     vi.restoreAllMocks();
+    vi.useRealTimers();
     Object.defineProperty(navigator, "onLine", {
       configurable: true,
       value: true,
@@ -93,6 +98,18 @@ describe("pwaRuntime", () => {
       });
     } else {
       Object.defineProperty(navigator, "serviceWorker", {
+        configurable: true,
+        value: undefined,
+      });
+    }
+
+    if (originalRequestIdleCallback) {
+      Object.defineProperty(window, "requestIdleCallback", {
+        configurable: true,
+        value: originalRequestIdleCallback,
+      });
+    } else {
+      Object.defineProperty(window, "requestIdleCallback", {
         configurable: true,
         value: undefined,
       });
@@ -122,6 +139,32 @@ describe("pwaRuntime", () => {
     hook.cleanup();
   });
 
+  it("prefers the newer worker when requesting optional warmup status", () => {
+    const activeWorker = {
+      postMessage: vi.fn(),
+    } as unknown as ServiceWorker;
+    const waitingWorker = {
+      postMessage: vi.fn(),
+    } as unknown as ServiceWorker;
+    installServiceWorkerMocks({ activeWorker, waitingWorker });
+    const hook = renderHook();
+
+    act(() => {
+      attachServiceWorkerRegistration({
+        active: activeWorker,
+        waiting: waitingWorker,
+      } as ServiceWorkerRegistration);
+    });
+
+    expect(waitingWorker.postMessage).toHaveBeenCalledWith({
+      type: "GET_OPTIONAL_WARMUP_STATUS",
+    });
+    expect(activeWorker.postMessage).not.toHaveBeenCalledWith({
+      type: "GET_OPTIONAL_WARMUP_STATUS",
+    });
+    hook.cleanup();
+  });
+
   it("restores full offline readiness from the service worker status after reload", () => {
     const activeWorker = {
       postMessage: vi.fn(),
@@ -143,6 +186,49 @@ describe("pwaRuntime", () => {
     });
 
     expect(hook.getLatest().offlineReadiness).toBe("full-ready");
+    hook.cleanup();
+  });
+
+  it("falls back to optional warmup when the status probe never returns", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(window, "requestIdleCallback", {
+      configurable: true,
+      value: ((callback: IdleRequestCallback) => {
+        callback({
+          didTimeout: false,
+          timeRemaining: () => 50,
+        } as IdleDeadline);
+        return 1;
+      }) as typeof window.requestIdleCallback,
+    });
+
+    const activeWorker = {
+      postMessage: vi.fn(),
+    } as unknown as ServiceWorker;
+    installServiceWorkerMocks({ activeWorker });
+    const hook = renderHook();
+    const registration = {
+      active: activeWorker,
+      waiting: null,
+    } as ServiceWorkerRegistration;
+
+    act(() => {
+      attachServiceWorkerRegistration(registration);
+      scheduleOptionalWarmup(registration);
+    });
+
+    expect(activeWorker.postMessage).toHaveBeenNthCalledWith(1, {
+      type: "GET_OPTIONAL_WARMUP_STATUS",
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+
+    expect(activeWorker.postMessage).toHaveBeenNthCalledWith(2, {
+      type: "START_OPTIONAL_WARMUP",
+    });
+    expect(hook.getLatest().offlineReadiness).toBe("warming");
     hook.cleanup();
   });
 
