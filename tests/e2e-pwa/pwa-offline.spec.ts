@@ -1,3 +1,5 @@
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import {
   expect,
   getTaskDownloadLink,
@@ -6,6 +8,8 @@ import {
   waitForLatestTaskStatus,
   waitForProcessingToFinish,
 } from "../e2e/_helpers";
+
+const serviceWorkerBuildPath = join(process.cwd(), "dist", "sw.js");
 
 async function waitForServiceWorkerReady(
   page: import("@playwright/test").Page,
@@ -226,57 +230,62 @@ test("PWA-005 waiting update is user-prompted and survives reload until applied"
   await page.goto("/");
   await ensurePageIsControlledByServiceWorker(page);
 
-  await page.evaluate(async () => {
-    const registration = await navigator.serviceWorker.getRegistration();
-    if (!registration) {
-      throw new Error("service worker registration missing");
-    }
+  const originalServiceWorker = await readFile(serviceWorkerBuildPath, "utf8");
+  try {
+    await writeFile(
+      serviceWorkerBuildPath,
+      `${originalServiceWorker}\n// test-update-marker: ${Date.now()}\n`,
+      "utf8",
+    );
 
-    const scriptUrl = new URL("/sw.js", window.location.origin);
-    const nonce = String(Date.now());
-    scriptUrl.searchParams.set("test-update", nonce);
+    await page.evaluate(async () => {
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) {
+        throw new Error("service worker registration missing");
+      }
 
-    await navigator.serviceWorker.register(scriptUrl.toString(), {
-      scope: "/",
-      updateViaCache: "none",
-    });
-  });
-
-  await waitForWaitingWorker(page);
-
-  const updateStatus = page.getByRole("status").filter({
-    hasText: "A new version is ready.",
-  });
-  await expect(updateStatus).toBeVisible();
-
-  await page.getByRole("button", { name: "Later" }).click();
-  await expect(updateStatus).toHaveCount(0);
-
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await ensurePageIsControlledByServiceWorker(page);
-  await waitForWaitingWorker(page);
-  await expect(updateStatus).toBeVisible();
-
-  await page.getByRole("button", { name: "Reload now" }).click();
-
-  await expect
-    .poll(
-      () =>
-        page.evaluate(async () => {
-          const registration = await navigator.serviceWorker.getRegistration();
-          return {
-            hasController: navigator.serviceWorker.controller !== null,
-            hasWaiting: Boolean(registration?.waiting),
-          };
-        }),
-      { timeout: 15_000 },
-    )
-    .toEqual({
-      hasController: true,
-      hasWaiting: false,
+      await registration.update();
     });
 
-  await expect(
-    page.getByRole("status").filter({ hasText: "A new version is ready." }),
-  ).toHaveCount(0);
+    await waitForWaitingWorker(page);
+
+    const updateStatus = page.getByRole("status").filter({
+      hasText: "A new version is ready.",
+    });
+    await expect(updateStatus).toBeVisible();
+
+    await page.getByRole("button", { name: "Later" }).click();
+    await expect(updateStatus).toHaveCount(0);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await ensurePageIsControlledByServiceWorker(page);
+    await waitForWaitingWorker(page);
+    await expect(updateStatus).toBeVisible();
+
+    await page.getByRole("button", { name: "Reload now" }).click();
+
+    await expect
+      .poll(
+        () =>
+          page.evaluate(async () => {
+            const registration =
+              await navigator.serviceWorker.getRegistration();
+            return {
+              hasController: navigator.serviceWorker.controller !== null,
+              hasWaiting: Boolean(registration?.waiting),
+            };
+          }),
+        { timeout: 15_000 },
+      )
+      .toEqual({
+        hasController: true,
+        hasWaiting: false,
+      });
+
+    await expect(
+      page.getByRole("status").filter({ hasText: "A new version is ready." }),
+    ).toHaveCount(0);
+  } finally {
+    await writeFile(serviceWorkerBuildPath, originalServiceWorker, "utf8");
+  }
 });

@@ -215,15 +215,10 @@ function releaseWarmupStatusRequest(shouldScheduleFallback = false) {
   }
 }
 
-function getPreferredWarmupMessageTarget(
+function getWarmupMessageTarget(
   registration: ServiceWorkerRegistration,
 ): ServiceWorker | null {
-  return (
-    registration.waiting ??
-    registration.installing ??
-    registration.active ??
-    navigator.serviceWorker.controller
-  );
+  return registration.active ?? navigator.serviceWorker.controller;
 }
 
 export async function requestOptionalWarmup(
@@ -233,11 +228,11 @@ export async function requestOptionalWarmup(
     return false;
   }
 
-  let target = getPreferredWarmupMessageTarget(registration);
+  let target = getWarmupMessageTarget(registration);
   if (!target) {
     try {
       const readyRegistration = await navigator.serviceWorker.ready;
-      target = getPreferredWarmupMessageTarget(readyRegistration);
+      target = getWarmupMessageTarget(readyRegistration);
       serviceWorkerRegistration = readyRegistration;
     } catch {
       target = null;
@@ -273,11 +268,11 @@ async function requestOptionalWarmupStatus(
     return false;
   }
 
-  let target = getPreferredWarmupMessageTarget(registration);
+  let target = getWarmupMessageTarget(registration);
   if (!target) {
     try {
       const readyRegistration = await navigator.serviceWorker.ready;
-      target = getPreferredWarmupMessageTarget(readyRegistration);
+      target = getWarmupMessageTarget(readyRegistration);
       serviceWorkerRegistration = readyRegistration;
     } catch {
       target = null;

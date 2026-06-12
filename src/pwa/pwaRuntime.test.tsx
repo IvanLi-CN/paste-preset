@@ -150,7 +150,7 @@ describe("pwaRuntime", () => {
     hook.cleanup();
   });
 
-  it("prefers the newer worker when requesting optional warmup status", () => {
+  it("uses the active worker when requesting optional warmup status", () => {
     const activeWorker = {
       postMessage: vi.fn(),
     } as unknown as ServiceWorker;
@@ -167,11 +167,44 @@ describe("pwaRuntime", () => {
       } as ServiceWorkerRegistration);
     });
 
-    expect(waitingWorker.postMessage).toHaveBeenCalledWith({
+    expect(activeWorker.postMessage).toHaveBeenCalledWith({
       type: "GET_OPTIONAL_WARMUP_STATUS",
     });
-    expect(activeWorker.postMessage).not.toHaveBeenCalledWith({
+    expect(waitingWorker.postMessage).not.toHaveBeenCalledWith({
       type: "GET_OPTIONAL_WARMUP_STATUS",
+    });
+    hook.cleanup();
+  });
+
+  it("keeps warmup on the active worker even when an update is waiting", async () => {
+    const activeWorker = {
+      postMessage: vi.fn(),
+    } as unknown as ServiceWorker;
+    const waitingWorker = {
+      postMessage: vi.fn(),
+    } as unknown as ServiceWorker;
+    installServiceWorkerMocks({ activeWorker, waitingWorker });
+    const hook = renderHook();
+
+    act(() => {
+      attachServiceWorkerRegistration({
+        active: activeWorker,
+        waiting: waitingWorker,
+      } as ServiceWorkerRegistration);
+    });
+
+    await act(async () => {
+      await requestOptionalWarmup({
+        active: activeWorker,
+        waiting: waitingWorker,
+      } as ServiceWorkerRegistration);
+    });
+
+    expect(activeWorker.postMessage).toHaveBeenCalledWith({
+      type: "START_OPTIONAL_WARMUP",
+    });
+    expect(waitingWorker.postMessage).not.toHaveBeenCalledWith({
+      type: "START_OPTIONAL_WARMUP",
     });
     hook.cleanup();
   });
@@ -243,35 +276,32 @@ describe("pwaRuntime", () => {
     hook.cleanup();
   });
 
-  it("warms the waiting worker when an updated service worker is pending", async () => {
-    const activeWorker = {
+  it("falls back to the controlling worker when the registration has no active worker", () => {
+    const controllerWorker = {
       postMessage: vi.fn(),
     } as unknown as ServiceWorker;
     const waitingWorker = {
       postMessage: vi.fn(),
     } as unknown as ServiceWorker;
-    installServiceWorkerMocks({ activeWorker, waitingWorker });
+    installServiceWorkerMocks({
+      activeWorker: null,
+      waitingWorker,
+      controller: controllerWorker,
+    });
     const hook = renderHook();
 
     act(() => {
       attachServiceWorkerRegistration({
-        active: activeWorker,
+        active: null,
         waiting: waitingWorker,
       } as ServiceWorkerRegistration);
     });
 
-    await act(async () => {
-      await requestOptionalWarmup({
-        active: activeWorker,
-        waiting: waitingWorker,
-      } as ServiceWorkerRegistration);
+    expect(controllerWorker.postMessage).toHaveBeenCalledWith({
+      type: "GET_OPTIONAL_WARMUP_STATUS",
     });
-
-    expect(waitingWorker.postMessage).toHaveBeenCalledWith({
-      type: "START_OPTIONAL_WARMUP",
-    });
-    expect(activeWorker.postMessage).not.toHaveBeenCalledWith({
-      type: "START_OPTIONAL_WARMUP",
+    expect(waitingWorker.postMessage).not.toHaveBeenCalledWith({
+      type: "GET_OPTIONAL_WARMUP_STATUS",
     });
     hook.cleanup();
   });
