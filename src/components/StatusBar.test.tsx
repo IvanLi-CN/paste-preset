@@ -55,6 +55,12 @@ describe("StatusBar", () => {
       isOffline: true,
       offlineReadiness: "shell-ready",
     });
+    const shellStickyRegion = container.querySelector(
+      "[data-status-layout='shell-sticky']",
+    );
+    expect(shellStickyRegion).not.toBeNull();
+    expect(shellStickyRegion?.className).toContain("sticky");
+    expect(shellStickyRegion?.className).not.toContain("fixed");
     expect(container.textContent).toContain(
       "Offline mode: cached shell is ready, and common formats remain available.",
     );

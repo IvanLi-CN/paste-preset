@@ -44,6 +44,53 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
+function renderInAppShell(args: React.ComponentProps<typeof StatusBar>) {
+  return (
+    <section
+      className="mx-auto flex min-h-[36rem] w-full max-w-5xl flex-col rounded-[28px] border border-base-300 bg-base-200 p-4 shadow-sm"
+      aria-label="Status shell preview"
+    >
+      <header className="mb-4 border-b border-base-300 pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="space-y-2">
+            <div className="h-6 w-36 rounded-full bg-base-300" />
+            <div className="h-4 w-60 rounded-full bg-base-300/80" />
+          </div>
+          <div className="h-9 w-24 rounded-2xl bg-base-300" />
+        </div>
+      </header>
+
+      <StatusBar {...args} />
+
+      <div className="flex flex-1 flex-col gap-4 lg:flex-row">
+        <aside className="rounded-[24px] border border-base-300 bg-base-100 p-4 lg:w-80">
+          <div className="space-y-3">
+            <div className="h-4 w-28 rounded-full bg-base-300" />
+            <div className="h-10 rounded-2xl bg-base-200" />
+            <div className="h-10 rounded-2xl bg-base-200" />
+            <div className="h-24 rounded-[20px] bg-base-200" />
+          </div>
+        </aside>
+
+        <main className="flex flex-1 flex-col gap-4">
+          <section className="rounded-[24px] border border-dashed border-base-300 bg-base-100 p-5">
+            <div className="space-y-3">
+              <div className="h-5 w-44 rounded-full bg-base-300" />
+              <div className="h-24 rounded-[20px] bg-base-200" />
+            </div>
+          </section>
+          <section className="rounded-[24px] border border-base-300 bg-base-100 p-5">
+            <div className="space-y-3">
+              <div className="h-5 w-40 rounded-full bg-base-300" />
+              <div className="h-32 rounded-[20px] bg-base-200" />
+            </div>
+          </section>
+        </main>
+      </div>
+    </section>
+  );
+}
+
 export const HiddenWhenIdle: Story = {
   args: {
     status: "idle",
@@ -127,4 +174,19 @@ export const OfflineWithUpdate: Story = {
     offlineReadiness: "shell-ready",
     updateStatus: "available",
   },
+};
+
+export const AppShellOfflineStatus: Story = {
+  args: {
+    isOffline: true,
+    offlineReadiness: "shell-ready",
+  },
+  render: renderInAppShell,
+};
+
+export const AppShellUpdatePrompt: Story = {
+  args: {
+    updateStatus: "available",
+  },
+  render: renderInAppShell,
 };

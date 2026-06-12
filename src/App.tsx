@@ -401,6 +401,19 @@ function App() {
           </div>
         </header>
 
+        <StatusBar
+          status={status}
+          processingError={processingError ?? uiError}
+          clipboardError={clipboardError ?? shortcutCopyError}
+          isOffline={isOffline}
+          offlineReadiness={offlineReadiness}
+          updateStatus={updateStatus}
+          onReloadNow={() => {
+            applyWaitingUpdate();
+          }}
+          onLater={dismissWaitingUpdate}
+        />
+
         <main className="flex flex-1 flex-col gap-4">
           {isXs ? (
             <>
@@ -560,19 +573,6 @@ function App() {
             </a>
           </div>
         </footer>
-
-        <StatusBar
-          status={status}
-          processingError={processingError ?? uiError}
-          clipboardError={clipboardError ?? shortcutCopyError}
-          isOffline={isOffline}
-          offlineReadiness={offlineReadiness}
-          updateStatus={updateStatus}
-          onReloadNow={() => {
-            applyWaitingUpdate();
-          }}
-          onLater={dismissWaitingUpdate}
-        />
       </div>
     </div>
   );

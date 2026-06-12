@@ -121,13 +121,16 @@ export function StatusBar(props: StatusBarProps) {
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-4 flex justify-center px-4">
-      <div className="flex max-w-xl flex-col gap-2">
+    <section
+      className="sticky top-4 z-20 mb-4 w-full"
+      data-status-layout="shell-sticky"
+    >
+      <div className="flex w-full flex-col gap-2">
         {messages.map((message) => (
           <div
             key={message.id}
             className={[
-              "alert shadow",
+              "alert w-full items-start rounded-2xl border border-base-300/70 px-4 py-3 text-sm shadow-sm backdrop-blur-sm sm:items-center",
               message.type === "error"
                 ? "alert-error"
                 : message.type === "warning"
@@ -137,10 +140,10 @@ export function StatusBar(props: StatusBarProps) {
             role={message.type === "error" ? "alert" : "status"}
             aria-live={message.type === "error" ? "assertive" : "polite"}
           >
-            <div className="flex w-full items-center justify-between gap-3">
-              <span className="text-sm">{message.text}</span>
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span>{message.text}</span>
               {message.actions && message.actions.length > 0 ? (
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
                   {message.actions.map((action) => (
                     <button
                       key={action.id}
@@ -160,6 +163,6 @@ export function StatusBar(props: StatusBarProps) {
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }

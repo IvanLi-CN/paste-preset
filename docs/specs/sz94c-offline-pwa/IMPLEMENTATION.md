@@ -9,7 +9,8 @@
 - Frontend runtime exposes offline readiness and update state through a shared
   PWA store.
 - `StatusBar` owns the reusable UI for offline readiness, warmup failure, and
-  update prompts.
+  update prompts, rendered inline below the app header as a sticky shell status
+  region instead of a floating footer toast.
 - Storybook and automated tests cover the new reusable visual states.
 - Visual evidence for the waiting-update prompt and offline shell is stored
   under `assets/`.

@@ -23,3 +23,12 @@
 - Added a shared offline readiness model that distinguishes cached shell,
   background warmup, full offline readiness, and warmup failure.
 - Added startup timing marks for `app-shell-visible` and `app-interactive`.
+
+## 2026-06-12
+
+- Moved the offline/update/error status surface into the app shell directly
+  below the page header so PWA readiness messaging no longer floats over the
+  content at the bottom of the screen.
+- Added Storybook app-shell scenarios for the offline and waiting-update
+  states, and refreshed the spec-backed visual evidence to match the new
+  placement.
