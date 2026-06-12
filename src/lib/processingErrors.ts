@@ -11,7 +11,8 @@ export function translateProcessingError(
     case "heic.unavailable":
       if (
         pwaRuntime.isOffline &&
-        pwaRuntime.offlineReadiness !== "full-ready"
+        pwaRuntime.offlineReadiness !== "full-ready" &&
+        pwaRuntime.offlineReadiness !== "unsupported"
       ) {
         return t("error.heic.offlineWarmupRequired");
       }
