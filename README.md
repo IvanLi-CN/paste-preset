@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/paste-preset-icon.svg" alt="PastePreset icon" width="96" />
+  <img src="public/brand/paste-preset-icon-d-master.png" alt="PastePreset icon" width="96" />
 </p>
 
 # PastePreset
