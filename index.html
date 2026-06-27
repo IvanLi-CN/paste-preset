@@ -21,7 +21,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="/paste-preset-icon.svg" />
+    <link rel="icon" type="image/png" href="/pwa/icon-192.png" />
 
     <!-- Open Graph / social -->
     <meta property="og:type" content="website" />
@@ -30,7 +30,20 @@
       property="og:description"
       content="Clipboard-centric image presets that run entirely in your browser."
     />
-    <meta property="og:image" content="/paste-preset-icon.svg" />
+    <meta property="og:image" content="/social-preview.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="PastePreset branding with a clipboard-inspired icon and product preview"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="PastePreset" />
+    <meta
+      name="twitter:description"
+      content="Clipboard-centric image presets that run entirely in your browser."
+    />
+    <meta name="twitter:image" content="/social-preview.png" />
     <style>
       :root {
         color-scheme: light dark;
@@ -67,10 +80,14 @@
         border-bottom: 1px solid rgba(24, 49, 83, 0.12);
       }
 
-      .app-shell__title {
-        font-size: clamp(1.75rem, 3vw, 2.25rem);
-        font-weight: 700;
-        line-height: 1.1;
+      .app-shell__brand {
+        min-width: 0;
+      }
+
+      .app-shell__logo {
+        display: block;
+        width: min(100%, 330px);
+        height: auto;
       }
 
       .app-shell__tagline,
@@ -167,7 +184,13 @@
         <div class="app-shell__frame">
           <header class="app-shell__header">
             <div>
-              <div class="app-shell__title">PastePreset</div>
+              <div class="app-shell__brand">
+                <img
+                  class="app-shell__logo"
+                  src="/brand/paste-preset-logo.svg"
+                  alt="PastePreset"
+                />
+              </div>
               <div class="app-shell__tagline">
                 Preparing the cached app shell for image paste and resize…
               </div>

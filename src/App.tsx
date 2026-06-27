@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { BrandHeader } from "./components/BrandHeader.tsx";
 import { LanguageSelector } from "./components/LanguageSelector.tsx";
 import { PasteArea } from "./components/PasteArea.tsx";
 import { SettingsPanel } from "./components/SettingsPanel.tsx";
@@ -392,13 +393,11 @@ function App() {
     <div className="relative min-h-screen bg-base-200 text-base-content">
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-4 lg:px-6 lg:py-6">
         <header className="mb-4 border-b border-base-300 pb-3">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-2">
-              <h1 className="text-2xl font-semibold">{t("app.title")}</h1>
-              <LanguageSelector />
-            </div>
-            <p className="text-sm text-base-content/70">{t("app.tagline")}</p>
-          </div>
+          <BrandHeader
+            title={t("app.title")}
+            tagline={t("app.tagline")}
+            action={<LanguageSelector />}
+          />
         </header>
 
         <StatusBar
