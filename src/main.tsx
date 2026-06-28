@@ -10,8 +10,8 @@ import { I18nProvider } from "./i18n";
 import { getInitialUserPresetsState } from "./lib/userPresets.ts";
 import { registerServiceWorker } from "./pwa/registerServiceWorker.ts";
 
-const LIGHT_THEME = "winter";
-const DARK_THEME = "dim";
+const LIGHT_THEME = "pastepreset-light";
+const DARK_THEME = "pastepreset-dark";
 
 function setupSystemThemeSync() {
   if (typeof window === "undefined") {

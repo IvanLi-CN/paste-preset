@@ -130,7 +130,7 @@ export function StatusBar(props: StatusBarProps) {
           <div
             key={message.id}
             className={[
-              "alert w-full items-start rounded-2xl border border-base-300/70 px-4 py-3 text-sm shadow-sm backdrop-blur-sm sm:items-center",
+              "alert w-full items-start rounded-[1.2rem] border border-base-300/75 px-4 py-3 text-sm shadow-[0_10px_24px_rgba(16,42,88,0.09)] backdrop-blur-sm sm:items-center",
               message.type === "error"
                 ? "alert-error"
                 : message.type === "warning"

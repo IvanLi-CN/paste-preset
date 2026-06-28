@@ -70,8 +70,8 @@
 - 步骤：
   - 加载应用。
 - 期望结果：
-  - `document.documentElement` 的 `data-theme` 属性为 `dim`。
-  - 切换模拟为 `matches = false` 后触发 `change` 事件，`data-theme` 更新为 `winter`。
+  - `document.documentElement` 的 `data-theme` 属性为 `pastepreset-dark`。
+  - 切换模拟为 `matches = false` 后触发 `change` 事件，`data-theme` 更新为 `pastepreset-light`。
 
 ---
 

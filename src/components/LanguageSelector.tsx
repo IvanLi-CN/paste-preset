@@ -61,7 +61,7 @@ export function LanguageSelector() {
     >
       <button
         type="button"
-        className="btn btn-ghost btn-sm gap-2"
+        className="btn btn-ghost btn-sm gap-2 rounded-full border border-base-300/70 bg-base-100/65 px-3 shadow-[0_4px_12px_rgba(17,49,93,0.06)] backdrop-blur hover:border-primary/30 hover:bg-base-100"
         aria-label={t("language.ariaLabel")}
         aria-haspopup="menu"
         aria-expanded={isOpen}
@@ -78,7 +78,7 @@ export function LanguageSelector() {
       </button>
 
       <ul
-        className="menu menu-sm dropdown-content mt-2 w-40 rounded-box bg-base-100 p-1 shadow"
+        className="menu menu-sm dropdown-content mt-2 w-44 rounded-[1rem] border border-base-300/70 bg-base-100/96 p-1.5 shadow-[0_14px_32px_rgba(10,32,70,0.16)] backdrop-blur"
         aria-label={t("language.ariaLabel")}
       >
         {LANGUAGES.map((language) => {

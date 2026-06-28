@@ -155,7 +155,7 @@ test("E2E-003 system theme sync via matchMedia", async ({ page }, testInfo) => {
     .poll(() =>
       page.evaluate(() => document.documentElement.getAttribute("data-theme")),
     )
-    .toBe("dim");
+    .toBe("pastepreset-dark");
 
   // Toggle to light mode and dispatch a change event through our stub.
   await page.evaluate(() => {
@@ -169,5 +169,5 @@ test("E2E-003 system theme sync via matchMedia", async ({ page }, testInfo) => {
     .poll(() =>
       page.evaluate(() => document.documentElement.getAttribute("data-theme")),
     )
-    .toBe("winter");
+    .toBe("pastepreset-light");
 });

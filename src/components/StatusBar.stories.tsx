@@ -44,48 +44,34 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-function renderInAppShell(args: React.ComponentProps<typeof StatusBar>) {
+function renderInStatusSurface(args: React.ComponentProps<typeof StatusBar>) {
   return (
     <section
-      className="mx-auto flex min-h-[36rem] w-full max-w-5xl flex-col rounded-[28px] border border-base-300 bg-base-200 p-4 shadow-sm"
-      aria-label="Status shell preview"
+      className="mx-auto flex w-full max-w-4xl flex-col gap-4 rounded-[1.5rem] p-4"
+      aria-label="Status surface preview"
     >
-      <header className="mb-4 border-b border-base-300 pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="space-y-2">
-            <div className="h-6 w-36 rounded-full bg-base-300" />
-            <div className="h-4 w-60 rounded-full bg-base-300/80" />
-          </div>
-          <div className="h-9 w-24 rounded-2xl bg-base-300" />
+      <div className="app-panel rounded-[1.35rem] px-4 py-4">
+        <div className="space-y-2">
+          <div className="h-5 w-40 rounded-full bg-base-300" />
+          <div className="h-4 w-64 rounded-full bg-base-300/80" />
         </div>
-      </header>
-
+      </div>
       <StatusBar {...args} />
-
-      <div className="flex flex-1 flex-col gap-4 lg:flex-row">
-        <aside className="rounded-[24px] border border-base-300 bg-base-100 p-4 lg:w-80">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="app-panel rounded-[1.35rem] p-5">
           <div className="space-y-3">
             <div className="h-4 w-28 rounded-full bg-base-300" />
             <div className="h-10 rounded-2xl bg-base-200" />
             <div className="h-10 rounded-2xl bg-base-200" />
             <div className="h-24 rounded-[20px] bg-base-200" />
           </div>
-        </aside>
-
-        <main className="flex flex-1 flex-col gap-4">
-          <section className="rounded-[24px] border border-dashed border-base-300 bg-base-100 p-5">
-            <div className="space-y-3">
-              <div className="h-5 w-44 rounded-full bg-base-300" />
-              <div className="h-24 rounded-[20px] bg-base-200" />
-            </div>
-          </section>
-          <section className="rounded-[24px] border border-base-300 bg-base-100 p-5">
-            <div className="space-y-3">
-              <div className="h-5 w-40 rounded-full bg-base-300" />
-              <div className="h-32 rounded-[20px] bg-base-200" />
-            </div>
-          </section>
-        </main>
+        </div>
+        <div className="app-panel rounded-[1.35rem] p-5">
+          <div className="space-y-3">
+            <div className="h-5 w-40 rounded-full bg-base-300" />
+            <div className="h-32 rounded-[20px] bg-base-200" />
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -176,25 +162,25 @@ export const OfflineWithUpdate: Story = {
   },
 };
 
-export const AppShellOfflineStatus: Story = {
+export const SurfaceOfflineStatus: Story = {
   args: {
     isOffline: true,
     offlineReadiness: "shell-ready",
   },
-  render: renderInAppShell,
+  render: renderInStatusSurface,
 };
 
-export const AppShellOfflineFullReady: Story = {
+export const SurfaceOfflineFullReady: Story = {
   args: {
     isOffline: true,
     offlineReadiness: "full-ready",
   },
-  render: renderInAppShell,
+  render: renderInStatusSurface,
 };
 
-export const AppShellUpdatePrompt: Story = {
+export const SurfaceUpdatePrompt: Story = {
   args: {
     updateStatus: "available",
   },
-  render: renderInAppShell,
+  render: renderInStatusSurface,
 };

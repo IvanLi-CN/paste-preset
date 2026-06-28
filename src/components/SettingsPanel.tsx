@@ -393,7 +393,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
 
   return (
     <aside className="space-y-6">
-      <section className="card bg-base-100">
+      <section className="card app-panel">
         <div className="card-body">
           <h2 className="card-title text-lg">{t("settings.title")}</h2>
           <p className="text-sm text-base-content/70">
@@ -662,7 +662,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
         </div>
       </section>
 
-      <section className="card bg-base-100">
+      <section className="card app-panel">
         <div className="card-body space-y-2 text-sm">
           <h3 className="font-semibold">{t("settings.about.title")}</h3>
           <p className="text-base-content/70">
@@ -671,7 +671,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
         </div>
       </section>
 
-      <section className="card bg-base-100">
+      <section className="card app-panel">
         <div className="card-body space-y-3 text-sm">
           <h3 className="font-semibold">{t("settings.tools.title")}</h3>
           <p className="text-base-content/70">

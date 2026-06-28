@@ -390,9 +390,9 @@ function App() {
   }, []);
 
   return (
-    <div className="relative min-h-screen bg-base-200 text-base-content">
-      <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-4 lg:px-6 lg:py-6">
-        <header className="mb-4 border-b border-base-300 pb-3">
+    <div className="relative min-h-screen bg-transparent text-base-content">
+      <div className="app-shell-frame mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-4 lg:px-6 lg:py-6">
+        <header className="relative mb-4 rounded-[1.6rem] border border-base-300/70 bg-base-100/88 px-4 py-4 shadow-[0_8px_24px_rgba(15,35,72,0.08)] backdrop-blur md:px-5">
           <BrandHeader
             title={t("app.title")}
             tagline={t("app.tagline")}
@@ -452,35 +452,39 @@ function App() {
 
               <div className="flex w-full flex-1 flex-col gap-4 lg:w-2/3">
                 {!isLgUp && (
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm gap-2"
-                      onClick={() => setIsSettingsOpen((previous) => !previous)}
-                    >
-                      <Icon
-                        icon="mdi:tune"
-                        data-icon="mdi:tune"
-                        className="h-4 w-4"
-                      />
-                      {t("settings.title")}
-                    </button>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-base-content/70">
-                      <span>
-                        {t("app.summary.preset")}: {presetLabel}
-                      </span>
-                      <span>|</span>
-                      <span>
-                        {t("app.summary.size")}: {sizeLabel}
-                      </span>
-                      <span>|</span>
-                      <span>
-                        {t("app.summary.format")}: {formatLabel}
-                      </span>
-                      <span>|</span>
-                      <span>
-                        {t("app.summary.mode")}: {resizeModeLabel}
-                      </span>
+                  <div className="app-panel rounded-[1.35rem] px-3 py-2.5">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm gap-2"
+                        onClick={() =>
+                          setIsSettingsOpen((previous) => !previous)
+                        }
+                      >
+                        <Icon
+                          icon="mdi:tune"
+                          data-icon="mdi:tune"
+                          className="h-4 w-4"
+                        />
+                        {t("settings.title")}
+                      </button>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-base-content/70">
+                        <span>
+                          {t("app.summary.preset")}: {presetLabel}
+                        </span>
+                        <span>|</span>
+                        <span>
+                          {t("app.summary.size")}: {sizeLabel}
+                        </span>
+                        <span>|</span>
+                        <span>
+                          {t("app.summary.format")}: {formatLabel}
+                        </span>
+                        <span>|</span>
+                        <span>
+                          {t("app.summary.mode")}: {resizeModeLabel}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -510,7 +514,7 @@ function App() {
                 <>
                   <button
                     type="button"
-                    className={`fixed inset-0 z-40 cursor-default bg-base-200/80 backdrop-blur-sm transition-opacity duration-200 ${
+                    className={`fixed inset-0 z-40 cursor-default bg-base-content/25 backdrop-blur-sm transition-opacity duration-200 ${
                       isSettingsOpen
                         ? "opacity-100 pointer-events-auto"
                         : "opacity-0 pointer-events-none"
@@ -519,7 +523,7 @@ function App() {
                     onClick={() => setIsSettingsOpen(false)}
                   />
                   <div
-                    className={`fixed inset-y-0 left-0 z-50 h-full bg-base-100 p-4 shadow-lg transform transition-transform duration-200 ${
+                    className={`fixed inset-y-0 left-0 z-50 h-full border-r border-base-300/70 bg-base-100/95 p-4 shadow-[0_18px_44px_rgba(8,20,44,0.24)] backdrop-blur transform transition-transform duration-200 ${
                       isSm ? "w-full max-w-md" : "w-80 md:w-80"
                     } ${
                       isSettingsOpen ? "translate-x-0" : "-translate-x-full"
@@ -551,7 +555,7 @@ function App() {
           )}
         </main>
 
-        <footer className="mt-4 flex items-center justify-between border-t border-base-300 pt-3 text-xs text-base-content/70">
+        <footer className="mt-4 flex items-center justify-between border-t border-base-300/70 pt-3 text-xs text-base-content/70">
           <div>© {currentYear} PastePreset</div>
           <div className="flex items-center gap-3">
             {version && (

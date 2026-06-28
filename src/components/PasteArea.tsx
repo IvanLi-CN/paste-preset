@@ -115,7 +115,7 @@ export function PasteArea(props: PasteAreaProps) {
     [handleFiles],
   );
 
-  const cardClassName = ["card bg-base-100", hasImage ? "" : "h-full"]
+  const cardClassName = ["card app-panel", hasImage ? "" : "h-full"]
     .filter(Boolean)
     .join(" ");
 
@@ -130,12 +130,12 @@ export function PasteArea(props: PasteAreaProps) {
       <div className={bodyClassName}>
         <button
           className={[
-            "flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed text-center text-sm",
-            "transition-all duration-200 ease-out hover:shadow-md hover:-translate-y-0.5",
+            "flex flex-1 flex-col items-center justify-center gap-2 rounded-[1.25rem] border-2 border-dashed text-center text-sm",
+            "transition-all duration-200 ease-out hover:-translate-y-0.5",
             buttonPadding,
             isDragging
-              ? "border-primary bg-primary/5"
-              : "border-base-300 bg-base-200/40",
+              ? "border-primary bg-primary/8 shadow-[0_10px_26px_rgba(43,144,255,0.14)]"
+              : "border-base-300/80 bg-base-200/55",
           ].join(" ")}
           aria-label={
             hasImage ? t("pasteArea.aria.replace") : t("pasteArea.aria.select")

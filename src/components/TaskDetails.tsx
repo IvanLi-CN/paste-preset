@@ -37,7 +37,7 @@ export function TaskDetails(props: TaskDetailsProps) {
   const isCopying = isCopyingResult ?? false;
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 mt-4 p-4 bg-base-200/50 rounded-lg animate-fade-in-up">
+    <div className="mt-4 grid gap-4 rounded-[1.1rem] border border-base-300/60 bg-base-200/45 p-4 animate-fade-in-up md:grid-cols-2">
       {source && <ImageCard title={t("preview.source.title")} image={source} />}
       {result && (
         <div className="flex flex-col gap-3">
@@ -47,7 +47,7 @@ export function TaskDetails(props: TaskDetailsProps) {
             highlighted
             overlay={resultOverlay ?? undefined}
           />
-          <div className="card bg-base-100 shadow-sm animate-fade-in-up">
+          <div className="card app-panel animate-fade-in-up">
             <div className="card-body flex flex-row flex-wrap items-center justify-between gap-2">
               <div className="flex flex-col gap-1 text-xs text-base-content/70">
                 <div>{t("preview.result.description")}</div>

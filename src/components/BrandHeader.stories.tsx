@@ -12,7 +12,7 @@ const meta = {
       "Paste or drop an image, resize and convert it entirely in your browser.",
   },
   render: (args) => (
-    <section className="mx-auto w-full max-w-5xl rounded-[28px] border border-base-300 bg-base-100 p-5 shadow-sm">
+    <section className="app-panel mx-auto w-full max-w-5xl rounded-[1.4rem] p-5">
       <BrandHeader {...args} />
     </section>
   ),
@@ -37,7 +37,7 @@ export const NarrowShell: Story = {
       "Clipboard-first image cleanup with side-by-side preview and local-only processing.",
   },
   render: (args) => (
-    <section className="w-full max-w-sm rounded-[28px] border border-base-300 bg-base-100 p-4 shadow-sm">
+    <section className="app-panel w-full max-w-sm rounded-[1.4rem] p-4">
       <BrandHeader {...args} />
     </section>
   ),
@@ -51,8 +51,11 @@ export const DarkTheme: Story = {
     backgrounds: { default: "inverse" },
   },
   render: (args) => (
-    <div data-theme="dim" className="rounded-[28px] bg-base-200 p-5">
-      <section className="mx-auto w-full max-w-5xl rounded-[28px] border border-base-300 bg-base-100 p-5 shadow-sm">
+    <div
+      data-theme="pastepreset-dark"
+      className="rounded-[1.5rem] bg-transparent p-5"
+    >
+      <section className="app-panel mx-auto w-full max-w-5xl rounded-[1.4rem] p-5">
         <BrandHeader {...args} />
       </section>
     </div>
