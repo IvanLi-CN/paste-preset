@@ -42,3 +42,19 @@ export const NarrowShell: Story = {
     </section>
   ),
 };
+
+export const DarkTheme: Story = {
+  args: {
+    action: <LanguageSelector />,
+  },
+  parameters: {
+    backgrounds: { default: "inverse" },
+  },
+  render: (args) => (
+    <div data-theme="dim" className="rounded-[28px] bg-base-200 p-5">
+      <section className="mx-auto w-full max-w-5xl rounded-[28px] border border-base-300 bg-base-100 p-5 shadow-sm">
+        <BrandHeader {...args} />
+      </section>
+    </div>
+  ),
+};
