@@ -25,8 +25,8 @@ const preview: Preview = {
     backgrounds: {
       default: "app",
       values: [
-        { name: "app", value: "#eef4ff" },
-        { name: "inverse", value: "#112448" },
+        { name: "app", value: "#e7edf4" },
+        { name: "inverse", value: "#1e293b" },
       ],
     },
   },
@@ -36,7 +36,7 @@ const preview: Preview = {
         <UserPresetsProvider>
           <UserSettingsProvider>
             <FullscreenImagePreviewProvider>
-              <div className="min-h-screen bg-transparent p-4 md:p-6">
+              <div className="min-h-screen bg-[#e7edf4] p-4 md:p-6">
                 <Story />
               </div>
             </FullscreenImagePreviewProvider>
