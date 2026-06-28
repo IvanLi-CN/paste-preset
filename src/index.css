@@ -17,6 +17,18 @@ body {
   min-height: 100vh;
 }
 
+.brand-header-logo-dark {
+  opacity: 0;
+}
+
+[data-theme="dim"] .brand-header-logo-light {
+  opacity: 0;
+}
+
+[data-theme="dim"] .brand-header-logo-dark {
+  opacity: 1;
+}
+
 @keyframes fade-in-up {
   from {
     opacity: 0;
