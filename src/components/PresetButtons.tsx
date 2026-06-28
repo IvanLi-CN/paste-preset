@@ -71,6 +71,18 @@ export function PresetButtons(props: PresetButtonsProps) {
     }
   };
 
+  const getPresetButtonClassName = (
+    isActive: boolean,
+    isBlocked: boolean,
+    isUnsaved = false,
+  ) =>
+    [
+      "segmented-control__button",
+      isActive ? "segmented-control__button--active" : "",
+      isBlocked ? "opacity-40 cursor-not-allowed" : "",
+      isUnsaved ? "segmented-control__button--unsaved" : "",
+    ].join(" ");
+
   if (isVertical) {
     return (
       <div className="mb-4">
@@ -156,6 +168,8 @@ export function PresetButtons(props: PresetButtonsProps) {
                     isBlocked ? "opacity-40 cursor-not-allowed" : "",
                   ].join(" ")}
                   data-blocked={isBlocked ? "true" : undefined}
+                  data-selected={isActive ? "true" : "false"}
+                  aria-pressed={isActive}
                   onClick={() => handlePresetClick(preset.id)}
                 >
                   {label}
@@ -206,6 +220,8 @@ export function PresetButtons(props: PresetButtonsProps) {
                   selectedId === "__unsaved__" ? "btn-primary btn-active" : "",
                 ].join(" ")}
                 disabled
+                data-selected={selectedId === "__unsaved__" ? "true" : "false"}
+                aria-pressed={selectedId === "__unsaved__"}
               >
                 {t("settings.presets.unsaved" as TranslationKey)}
               </button>
@@ -230,7 +246,7 @@ export function PresetButtons(props: PresetButtonsProps) {
         {t("settings.presets.title")}
       </div>
       <div className="overflow-x-auto">
-        <div className="join flex-nowrap">
+        <div className="segmented-control segmented-control--compact flex-nowrap">
           {presets.map((preset) => {
             const isActive = selectedId === preset.id;
             const isBlocked = !canSwitchPresets && !isActive;
@@ -242,7 +258,7 @@ export function PresetButtons(props: PresetButtonsProps) {
                 <input
                   key={preset.id}
                   ref={renameInputRef}
-                  className="input input-sm join-item input-bordered"
+                  className="input input-sm input-bordered join-item segmented-control__rename-input"
                   defaultValue={preset.name ?? label}
                   onBlur={(e) => applyRenamePreset(preset.id, e.target.value)}
                   onKeyDown={(e) => {
@@ -266,13 +282,11 @@ export function PresetButtons(props: PresetButtonsProps) {
               <button
                 key={preset.id}
                 type="button"
-                className={[
-                  "btn btn-sm join-item",
-                  isActive ? "btn-primary btn-active" : "",
-                  isBlocked ? "opacity-40 cursor-not-allowed" : "",
-                ].join(" ")}
+                className={getPresetButtonClassName(isActive, isBlocked)}
                 onClick={() => handlePresetClick(preset.id)}
                 data-blocked={isBlocked ? "true" : undefined}
+                data-selected={isActive ? "true" : "false"}
+                aria-pressed={isActive}
               >
                 {label}
               </button>
@@ -282,14 +296,17 @@ export function PresetButtons(props: PresetButtonsProps) {
             <button
               key="__unsaved__"
               type="button"
-              className={[
-                "btn btn-sm join-item",
-                selectedId === "__unsaved__" ? "btn-primary btn-active" : "",
-              ].join(" ")}
+              className={getPresetButtonClassName(
+                selectedId === "__unsaved__",
+                !canSwitchPresets && selectedId !== "__unsaved__",
+                true,
+              )}
               // Unsaved slot is a temporary view and cannot be selected as a
               // normal preset; clicking is always a no-op.
               onClick={() => {}}
               disabled={!canSwitchPresets && selectedId !== "__unsaved__"}
+              data-selected={selectedId === "__unsaved__" ? "true" : "false"}
+              aria-pressed={selectedId === "__unsaved__"}
             >
               {t("settings.presets.unsaved" as TranslationKey)}
             </button>

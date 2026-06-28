@@ -35,8 +35,9 @@ test("E2E-120: user settings persist across reloads", async ({
   await page.goto("/");
 
   // Settings panel should reflect stored configuration on first paint.
-  await expect(page.getByRole("button", { name: "Small" })).toHaveClass(
-    /btn-primary/,
+  await expect(page.getByRole("button", { name: "Small" })).toHaveAttribute(
+    "data-selected",
+    "true",
   );
 
   // Resolution input keeps the last entered value.
@@ -53,8 +54,9 @@ test("E2E-120: user settings persist across reloads", async ({
   // Reload to verify the configuration remains stable across refreshes.
   await page.reload();
 
-  await expect(page.getByRole("button", { name: "Small" })).toHaveClass(
-    /btn-primary/,
+  await expect(page.getByRole("button", { name: "Small" })).toHaveAttribute(
+    "data-selected",
+    "true",
   );
   await expect(page.getByLabel("Width (px)")).toHaveValue("1024");
   await expect(page.getByLabel("Format")).toHaveValue("image/jpeg");
@@ -98,8 +100,9 @@ test("E2E-121: Reset settings restores defaults and clears storage", async ({
   const stripCheckbox = page.getByLabel("Strip metadata (EXIF, etc.)");
 
   // Sanity-check that we picked up the stored configuration.
-  await expect(page.getByRole("button", { name: "Original" })).toHaveClass(
-    /btn-primary/,
+  await expect(page.getByRole("button", { name: "Original" })).toHaveAttribute(
+    "data-selected",
+    "true",
   );
   await expect(widthInput).toHaveValue("2048");
   await expect(formatSelect).toHaveValue("image/jpeg");
@@ -114,8 +117,9 @@ test("E2E-121: Reset settings restores defaults and clears storage", async ({
   await page.getByRole("button", { name: "Reset settings" }).click();
 
   // Defaults from defaultUserSettings are applied back to the UI.
-  await expect(page.getByRole("button", { name: "Original" })).toHaveClass(
-    /btn-primary/,
+  await expect(page.getByRole("button", { name: "Original" })).toHaveAttribute(
+    "data-selected",
+    "true",
   );
 
   await expect(page.getByLabel("Width (px)")).toHaveValue("");
@@ -155,8 +159,9 @@ test("E2E-122: corrupted stored user settings fall back to defaults", async ({
   expect(pageErrors).toHaveLength(0);
 
   // Settings panel falls back to the same defaults as a fresh install.
-  await expect(page.getByRole("button", { name: "Original" })).toHaveClass(
-    /btn-primary/,
+  await expect(page.getByRole("button", { name: "Original" })).toHaveAttribute(
+    "data-selected",
+    "true",
   );
 
   await expect(page.getByLabel("Width (px)")).toHaveValue("");
@@ -207,7 +212,7 @@ test("E2E-123: active preset id stays in sync with user settings", async ({
   await page.goto("/");
 
   const smallButton = page.getByRole("button", { name: "Small" });
-  await expect(smallButton).toHaveClass(/btn-primary/);
+  await expect(smallButton).toHaveAttribute("data-selected", "true");
 
   const hasSmallPreset = await page.evaluate((key) => {
     const raw = window.localStorage.getItem(key);
@@ -234,7 +239,7 @@ test("E2E-123: active preset id stays in sync with user settings", async ({
 
   const mediumButton = page.getByRole("button", { name: "Medium" });
   await mediumButton.click();
-  await expect(mediumButton).toHaveClass(/btn-primary/);
+  await expect(mediumButton).toHaveAttribute("data-selected", "true");
 
   const presetIdFromStorage = await page.evaluate((key) => {
     const raw = window.localStorage.getItem(key);
@@ -255,8 +260,9 @@ test("E2E-123: active preset id stays in sync with user settings", async ({
 
   await page.reload();
 
-  await expect(page.getByRole("button", { name: "Medium" })).toHaveClass(
-    /btn-primary/,
+  await expect(page.getByRole("button", { name: "Medium" })).toHaveAttribute(
+    "data-selected",
+    "true",
   );
 
   const presetIdAfterReload = await page.evaluate((key) => {
