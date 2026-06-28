@@ -178,3 +178,117 @@ body {
 .brand-tagline {
   text-wrap: pretty;
 }
+
+.segmented-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in oklab, var(--color-base-300) 72%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-base-100) 96%, white) 0%,
+    color-mix(in oklab, var(--color-base-200) 92%, white) 100%
+  );
+  padding: 0.28rem;
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 65%, transparent),
+    0 4px 12px rgba(15, 35, 72, 0.06);
+}
+
+.segmented-control--compact {
+  min-height: 2.6rem;
+}
+
+.segmented-control__button {
+  position: relative;
+  display: inline-flex;
+  min-height: 2rem;
+  min-width: 2.8rem;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0.75rem;
+  background: transparent;
+  padding: 0.45rem 0.85rem;
+  color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+  white-space: nowrap;
+}
+
+.segmented-control__button:hover {
+  background: color-mix(in oklab, var(--color-primary) 8%, transparent);
+  color: var(--color-base-content);
+}
+
+.segmented-control__button:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--color-primary) 70%, transparent);
+  outline-offset: 1px;
+}
+
+.segmented-control__button--active {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-primary) 94%, white) 0%,
+    color-mix(in oklab, var(--color-primary) 80%, var(--color-secondary)) 100%
+  );
+  color: var(--color-primary-content);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 30%, transparent),
+    0 6px 14px color-mix(in srgb, rgb(12 71 173) 26%, transparent);
+}
+
+.segmented-control__button--active:hover {
+  color: var(--color-primary-content);
+}
+
+.segmented-control__button--unsaved:not(.segmented-control__button--active) {
+  color: color-mix(
+    in oklab,
+    var(--color-primary) 72%,
+    var(--color-base-content)
+  );
+}
+
+.segmented-control__button--radio {
+  cursor: pointer;
+}
+
+.segmented-control__rename-input {
+  min-width: 8rem;
+  border-radius: 0.75rem;
+}
+
+[data-theme="pastepreset-dark"] .segmented-control {
+  border-color: color-mix(in oklab, var(--color-neutral) 72%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-base-200) 94%, black) 0%,
+    color-mix(in oklab, var(--color-base-100) 88%, black) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 6px 14px rgba(4, 10, 25, 0.16);
+}
+
+[data-theme="pastepreset-dark"] .segmented-control__button {
+  color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+}
+
+[data-theme="pastepreset-dark"] .segmented-control__button:hover {
+  background: color-mix(in oklab, var(--color-primary) 14%, transparent);
+  color: var(--color-base-content);
+}
+
+[data-theme="pastepreset-dark"] .segmented-control__button--active {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 16px rgba(0, 0, 0, 0.22);
+}

@@ -34,7 +34,10 @@ test("E2E-140: editing a saved preset and saving updates the original preset", a
 
   // Medium remains the active preset after reload.
   const mediumButtonAfterReload = page.getByRole("button", { name: "Medium" });
-  await expect(mediumButtonAfterReload).toHaveClass(/btn-primary/);
+  await expect(mediumButtonAfterReload).toHaveAttribute(
+    "data-selected",
+    "true",
+  );
 
   // Persisted configuration reflects edited format and quality.
   await expect(page.getByLabel("Format")).toHaveValue("image/jpeg");
@@ -64,7 +67,10 @@ test("E2E-141: cancelling edit mode does not change the saved preset", async ({
   await page.reload();
 
   const mediumButtonAfterReload = page.getByRole("button", { name: "Medium" });
-  await expect(mediumButtonAfterReload).toHaveClass(/btn-primary/);
+  await expect(mediumButtonAfterReload).toHaveAttribute(
+    "data-selected",
+    "true",
+  );
   await expect(page.getByLabel("Format")).toHaveValue("image/png");
 });
 
@@ -98,7 +104,7 @@ test("E2E-142: adjusting a locked preset enters unsaved mode and saving creates 
   // A new user preset named 自定义1 is created and becomes active.
   const custom1Button = page.getByRole("button", { name: "自定义1" });
   await expect(custom1Button).toBeVisible();
-  await expect(custom1Button).toHaveClass(/btn-primary/);
+  await expect(custom1Button).toHaveAttribute("data-selected", "true");
 
   const snapshot = await page.evaluate((key) => {
     const raw = window.localStorage.getItem(key);
@@ -356,7 +362,10 @@ test("E2E-145: renaming a system preset persists across reloads", async ({
     name: "My Original",
   });
   await expect(renamedButtonAfterReload).toBeVisible();
-  await expect(renamedButtonAfterReload).toHaveClass(/btn-primary/);
+  await expect(renamedButtonAfterReload).toHaveAttribute(
+    "data-selected",
+    "true",
+  );
 
   const snapshot = await page.evaluate((key) => {
     const raw = window.localStorage.getItem(key);
@@ -415,7 +424,7 @@ test("E2E-146: renaming a user preset created from unsaved slot", async ({
 
   const custom1Button = page.getByRole("button", { name: "自定义1" });
   await expect(custom1Button).toBeVisible();
-  await expect(custom1Button).toHaveClass(/btn-primary/);
+  await expect(custom1Button).toHaveAttribute("data-selected", "true");
 
   await custom1Button.dblclick();
 
@@ -428,7 +437,7 @@ test("E2E-146: renaming a user preset created from unsaved slot", async ({
     name: "Renamed Custom",
   });
   await expect(renamedButton).toBeVisible();
-  await expect(renamedButton).toHaveClass(/btn-primary/);
+  await expect(renamedButton).toHaveAttribute("data-selected", "true");
 
   await page.reload();
 
@@ -570,7 +579,10 @@ test("E2E-148: deleting a user preset removes it and falls back to another prese
   const originalButtonAfterDelete = page.getByRole("button", {
     name: "Original",
   });
-  await expect(originalButtonAfterDelete).toHaveClass(/btn-primary/);
+  await expect(originalButtonAfterDelete).toHaveAttribute(
+    "data-selected",
+    "true",
+  );
 });
 
 test("E2E-149: deleting a system preset updates storage and reselects a fallback", async ({
@@ -706,7 +718,7 @@ test("E2E-149: deleting a system preset updates storage and reselects a fallback
 
   // Active preset falls back to Large (first remaining system preset).
   const largeButton = page.getByRole("button", { name: "Large" });
-  await expect(largeButton).toHaveClass(/btn-primary/);
+  await expect(largeButton).toHaveAttribute("data-selected", "true");
 });
 
 test("E2E-150: fallback mode disables preset deletion", async ({
@@ -781,5 +793,5 @@ test("E2E-151: repeated blocked preset switch attempts surface a hint near Save/
   // Resolve by cancelling and verify that preset switching works again.
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await originalButton.click();
-  await expect(originalButton).toHaveClass(/btn-primary/);
+  await expect(originalButton).toHaveAttribute("data-selected", "true");
 });

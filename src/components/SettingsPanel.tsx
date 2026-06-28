@@ -10,6 +10,8 @@ interface SettingsPanelProps {
   currentImage?: ImageInfo | null;
 }
 
+const RESIZE_MODES: ResizeMode[] = ["fit", "fill", "stretch"];
+
 const NUMERIC_INPUT_DEBOUNCE_MS = 400;
 const PRESET_SWITCH_BLOCKED_THRESHOLD = 3;
 const PRESET_SWITCH_BLOCKED_WINDOW_MS = 3500;
@@ -366,6 +368,13 @@ export function SettingsPanel(props: SettingsPanelProps) {
     setIsResetDialogOpen(false);
   };
 
+  const getResizeModeLabel = (mode: ResizeMode) =>
+    mode === "fit"
+      ? t("settings.resizeMode.fit")
+      : mode === "fill"
+        ? t("settings.resizeMode.fill")
+        : t("settings.resizeMode.stretch");
+
   useEffect(() => {
     if (!activePresetId) return;
 
@@ -468,29 +477,31 @@ export function SettingsPanel(props: SettingsPanelProps) {
               <div className="mb-2 text-sm font-semibold">
                 {t("settings.resizeMode.title")}
               </div>
-              <div className="join">
-                {(["fit", "fill", "stretch"] satisfies ResizeMode[]).map(
-                  (mode) => {
-                    const label =
-                      mode === "fit"
-                        ? t("settings.resizeMode.fit")
-                        : mode === "fill"
-                          ? t("settings.resizeMode.fill")
-                          : t("settings.resizeMode.stretch");
+              <div
+                className="segmented-control segmented-control--compact"
+                role="radiogroup"
+                aria-label={t("settings.resizeMode.title")}
+              >
+                {RESIZE_MODES.map((mode) => {
+                  const label = getResizeModeLabel(mode);
+                  const isActive = options.resizeMode === mode;
 
-                    return (
-                      <input
-                        key={mode}
-                        type="radio"
-                        name="resizeMode"
-                        aria-label={label}
-                        className="btn btn-xs join-item"
-                        checked={options.resizeMode === mode}
-                        onChange={() => handleResizeModeChange(mode)}
-                      />
-                    );
-                  },
-                )}
+                  return (
+                    <input
+                      key={mode}
+                      type="radio"
+                      name="resizeMode"
+                      aria-label={label}
+                      className={[
+                        "btn btn-sm segmented-control__button segmented-control__button--radio",
+                        isActive ? "segmented-control__button--active" : "",
+                      ].join(" ")}
+                      data-selected={isActive ? "true" : "false"}
+                      checked={isActive}
+                      onChange={() => handleResizeModeChange(mode)}
+                    />
+                  );
+                })}
               </div>
             </div>
 
