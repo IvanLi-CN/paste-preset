@@ -38,7 +38,7 @@ become available once warmup finishes.
 ## Tech Stack
 
 - React + TypeScript + Vite SPA (dev server on port `25119`)
-- Tailwind CSS v4 + DaisyUI for UI components and theming
+- Tailwind CSS v4 + DaisyUI primitives with PastePreset-owned light/dark theme tokens
 - Bun (>= 1.0) as runtime and package manager
 - Biome for formatting, linting, and unified `check` workflow  
   (replaces ESLint + Prettier)

@@ -29,7 +29,7 @@ export function ImageCard(props: ImageCardProps) {
   const { t } = useTranslation();
   const { openImagePreview } = useFullscreenImagePreview();
   const cardClassName = [
-    "card bg-base-100 shadow-sm animate-fade-in-up",
+    "card app-panel animate-fade-in-up",
     highlighted
       ? "ring-2 ring-primary/60 ring-offset-2 ring-offset-base-100"
       : "",
@@ -42,7 +42,7 @@ export function ImageCard(props: ImageCardProps) {
         <h3 className="card-title text-sm">{title}</h3>
         <button
           type="button"
-          className="relative flex cursor-pointer items-center justify-center rounded-md bg-base-200 p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100"
+          className="relative flex cursor-pointer items-center justify-center rounded-[1rem] bg-base-200/75 p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100"
           aria-label={title}
           onClick={(event) => {
             event.currentTarget.focus();

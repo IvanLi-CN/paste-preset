@@ -110,7 +110,7 @@ export function TasksPanel(props: TasksPanelProps) {
 
   if (!hasTasks) {
     return (
-      <div className="alert alert-info text-sm animate-fade-in-up">
+      <div className="alert alert-info rounded-[1.15rem] border border-base-300/70 text-sm shadow-[0_8px_24px_rgba(16,42,88,0.08)] animate-fade-in-up">
         <span>{t("preview.empty")}</span>
       </div>
     );

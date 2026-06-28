@@ -6,7 +6,7 @@ import { I18nProvider } from "../src/i18n";
 import "../src/index.css";
 
 if (typeof document !== "undefined") {
-  document.documentElement.setAttribute("data-theme", "winter");
+  document.documentElement.setAttribute("data-theme", "pastepreset-light");
 }
 
 const preview: Preview = {
@@ -25,8 +25,8 @@ const preview: Preview = {
     backgrounds: {
       default: "app",
       values: [
-        { name: "app", value: "hsl(var(--b1))" },
-        { name: "inverse", value: "hsl(var(--b2))" },
+        { name: "app", value: "#eef4ff" },
+        { name: "inverse", value: "#112448" },
       ],
     },
   },
@@ -36,7 +36,7 @@ const preview: Preview = {
         <UserPresetsProvider>
           <UserSettingsProvider>
             <FullscreenImagePreviewProvider>
-              <div className="min-h-screen bg-base-200 p-4">
+              <div className="min-h-screen bg-transparent p-4 md:p-6">
                 <Story />
               </div>
             </FullscreenImagePreviewProvider>

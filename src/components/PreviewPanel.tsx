@@ -29,7 +29,7 @@ function ImageCard(props: {
   const { title, image, highlighted } = props;
   const { t } = useTranslation();
   const cardClassName = [
-    "card bg-base-100 shadow-sm animate-fade-in-up",
+    "card app-panel animate-fade-in-up",
     highlighted
       ? "ring-2 ring-primary/60 ring-offset-2 ring-offset-base-100"
       : "",
@@ -40,7 +40,7 @@ function ImageCard(props: {
     <div className={cardClassName}>
       <div className="card-body gap-3">
         <h3 className="card-title text-sm">{title}</h3>
-        <div className="flex items-center justify-center rounded-md bg-base-200 p-2">
+        <div className="flex items-center justify-center rounded-[1rem] bg-base-200/75 p-2">
           <img
             src={image.url}
             alt={image.sourceName ?? title}
@@ -246,7 +246,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
                   image={result}
                   highlighted
                 />
-                <div className="card bg-base-100 shadow-sm animate-fade-in-up">
+                <div className="card app-panel animate-fade-in-up">
                   <div className="card-body flex flex-row flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-col gap-1 text-xs text-base-content/70">
                       <div>{t("preview.result.description")}</div>

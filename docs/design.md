@@ -225,7 +225,7 @@ For the processed image:
 - Accessibility:
   - Keyboard navigable controls.
   - ARIA labels for key actions.
-  - High-contrast-friendly theme (leveraging DaisyUI theme tokens).
+  - High-contrast-friendly light/dark themes built on PastePreset semantic tokens.
 
 3. UI / UX Design
 
@@ -267,7 +267,8 @@ For the processed image:
 - Use Tailwind CSS with DaisyUI components.
 - Stick to DaisyUI component patterns:
   - `card`, `btn`, `btn-primary`, `select`, `input`, `range`, `toggle`, `alert`, `toast`.
-- Default DaisyUI theme can be used initially, with a simple light/dark toggle added later if desired.
+- Theme tokens come from PastePreset-owned `pastepreset-light` / `pastepreset-dark` contracts.
+- Light/dark switching follows system `prefers-color-scheme`; no user-facing theme toggle is required.
 
 4. Technical Architecture
 
@@ -600,7 +601,7 @@ For the processed image:
 - Accessibility:
   - Keyboard navigable controls.
   - ARIA labels for key actions.
-  - High-contrast-friendly theme (leveraging DaisyUI theme tokens).
+  - High-contrast-friendly light/dark themes built on PastePreset semantic tokens.
 
 3. UI / UX Design
 
@@ -642,7 +643,8 @@ For the processed image:
 - Use Tailwind CSS with DaisyUI components.
 - Stick to DaisyUI component patterns:
   - `card`, `btn`, `btn-primary`, `select`, `input`, `range`, `toggle`, `alert`, `toast`.
-- Default DaisyUI theme can be used initially, with a simple light/dark toggle added later if desired.
+- Theme tokens come from PastePreset-owned `pastepreset-light` / `pastepreset-dark` contracts.
+- Light/dark switching follows system `prefers-color-scheme`; no user-facing theme toggle is required.
 
 4. Technical Architecture
 

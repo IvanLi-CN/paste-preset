@@ -39,7 +39,7 @@ export function BrandHeader({
               />
             </span>
           </h1>
-          <p className="mt-2 max-w-3xl text-sm text-base-content/70">
+          <p className="brand-tagline mt-2 max-w-3xl text-sm leading-6 text-base-content/72">
             {tagline}
           </p>
         </div>

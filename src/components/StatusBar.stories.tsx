@@ -47,10 +47,10 @@ type Story = StoryObj<typeof meta>;
 function renderInAppShell(args: React.ComponentProps<typeof StatusBar>) {
   return (
     <section
-      className="mx-auto flex min-h-[36rem] w-full max-w-5xl flex-col rounded-[28px] border border-base-300 bg-base-200 p-4 shadow-sm"
+      className="app-shell-frame mx-auto flex min-h-[36rem] w-full max-w-5xl flex-col rounded-[1.7rem] px-4 py-4"
       aria-label="Status shell preview"
     >
-      <header className="mb-4 border-b border-base-300 pb-3">
+      <header className="app-panel mb-4 rounded-[1.45rem] px-4 py-4">
         <div className="flex items-center justify-between gap-2">
           <div className="space-y-2">
             <div className="h-6 w-36 rounded-full bg-base-300" />
@@ -63,7 +63,7 @@ function renderInAppShell(args: React.ComponentProps<typeof StatusBar>) {
       <StatusBar {...args} />
 
       <div className="flex flex-1 flex-col gap-4 lg:flex-row">
-        <aside className="rounded-[24px] border border-base-300 bg-base-100 p-4 lg:w-80">
+        <aside className="app-panel rounded-[1.35rem] p-4 lg:w-80">
           <div className="space-y-3">
             <div className="h-4 w-28 rounded-full bg-base-300" />
             <div className="h-10 rounded-2xl bg-base-200" />
@@ -73,13 +73,13 @@ function renderInAppShell(args: React.ComponentProps<typeof StatusBar>) {
         </aside>
 
         <main className="flex flex-1 flex-col gap-4">
-          <section className="rounded-[24px] border border-dashed border-base-300 bg-base-100 p-5">
+          <section className="app-panel rounded-[1.35rem] border-2 border-dashed border-base-300/80 bg-base-100/82 p-5">
             <div className="space-y-3">
               <div className="h-5 w-44 rounded-full bg-base-300" />
               <div className="h-24 rounded-[20px] bg-base-200" />
             </div>
           </section>
-          <section className="rounded-[24px] border border-base-300 bg-base-100 p-5">
+          <section className="app-panel rounded-[1.35rem] p-5">
             <div className="space-y-3">
               <div className="h-5 w-40 rounded-full bg-base-300" />
               <div className="h-32 rounded-[20px] bg-base-200" />

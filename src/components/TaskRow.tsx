@@ -164,14 +164,14 @@ export function TaskRow(props: TaskRowProps) {
   return (
     <div
       data-testid="task-row"
-      className={`collapse bg-base-100 border ${isActive ? "border-primary/50 ring-1 ring-primary/25" : "border-base-300"} ${isExpanded ? "collapse-open" : "collapse-close"}`}
+      className={`collapse app-panel ${isActive ? "border-primary/55 ring-1 ring-primary/25" : "border-base-300/80"} ${isExpanded ? "collapse-open" : "collapse-close"}`}
     >
       {/* biome-ignore lint/a11y/useSemanticElements: DaisyUI structure requires div or specifically styled element */}
       <div
         role="button"
         data-testid="task-toggle"
         tabIndex={0}
-        className="collapse-title flex items-center gap-4 py-3 px-4 outline-none focus-visible:bg-base-200"
+        className="collapse-title flex items-center gap-4 px-4 py-3 outline-none focus-visible:bg-base-200/75"
         onClick={onToggleExpand}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
