@@ -19,6 +19,8 @@ smoke path for installed desktop app launch.
   must stay aligned with `/`.
 - Installability relies on browser-native install entry points; the app does
   not add a custom `beforeinstallprompt` CTA.
+- `public/brand/paste-preset-icon-v2-master.png` 是唯一 canonical raster。`sharp` 生成器从它导出透明 regular `purpose: "any"`、独立不透明 `#EEF4FF` maskable 和 180px Apple touch；maskable/Apple 重要前景最大边为画布 58%-62%，并位于中心半径 40% 的安全圆，禁止预烘焙平台圆角、阴影或外框。
+- `any` 与 `maskable` 资源必须分离且哈希不同。图标字节变化时，结构化 manifest、HTML favicon/Apple touch 与 Workbox precache 必须共同引用当前内容派生版本。
 
 ### 2. Offline revisit and hard reload
 
@@ -92,6 +94,8 @@ smoke path for installed desktop app launch.
 ### Automated acceptance
 
 - `bun run check`
+- `bun run generate:pwa-icons`
+- `bun run test:pwa-assets`
 - `bun run build`
 - `bun run test`
 - `bun run test:e2e:pwa`
@@ -122,6 +126,15 @@ smoke path for installed desktop app launch.
 ## Visual Evidence
 
 PR: include
+
+### Application Icon Contract
+
+![PastePreset application icon comparison](./assets/pwa-application-icon-comparison.png)
+
+- source_type: deterministic generated contact sheet from the locked pre-change asset and the candidate build
+- target_program: mock-only platform-mask preview
+- capture_scope: Regular/`any`, maskable, 180px Apple touch, 48/128/512px previews, circle/squircle/macOS masks
+- state: owner-confirmed candidate freeze
 
 - Waiting-update prompt rendered through the reusable `StatusBar` story on the
   current reviewed `HEAD`.

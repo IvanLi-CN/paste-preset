@@ -43,6 +43,9 @@ jobs:
           VITE_APP_VERSION: ${{ env.APP_EFFECTIVE_VERSION }}
         run: bun run build
 
+      - name: Verify PWA icon contract
+        run: bun run test:pwa-assets
+
       - name: Install Playwright browsers (chromium)
         run: bunx playwright install --with-deps chromium
 
