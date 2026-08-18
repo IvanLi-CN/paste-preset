@@ -154,6 +154,20 @@ function assertBuildContract() {
     "built Apple touch URL is stale",
   );
   const worker = readFileSync(resolve(distDir, "sw.js"), "utf8");
+  const serviceWorkerSource = readFileSync(
+    resolve(projectRoot, "scripts/sw-template.js"),
+    "utf8",
+  );
+  assert.ok(
+    serviceWorkerSource.includes("normalizeCoreUrl") &&
+      serviceWorkerSource.includes('searchParams.delete("v")'),
+    "service worker must normalize content-versioned icon URLs",
+  );
+  assert.ok(
+    worker.includes("normalizeCoreUrl") &&
+      worker.includes('searchParams.delete("v")'),
+    "built service worker must normalize content-versioned icon URLs",
+  );
   assert.ok(manifest.includes("?v="), "built manifest lost icon versioning");
   for (const name of [
     "apple-touch-icon.png",

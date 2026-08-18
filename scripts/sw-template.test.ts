@@ -62,7 +62,10 @@ function loadServiceWorker(fetchMock: typeof fetch) {
   };
 
   const selfMock = {
-    __WB_MANIFEST: [{ url: "index.html", revision: "shell-a" }],
+    __WB_MANIFEST: [
+      { url: "index.html", revision: "shell-a" },
+      { url: "pwa/icon-192.png", revision: "icon-a" },
+    ],
     location: {
       origin: "https://example.test",
     },
@@ -335,5 +338,25 @@ describe("sw-template", () => {
         url: "https://example.test/api/ping",
       }),
     );
+  });
+
+  it("matches content-versioned install icons to their precache entries offline", async () => {
+    const fetchMock = vi.fn(async (requestOrUrl: Request | string) => {
+      throw new Error(`unexpected fetch: ${normalizeRequestUrl(requestOrUrl)}`);
+    });
+
+    const { eventHandlers, coreCache } = loadServiceWorker(fetchMock);
+    await coreCache.put(
+      "https://example.test/pwa/icon-192.png?__WB_REVISION__=icon-a",
+      new Response("icon", { status: 200 }),
+    );
+
+    const response = await dispatchFetchEvent(
+      eventHandlers.get("fetch"),
+      new Request("https://example.test/pwa/icon-192.png?v=content-version"),
+    );
+
+    expect(await response.text()).toBe("icon");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
