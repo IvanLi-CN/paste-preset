@@ -1,7 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { deflateSync } from "node:zlib";
 import sharp from "sharp";
 import { installIconVersion, versionedPwaIcon } from "./pwa-icon-contract.mjs";
 
@@ -48,6 +47,39 @@ function pngChunk(type, data) {
   return Buffer.concat([length, typeBytes, data, checksum]);
 }
 
+function adler32(data) {
+  let sumA = 1;
+  let sumB = 0;
+  for (const byte of data) {
+    sumA = (sumA + byte) % 65521;
+    sumB = (sumB + sumA) % 65521;
+  }
+  return ((sumB << 16) | sumA) >>> 0;
+}
+
+function encodeStoredDeflate(data) {
+  const header = Buffer.from([0x78, 0x01]);
+  const blocks = [header];
+  let offset = 0;
+  while (offset < data.length || offset === 0) {
+    const remaining = data.length - offset;
+    const blockLength = Math.min(0xffff, remaining);
+    const isFinal = offset + blockLength >= data.length;
+    const block = Buffer.alloc(5 + blockLength);
+    block[0] = isFinal ? 0x01 : 0x00;
+    block.writeUInt16LE(blockLength, 1);
+    block.writeUInt16LE(~blockLength & 0xffff, 3);
+    data.copy(block, 5, offset, offset + blockLength);
+    blocks.push(block);
+    offset += blockLength;
+    if (isFinal) break;
+  }
+  const checksum = Buffer.alloc(4);
+  checksum.writeUInt32BE(adler32(data));
+  blocks.push(checksum);
+  return Buffer.concat(blocks);
+}
+
 function encodePng({ data, width, height }) {
   const scanlines = Buffer.alloc(height * (width * 4 + 1));
   for (let y = 0; y < height; y += 1) {
@@ -63,7 +95,7 @@ function encodePng({ data, width, height }) {
   return Buffer.concat([
     Buffer.from("89504e470d0a1a0a", "hex"),
     pngChunk("IHDR", header),
-    pngChunk("IDAT", deflateSync(scanlines, { level: 9 })),
+    pngChunk("IDAT", encodeStoredDeflate(scanlines)),
     pngChunk("IEND", Buffer.alloc(0)),
   ]);
 }
