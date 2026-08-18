@@ -35,3 +35,10 @@
 - Restored the `full offline-ready` state across offline reloads by syncing the
   runtime from the cached optional warmup manifest and service worker cache
   status.
+
+## 2026-08-18
+
+- Established the application-icon contract around the canonical brand raster:
+  regular, maskable and Apple touch now have distinct generated roles, and
+  install icon URLs advance with their content so cached PWA metadata refreshes
+  with the corresponding precache generation.

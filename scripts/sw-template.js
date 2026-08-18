@@ -27,10 +27,16 @@ const coreUrlToCacheKey = new Map();
 /** @type {Set<string>} */
 const expectedCoreCacheKeys = new Set();
 
+function normalizeCoreUrl(input) {
+  const url = new URL(input, self.registration.scope);
+  url.searchParams.delete("v");
+  return url.toString();
+}
+
 for (const entry of manifest) {
   const absoluteUrl = new URL(entry.url, self.registration.scope).toString();
   const cacheKey = createCacheKey(entry);
-  coreUrlToCacheKey.set(absoluteUrl, cacheKey);
+  coreUrlToCacheKey.set(normalizeCoreUrl(absoluteUrl), cacheKey);
   expectedCoreCacheKeys.add(cacheKey);
 }
 
@@ -401,7 +407,7 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(
     (async () => {
-      const coreCacheKey = coreUrlToCacheKey.get(url.toString());
+      const coreCacheKey = coreUrlToCacheKey.get(normalizeCoreUrl(url));
       if (coreCacheKey) {
         const cache = await openCoreCache();
         const cached = await cache.match(coreCacheKey);

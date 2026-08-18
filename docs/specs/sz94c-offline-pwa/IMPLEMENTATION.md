@@ -17,6 +17,7 @@
 - Storybook and automated tests cover the new reusable visual states.
 - Visual evidence for the waiting-update prompt and offline shell is stored
   under `assets/`.
+- Install icons are generated deterministically from the canonical brand raster. Regular stays transparent, while maskable and Apple touch use the opaque `#EEF4FF` application canvas; manifest, HTML and precache use the same content-derived version.
 
 ## Validation Target
 
@@ -26,8 +27,7 @@
 
 ## Verification Notes
 
-- Automated validation passed for `bun run check`, `bun run build`,
-  `bun run test`, `bun run test-storybook`, and `bun run test:e2e:pwa`.
+- Automated validation covers `bun run generate:pwa-icons`, `bun run test:pwa-assets`, `bun run check`, `bun run build`, `bun run test`, `bun run test-storybook`, and `bun run test:e2e:pwa`.
 - Browser proof covers:
   - offline revisit and hard reload of `/` with cached-shell-first startup
   - offline import -> process -> download

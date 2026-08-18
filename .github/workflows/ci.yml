@@ -28,6 +28,11 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Verify generated PWA icons
+        run: |
+          bun run generate:pwa-icons
+          git diff --exit-code -- public/pwa public/manifest.webmanifest
+
       - name: Run Biome lint
         run: bun run lint
 
@@ -42,6 +47,9 @@ jobs:
         env:
           VITE_APP_VERSION: ${{ env.APP_EFFECTIVE_VERSION }}
         run: bun run build
+
+      - name: Verify PWA icon contract
+        run: bun run test:pwa-assets
 
       - name: Install Playwright browsers (chromium)
         run: bunx playwright install --with-deps chromium
