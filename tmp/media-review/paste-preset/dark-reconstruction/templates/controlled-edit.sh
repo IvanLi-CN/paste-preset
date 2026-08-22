@@ -3,7 +3,8 @@ set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 repo_root="$(cd "$root/../../../.." && pwd)"
-wrapper="/Users/ivan/.codex/skills/cvm-imagegen/scripts/image_gen.py"
+: "${CVM_IMAGEGEN_WRAPPER:?Set CVM_IMAGEGEN_WRAPPER to the environment-owned image_gen.py wrapper}"
+wrapper="$CVM_IMAGEGEN_WRAPPER"
 poster_source="$repo_root/docs/assets/paste-preset-poster.png"
 social_source="$repo_root/public/social-preview.png"
 

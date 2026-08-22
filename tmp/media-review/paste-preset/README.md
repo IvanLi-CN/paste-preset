@@ -15,9 +15,13 @@ is not an official asset path and must not be copied into `docs/assets/` or
 Each set contains deterministic SVG templates, controlled CVM edit layers,
 final PNGs, prompts, render scripts, and the required side-by-side,
 transparent-overlay, and difference proofs. Rebuild the dark layers with
-`dark-reconstruction/templates/controlled-edit.sh`, then render with
+`CVM_IMAGEGEN_WRAPPER=/path/to/image_gen.py dark-reconstruction/templates/controlled-edit.sh`, then render with
 `dark-reconstruction/templates/render.sh`. Rebuild the exact light baseline
 with the corresponding scripts under `light-baseline/templates/`.
+
+The controlled-edit scripts require `CVM_IMAGEGEN_WRAPPER` to point to the
+environment-owned `cvm-imagegen` `image_gen.py` wrapper. The wrapper and
+`CVM_API_KEY` are intentionally not stored in this review directory.
 
 ## Canonical sources
 
