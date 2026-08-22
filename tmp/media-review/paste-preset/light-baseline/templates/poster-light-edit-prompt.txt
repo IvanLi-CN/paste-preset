@@ -1,0 +1,7 @@
+Perform a no-change controlled edit of the supplied canonical PastePreset
+poster. Preserve the exact existing image: every pixel-level composition,
+framing, crop, product lockup, wording, browser and mobile mockups, forest
+photos, source/result panels, feature panels, icons, dividers, palette,
+lighting, background motifs, and spacing. Do not add, delete, restyle, redraw,
+recolor, soften, sharpen, translate, resize, or reinterpret any content. This
+is not image generation and not a redesign; return the same poster.

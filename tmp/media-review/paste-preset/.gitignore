@@ -1,0 +1,12 @@
+.python-packages/
+/controlled/
+/proof/
+/templates/
+/poster-dark.png
+/poster-dark.svg
+/social-dark.png
+/social-dark.svg
+/light-baseline/proof/*-small.png
+/light-baseline/proof/*-overlay-on-source.png
+/dark-reconstruction/proof/*-small.png
+/dark-reconstruction/proof/*-overlay-on-source.png

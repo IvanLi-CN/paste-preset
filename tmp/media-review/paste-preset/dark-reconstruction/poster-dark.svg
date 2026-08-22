@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3072" height="3840" viewBox="0 0 3072 3840" role="img" aria-labelledby="title desc">
+  <title id="title">PastePreset dark poster reconstruction</title>
+  <desc id="desc">The accepted light poster composition with a dark surface treatment.</desc>
+  <defs>
+    <linearGradient id="copy-mask" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#061426" />
+      <stop offset="93%" stop-color="#061426" />
+      <stop offset="100%" stop-color="#061426" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+  <style>
+    .headline { fill: #f8fbff; font-family: Inter, Arial, sans-serif; font-size: 205px; font-weight: 800; }
+    .lede { fill: #9fb4d4; font-family: Inter, Arial, sans-serif; font-size: 51px; font-weight: 500; }
+    .geometry { fill: none; stroke: #89a9ca; stroke-opacity: .1; stroke-width: 2; }
+    .result { fill: none; stroke: #4292d9; stroke-opacity: .16; stroke-width: 3; }
+  </style>
+
+  <image href="controlled/poster-dark-edit.png" x="0" y="0" width="3072" height="3840" preserveAspectRatio="none" />
+
+  <!-- Deterministic brand and display-copy layer. -->
+  <rect x="0" y="0" width="1090" height="1640" fill="url(#copy-mask)" />
+  <image href="templates/paste-preset-logo-dark.png" x="137" y="142" width="760" height="198" preserveAspectRatio="xMinYMin meet" />
+  <text class="headline" x="165" y="662">Paste.</text>
+  <text class="headline" x="165" y="922">Preset.</text>
+  <text class="headline" x="165" y="1182">Share.</text>
+  <text class="lede" x="165" y="1353">Browser-side image cleanup</text>
+  <text class="lede" x="165" y="1429">with instant preview.</text>
+
+  <!-- Low-contrast, deterministic shell/card geometry preserves critical boundaries. -->
+  <g class="geometry">
+    <rect x="1103" y="120" width="1821" height="2017" rx="52" />
+    <path d="M1105 237H2922M1105 430H2922" />
+    <rect x="1570" y="152" width="860" height="72" rx="18" />
+    <rect x="1162" y="441" width="520" height="950" rx="26" />
+    <rect x="1718" y="610" width="555" height="910" rx="26" />
+    <rect x="2302" y="1548" width="555" height="296" rx="24" />
+    <rect x="290" y="1835" width="705" height="1507" rx="48" />
+  </g>
+  <rect class="result" x="2302" y="610" width="555" height="910" rx="26" />
+</svg>
