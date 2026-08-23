@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
+  <title id="title">PastePreset dark social reconstruction</title>
+  <desc id="desc">The accepted light social composition with a dark surface treatment.</desc>
+  <defs>
+    <linearGradient id="logo-mask" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#061426" />
+      <stop offset="97%" stop-color="#061426" />
+      <stop offset="100%" stop-color="#061426" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+  <style>
+    .headline { fill: #f8fbff; font-family: Inter, Arial, sans-serif; font-size: 82px; font-weight: 800; }
+    .geometry { fill: none; stroke: #89a9ca; stroke-opacity: .1; stroke-width: 1; }
+    .result { fill: none; stroke: #4292d9; stroke-opacity: .16; stroke-width: 2; }
+  </style>
+
+  <image href="controlled/social-dark-edit.png" x="0" y="0" width="1280" height="640" preserveAspectRatio="none" />
+
+  <!-- Deterministic brand and display-copy layer. -->
+  <rect x="0" y="0" width="480" height="160" fill="url(#logo-mask)" />
+  <image href="templates/paste-preset-logo-dark.png" x="78" y="47" width="382" height="100" preserveAspectRatio="xMinYMin meet" />
+  <text class="headline" x="80" y="232">Paste.</text>
+  <text class="headline" x="80" y="314">Preset.</text>
+  <text class="headline" x="80" y="396">Share.</text>
+
+  <g class="geometry">
+    <rect x="495" y="0" width="670" height="638" rx="24" />
+    <path d="M496 34H1164M496 76H1164" />
+    <rect x="510" y="89" width="194" height="340" rx="12" />
+    <rect x="714" y="150" width="205" height="450" rx="12" />
+    <rect x="1092" y="345" width="155" height="285" rx="18" />
+  </g>
+  <rect class="result" x="928" y="150" width="218" height="450" rx="12" />
+</svg>

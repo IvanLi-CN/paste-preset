@@ -1,0 +1,16 @@
+Edit the provided canonical PastePreset poster into the exact same artifact in
+a dark theme. Preserve every object, its exact crop, framing, scale, placement,
+hierarchy, and information density. Do not make a new scene or redesign.
+
+Keep exactly: the upper-left PastePreset lockup; the three-line "Paste.",
+"Preset.", "Share." headline; the desktop browser at upper right; its settings
+column; the source/result forest-image comparison; the mobile browser at lower
+left; the center feature panel; the lower three icon-and-copy blocks; every
+browser control, panel, divider, and background motif. Do not change any
+wording, logo shape, icon, image subject, crop, or geometry.
+
+Change only theme surfaces: background and browser surfaces become deep navy
+and charcoal; borders become subtle blue-gray; blue product accents remain
+blue; primary typography becomes soft white; secondary typography becomes muted
+blue-gray. Preserve the exact forest photos. Do not invent or replace text,
+screenshots, content, controls, or visual motifs.
